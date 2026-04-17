@@ -1,0 +1,27 @@
+{
+    "name": "wp-dsgvo-form",
+    "version": "1.0.0",
+    "description": "WordPress-Plugin for DSGVO-compliant forms with Gutenberg block",
+    "private": true,
+    "scripts": {
+        "build": "wp-scripts build",
+        "start": "wp-scripts start",
+        "lint:js": "wp-scripts lint-js",
+        "lint:css": "wp-scripts lint-style",
+        "test:js": "wp-scripts test-unit-js",
+        "i18n:pot": "wp i18n make-pot . languages/wp-dsgvo-form.pot --domain=wp-dsgvo-form --exclude=vendor,node_modules,build,tests",
+        "i18n:mo": "wp i18n make-mo languages/",
+        "i18n:json": "wp i18n make-json languages/ --no-purge",
+        "i18n:build": "npm run i18n:pot && npm run i18n:mo && npm run i18n:json"
+    },
+    "devDependencies": {
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/react": "^16.3.2",
+        "@wordpress/block-editor": "^14.0.0",
+        "@wordpress/blocks": "^13.0.0",
+        "@wordpress/components": "^28.0.0",
+        "@wordpress/element": "^6.0.0",
+        "@wordpress/i18n": "^5.0.0",
+        "@wordpress/scripts": "^30.0.0"
+    }
+}

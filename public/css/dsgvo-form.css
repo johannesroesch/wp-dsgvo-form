@@ -1,0 +1,223 @@
+/**
+ * Frontend styles for the DSGVO Form plugin.
+ *
+ * Loaded on pages containing a DSGVO form.
+ * Uses CSS custom properties for theme integration.
+ * No !important — all rules are scoped to plugin classes.
+ *
+ * @package wp-dsgvo-form
+ */
+
+/* === Custom Properties === */
+.wp-block-dsgvo-form-form,
+.dsgvo-form-wrapper {
+	--dsgvo-form-accent: var(--wp--preset--color--primary, #0073aa);
+	--dsgvo-form-error: #d63638;
+	--dsgvo-form-success: #00a32a;
+	--dsgvo-form-border: #8c8f94;
+	--dsgvo-form-border-radius: 4px;
+	--dsgvo-form-field-gap: 1rem;
+}
+
+/* === Form Container === */
+.dsgvo-form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--dsgvo-form-field-gap);
+	max-width: 640px;
+}
+
+/* === Field Wrapper === */
+.dsgvo-form__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+/* === Labels === */
+.dsgvo-form__label {
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.dsgvo-form__required {
+	color: var(--dsgvo-form-error);
+}
+
+/* === Input Fields === */
+.dsgvo-form__input,
+.dsgvo-form__textarea,
+.dsgvo-form__select {
+	width: 100%;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--dsgvo-form-border);
+	border-radius: var(--dsgvo-form-border-radius);
+	font-size: inherit;
+	font-family: inherit;
+	line-height: 1.5;
+	background-color: #fff;
+	color: inherit;
+	box-sizing: border-box;
+}
+
+.dsgvo-form__input:focus,
+.dsgvo-form__textarea:focus,
+.dsgvo-form__select:focus {
+	border-color: var(--dsgvo-form-accent);
+	box-shadow: 0 0 0 1px var(--dsgvo-form-accent);
+	outline: none;
+}
+
+.dsgvo-form__textarea {
+	resize: vertical;
+	min-height: 100px;
+}
+
+/* === Radio + Checkbox Groups === */
+.dsgvo-form__radio-group,
+.dsgvo-form__checkbox-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.dsgvo-form__radio-label,
+.dsgvo-form__checkbox-label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	cursor: pointer;
+}
+
+/* === Consent Checkbox === */
+.dsgvo-form__field--consent {
+	margin-top: 0.5rem;
+}
+
+.dsgvo-form__consent-label {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	cursor: pointer;
+}
+
+.dsgvo-form__consent-text {
+	font-size: 0.875em;
+	line-height: 1.4;
+}
+
+/* === Honeypot Field (hidden from users) === */
+.dsgvo-form__hp {
+	position: absolute;
+	left: -9999px;
+	opacity: 0;
+	height: 0;
+	overflow: hidden;
+}
+
+/* === CAPTCHA === */
+.dsgvo-form__captcha {
+	margin-top: 0.5rem;
+}
+
+/* === Submit Button === */
+.dsgvo-form__submit {
+	margin-top: 0.5rem;
+}
+
+.dsgvo-form__button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.625rem 1.25rem;
+	background-color: var(--dsgvo-form-accent);
+	color: #fff;
+	border: none;
+	border-radius: var(--dsgvo-form-border-radius);
+	font-size: 1rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: opacity 0.15s ease;
+}
+
+.dsgvo-form__button:hover {
+	opacity: 0.9;
+}
+
+.dsgvo-form__button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+/* Loading state: shown during AJAX submission. */
+.dsgvo-form__button--loading {
+	opacity: 0.6;
+	cursor: wait;
+	pointer-events: none;
+}
+
+.dsgvo-form__button--loading::after {
+	content: '';
+	display: inline-block;
+	width: 0.875em;
+	height: 0.875em;
+	margin-left: 0.5em;
+	border: 2px solid transparent;
+	border-top-color: currentColor;
+	border-radius: 50%;
+	animation: dsgvo-spin 0.6s linear infinite;
+}
+
+@keyframes dsgvo-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* === Validation Errors === */
+.dsgvo-form__error {
+	color: var(--dsgvo-form-error);
+	font-size: 0.8125em;
+	min-height: 0;
+}
+
+.dsgvo-form__error:not(:empty) {
+	margin-top: 0.25rem;
+}
+
+/* Error state: highlight invalid input fields (WCAG 2.1 AA). */
+.dsgvo-form__field--error .dsgvo-form__input,
+.dsgvo-form__field--error .dsgvo-form__textarea,
+.dsgvo-form__field--error .dsgvo-form__select {
+	border-color: var(--dsgvo-form-error);
+	box-shadow: 0 0 0 1px var(--dsgvo-form-error);
+}
+
+/* === Status Messages === */
+.dsgvo-form__status:not(:empty) {
+	padding: 0.75rem 1rem;
+	border-radius: var(--dsgvo-form-border-radius);
+	font-size: 0.875em;
+}
+
+.dsgvo-form__status[data-status="success"] {
+	background-color: #edfaef;
+	border: 1px solid var(--dsgvo-form-success);
+	color: var(--dsgvo-form-success);
+}
+
+.dsgvo-form__status[data-status="error"] {
+	background-color: #fcf0f1;
+	border: 1px solid var(--dsgvo-form-error);
+	color: var(--dsgvo-form-error);
+}
+
+/* === Static Content Fields === */
+.dsgvo-form__static {
+	padding: 0.5rem 0;
+}
+
+/* === Responsive === */
+@media (max-width: 480px) {
+	.dsgvo-form__button {
+		width: 100%;
+	}
+}

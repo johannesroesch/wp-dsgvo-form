@@ -1,0 +1,41 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Build artifacts
+build/
+
+# Environment
+.env
+wp-config.php
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code / Playwright MCP
+.claude/
+.playwright-mcp/
+
+# Release archives
+*.zip
+
+# Lock files (keep composer.lock for reproducible builds)
+package-lock.json
+
+# PHPUnit
+.phpunit.result.cache
+.phpunit.cache/
+
+# PHPStan
+phpstan-baseline.neon
+
+# i18n generated files (compiled from .po sources)
+languages/*.mo
+languages/*.json

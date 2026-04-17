@@ -1,0 +1,14 @@
+/**
+ * Editor styles for the DSGVO Form block.
+ *
+ * @package wp-dsgvo-form
+ */
+
+.wp-block-dsgvo-form-form {
+	border: 1px dashed #ccc;
+	padding: 1rem;
+
+	.components-placeholder {
+		min-height: 120px;
+	}
+}

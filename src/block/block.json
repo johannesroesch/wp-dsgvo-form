@@ -1,0 +1,37 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "dsgvo-form/form",
+	"version": "1.0.0",
+	"title": "DSGVO Formular",
+	"category": "widgets",
+	"icon": "feedback",
+	"description": "DSGVO-konformes Formular einfuegen",
+	"keywords": [ "dsgvo", "formular", "datenschutz", "kontakt", "form" ],
+	"textdomain": "wp-dsgvo-form",
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ],
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"typography": {
+			"fontSize": true,
+			"fontFamily": true
+		}
+	},
+	"attributes": {
+		"formId": {
+			"type": "number",
+			"default": 0
+		}
+	},
+	"editorScript": "file:../../build/block/index.js",
+	"editorStyle": "file:../../build/block/editor.css",
+	"style": "file:../../build/block/index.css"
+}
