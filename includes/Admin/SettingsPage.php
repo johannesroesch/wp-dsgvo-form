@@ -54,16 +54,6 @@ class SettingsPage {
 
 		register_setting(
 			self::OPTION_GROUP,
-			'wpdsgvo_captcha_verify_url',
-			array(
-				'type'              => 'string',
-				'default'           => 'https://captcha.repaircafe-bruchsal.de/api/verify',
-				'sanitize_callback' => array( $this, 'sanitize_https_url' ),
-			)
-		);
-
-		register_setting(
-			self::OPTION_GROUP,
 			'wpdsgvo_captcha_sitekey',
 			array(
 				'type'              => 'string',
@@ -119,16 +109,8 @@ class SettingsPage {
 
 		add_settings_field(
 			'wpdsgvo_captcha_base_url',
-			__( 'CAPTCHA-Script-URL', 'wp-dsgvo-form' ),
+			__( 'CAPTCHA-Server-URL', 'wp-dsgvo-form' ),
 			array( $this, 'render_captcha_base_url_field' ),
-			self::OPTION_GROUP,
-			'dsgvo_form_captcha_section'
-		);
-
-		add_settings_field(
-			'wpdsgvo_captcha_verify_url',
-			__( 'Verifikations-URL', 'wp-dsgvo-form' ),
-			array( $this, 'render_captcha_verify_url_field' ),
 			self::OPTION_GROUP,
 			'dsgvo_form_captcha_section'
 		);
@@ -275,7 +257,7 @@ class SettingsPage {
 	}
 
 	/**
-	 * Render the CAPTCHA base URL field (frontend script + widget server-url).
+	 * Render the CAPTCHA server URL field (used for script, widget, and verification).
 	 *
 	 * @return void
 	 */
@@ -289,27 +271,7 @@ class SettingsPage {
 			class="regular-text"
 			placeholder="https://captcha.repaircafe-bruchsal.de">
 		<p class="description">
-			<?php esc_html_e( 'Basis-URL des CAPTCHA-Service (fuer Frontend-Script und Widget). Muss HTTPS verwenden.', 'wp-dsgvo-form' ); ?>
-		</p>
-		<?php
-	}
-
-	/**
-	 * Render the CAPTCHA verification URL field (SEC-CAP-05).
-	 *
-	 * @return void
-	 */
-	public function render_captcha_verify_url_field(): void {
-		$value = get_option( 'wpdsgvo_captcha_verify_url', 'https://captcha.repaircafe-bruchsal.de/api/verify' );
-		?>
-		<input type="url"
-			name="wpdsgvo_captcha_verify_url"
-			id="wpdsgvo_captcha_verify_url"
-			value="<?php echo esc_attr( $value ); ?>"
-			class="regular-text"
-			placeholder="https://captcha.repaircafe-bruchsal.de/api/verify">
-		<p class="description">
-			<?php esc_html_e( 'URL des CAPTCHA-Verifikations-Endpunkts. Muss HTTPS verwenden.', 'wp-dsgvo-form' ); ?>
+			<?php esc_html_e( 'Basis-URL des CAPTCHA-Service. Wird fuer Script (/captcha.js), Widget (server-url) und Verifikation (/api/verify) verwendet. Muss HTTPS verwenden.', 'wp-dsgvo-form' ); ?>
 		</p>
 		<?php
 	}
@@ -404,34 +366,11 @@ class SettingsPage {
 			add_settings_error(
 				'wpdsgvo_captcha_base_url',
 				'not_https',
-				__( 'CAPTCHA-Script-URL muss HTTPS verwenden.', 'wp-dsgvo-form' ),
+				__( 'CAPTCHA-Server-URL muss HTTPS verwenden.', 'wp-dsgvo-form' ),
 				'error'
 			);
 
 			return get_option( 'wpdsgvo_captcha_base_url', 'https://captcha.repaircafe-bruchsal.de' );
-		}
-
-		return $url;
-	}
-
-	/**
-	 * Sanitize callback that enforces HTTPS for the CAPTCHA verify URL (SEC-CAP-05).
-	 *
-	 * @param string $url The URL to sanitize.
-	 * @return string Sanitized HTTPS URL, or previous value on failure.
-	 */
-	public function sanitize_https_url( string $url ): string {
-		$url = sanitize_url( $url );
-
-		if ( '' !== $url && strpos( $url, 'https://' ) !== 0 ) {
-			add_settings_error(
-				'wpdsgvo_captcha_verify_url',
-				'not_https',
-				__( 'CAPTCHA-URL muss HTTPS verwenden.', 'wp-dsgvo-form' ),
-				'error'
-			);
-
-			return get_option( 'wpdsgvo_captcha_verify_url', 'https://captcha.repaircafe-bruchsal.de/api/verify' );
 		}
 
 		return $url;

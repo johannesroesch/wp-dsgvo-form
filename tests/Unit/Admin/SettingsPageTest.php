@@ -71,7 +71,7 @@ class SettingsPageTest extends TestCase {
 	/**
 	 * @test
 	 */
-	public function test_register_settings_registers_four_settings_and_sections(): void {
+	public function test_register_settings_registers_six_settings_and_sections(): void {
 		$this->stub_settings_functions(
 			array( 'register_setting', 'add_settings_section', 'add_settings_field' )
 		);
@@ -79,7 +79,7 @@ class SettingsPageTest extends TestCase {
 		$registered_options = array();
 
 		Functions\expect( 'register_setting' )
-			->times( 7 )
+			->times( 6 )
 			->andReturnUsing(
 				function () use ( &$registered_options ): void {
 					$args                 = func_get_args();
@@ -99,14 +99,13 @@ class SettingsPageTest extends TestCase {
 			);
 
 		Functions\expect( 'add_settings_field' )
-			->times( 7 );
+			->times( 6 );
 
 		$page = new SettingsPage();
 		$page->register_settings();
 
 		$this->assertContains( 'wpdsgvo_captcha_provider', $registered_options );
 		$this->assertContains( 'wpdsgvo_captcha_base_url', $registered_options );
-		$this->assertContains( 'wpdsgvo_captcha_verify_url', $registered_options );
 		$this->assertContains( 'wpdsgvo_captcha_sitekey', $registered_options );
 		$this->assertContains( 'wpdsgvo_captcha_secret', $registered_options );
 		$this->assertContains( 'wpdsgvo_captcha_sri_hash', $registered_options );
@@ -163,9 +162,9 @@ class SettingsPageTest extends TestCase {
 
 	/**
 	 * @test
-	 * SEC-CAP-05: register_settings uses sanitize_https_url callback for verify URL.
+	 * SEC-CAP-05: register_settings uses sanitize_captcha_base_url callback for base URL.
 	 */
-	public function test_register_settings_captcha_url_uses_https_sanitize_callback(): void {
+	public function test_register_settings_captcha_base_url_uses_https_sanitize_callback(): void {
 		$this->stub_settings_functions( array( 'register_setting' ) );
 
 		$sanitize_callbacks = array();
@@ -183,30 +182,30 @@ class SettingsPageTest extends TestCase {
 		$page = new SettingsPage();
 		$page->register_settings();
 
-		$this->assertArrayHasKey( 'wpdsgvo_captcha_verify_url', $sanitize_callbacks );
-		$this->assertIsCallable( $sanitize_callbacks['wpdsgvo_captcha_verify_url'] );
+		$this->assertArrayHasKey( 'wpdsgvo_captcha_base_url', $sanitize_callbacks );
+		$this->assertIsCallable( $sanitize_callbacks['wpdsgvo_captcha_base_url'] );
 	}
 
 	/**
 	 * @test
-	 * SEC-CAP-05: sanitize_https_url accepts valid HTTPS URL.
+	 * SEC-CAP-05: sanitize_captcha_base_url accepts valid HTTPS URL.
 	 */
-	public function test_sanitize_https_url_accepts_valid_https_url(): void {
+	public function test_sanitize_captcha_base_url_accepts_valid_https_url(): void {
 		$this->stub_settings_functions( array( 'sanitize_url' ) );
 
 		Functions\when( 'sanitize_url' )->returnArg();
 
 		$page   = new SettingsPage();
-		$result = $page->sanitize_https_url( 'https://captcha.example.com/api/verify' );
+		$result = $page->sanitize_captcha_base_url( 'https://captcha.example.com' );
 
-		$this->assertSame( 'https://captcha.example.com/api/verify', $result );
+		$this->assertSame( 'https://captcha.example.com', $result );
 	}
 
 	/**
 	 * @test
-	 * SEC-CAP-05: sanitize_https_url rejects HTTP URL, falls back to previous value.
+	 * SEC-CAP-05: sanitize_captcha_base_url rejects HTTP URL, falls back to previous value.
 	 */
-	public function test_sanitize_https_url_rejects_http_url(): void {
+	public function test_sanitize_captcha_base_url_rejects_http_url(): void {
 		$this->stub_settings_functions( array( 'sanitize_url', 'add_settings_error', 'get_option' ) );
 
 		Functions\when( 'sanitize_url' )->returnArg();
@@ -214,7 +213,7 @@ class SettingsPageTest extends TestCase {
 		Functions\expect( 'add_settings_error' )
 			->once()
 			->with(
-				'wpdsgvo_captcha_verify_url',
+				'wpdsgvo_captcha_base_url',
 				'not_https',
 				\Mockery::type( 'string' ),
 				'error'
@@ -222,26 +221,26 @@ class SettingsPageTest extends TestCase {
 
 		Functions\expect( 'get_option' )
 			->once()
-			->with( 'wpdsgvo_captcha_verify_url', 'https://captcha.repaircafe-bruchsal.de/api/verify' )
-			->andReturn( 'https://captcha.repaircafe-bruchsal.de/api/verify' );
+			->with( 'wpdsgvo_captcha_base_url', 'https://captcha.repaircafe-bruchsal.de' )
+			->andReturn( 'https://captcha.repaircafe-bruchsal.de' );
 
 		$page   = new SettingsPage();
-		$result = $page->sanitize_https_url( 'http://evil.example.com/verify' );
+		$result = $page->sanitize_captcha_base_url( 'http://evil.example.com' );
 
-		$this->assertSame( 'https://captcha.repaircafe-bruchsal.de/api/verify', $result );
+		$this->assertSame( 'https://captcha.repaircafe-bruchsal.de', $result );
 	}
 
 	/**
 	 * @test
-	 * SEC-CAP-05: sanitize_https_url allows empty string (field cleared).
+	 * SEC-CAP-05: sanitize_captcha_base_url allows empty string (field cleared).
 	 */
-	public function test_sanitize_https_url_accepts_empty_string(): void {
+	public function test_sanitize_captcha_base_url_accepts_empty_string(): void {
 		$this->stub_settings_functions( array( 'sanitize_url' ) );
 
 		Functions\when( 'sanitize_url' )->justReturn( '' );
 
 		$page   = new SettingsPage();
-		$result = $page->sanitize_https_url( '' );
+		$result = $page->sanitize_captcha_base_url( '' );
 
 		$this->assertSame( '', $result );
 	}
@@ -326,24 +325,24 @@ class SettingsPageTest extends TestCase {
 
 	/**
 	 * @test
-	 * render_captcha_verify_url_field outputs URL input with HTTPS placeholder.
+	 * render_captcha_base_url_field outputs URL input with HTTPS placeholder.
 	 */
-	public function test_render_captcha_verify_url_field_outputs_url_input(): void {
+	public function test_render_captcha_base_url_field_outputs_url_input(): void {
 		$this->stub_settings_functions( array( 'get_option' ) );
 
 		Functions\expect( 'get_option' )
-			->with( 'wpdsgvo_captcha_verify_url', 'https://captcha.repaircafe-bruchsal.de/api/verify' )
-			->andReturn( 'https://captcha.repaircafe-bruchsal.de/api/verify' );
+			->with( 'wpdsgvo_captcha_base_url', 'https://captcha.repaircafe-bruchsal.de' )
+			->andReturn( 'https://captcha.repaircafe-bruchsal.de' );
 
 		$page = new SettingsPage();
 
 		ob_start();
-		$page->render_captcha_verify_url_field();
+		$page->render_captcha_base_url_field();
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'type="url"', $output );
-		$this->assertStringContainsString( 'wpdsgvo_captcha_verify_url', $output );
-		$this->assertStringContainsString( 'https://captcha.repaircafe-bruchsal.de/api/verify', $output );
+		$this->assertStringContainsString( 'wpdsgvo_captcha_base_url', $output );
+		$this->assertStringContainsString( 'https://captcha.repaircafe-bruchsal.de', $output );
 		$this->assertStringContainsString( 'HTTPS', $output );
 	}
 }

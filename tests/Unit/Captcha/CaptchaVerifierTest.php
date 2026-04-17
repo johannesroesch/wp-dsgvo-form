@@ -31,14 +31,19 @@ class CaptchaVerifierTest extends TestCase {
 	 * @param string[] $skip Function names to NOT stub.
 	 */
 	private function stub_captcha_functions( array $skip = array() ): void {
-		$defaults = array(
-			'get_option' => null,
-		);
+		if ( ! in_array( 'get_option', $skip, true ) ) {
+			Functions\when( 'get_option' )->alias(
+				function ( string $option, $default = false ) {
+					if ( 'wpdsgvo_captcha_secret' === $option ) {
+						return 'test-api-key';
+					}
+					return $default;
+				}
+			);
+		}
 
-		foreach ( $defaults as $func => $return ) {
-			if ( ! in_array( $func, $skip, true ) ) {
-				Functions\when( $func )->justReturn( null );
-			}
+		if ( ! in_array( 'wp_json_encode', $skip, true ) ) {
+			Functions\when( 'wp_json_encode' )->alias( 'json_encode' );
 		}
 	}
 
@@ -49,7 +54,7 @@ class CaptchaVerifierTest extends TestCase {
 	public function test_verify_returns_false_for_empty_token(): void {
 		$this->stub_captcha_functions();
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertFalse( $verifier->verify( '' ) );
 	}
@@ -59,31 +64,42 @@ class CaptchaVerifierTest extends TestCase {
 	 * SEC-CAP-01: Successful server-side verification via POST.
 	 */
 	public function test_verify_returns_true_on_successful_verification(): void {
-		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_response_code', 'wp_remote_retrieve_body' ) );
+		$this->stub_captcha_functions( array( 'get_option', 'wp_remote_post', 'wp_remote_retrieve_body' ) );
+
+		Functions\when( 'wp_json_encode' )->alias( 'json_encode' );
+
+		Functions\expect( 'get_option' )
+			->andReturnUsing(
+				function ( string $option, $default = false ) {
+					if ( 'wpdsgvo_captcha_secret' === $option ) {
+						return 'test-secret-key';
+					}
+					return $default;
+				}
+			);
 
 		Functions\expect( 'wp_remote_post' )
 			->once()
 			->with(
-				'https://captcha.example.com/api/verify',
+				'https://captcha.example.com/api/validate',
 				\Mockery::on(
 					function ( array $args ): bool {
-						return $args['body']['token'] === 'valid-token'
+						$body = json_decode( $args['body'], true );
+						return $body['verification_token'] === 'valid-token'
+							&& $args['headers']['Content-Type'] === 'application/json'
+							&& $args['headers']['Authorization'] === 'Bearer test-secret-key'
 							&& $args['timeout'] === 5
 							&& $args['sslverify'] === true;
 					}
 				)
 			)
-			->andReturn( array( 'response' => array( 'code' => 200 ), 'body' => '{"valid":true}' ) );
-
-		Functions\expect( 'wp_remote_retrieve_response_code' )
-			->once()
-			->andReturn( 200 );
+			->andReturn( array( 'body' => '{"valid":true}' ) );
 
 		Functions\expect( 'wp_remote_retrieve_body' )
 			->once()
 			->andReturn( '{"valid":true}' );
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertTrue( $verifier->verify( 'valid-token' ) );
 	}
@@ -100,22 +116,22 @@ class CaptchaVerifierTest extends TestCase {
 			->once()
 			->andReturn( new \WP_Error( 'http_request_failed', 'Connection timed out' ) );
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertFalse( $verifier->verify( 'some-token' ) );
 	}
 
 	/**
 	 * @test
-	 * SEC-CAP-04: Fail-closed on non-2xx status code.
+	 * SEC-CAP-04: Fail-closed when server returns error JSON (no valid field).
 	 */
-	public function test_verify_returns_false_on_non_200_status(): void {
-		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_response_code' ) );
+	public function test_verify_returns_false_on_error_response(): void {
+		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_body' ) );
 
 		Functions\expect( 'wp_remote_post' )->once()->andReturn( array() );
-		Functions\expect( 'wp_remote_retrieve_response_code' )->once()->andReturn( 500 );
+		Functions\expect( 'wp_remote_retrieve_body' )->once()->andReturn( '{"error":"server_error"}' );
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertFalse( $verifier->verify( 'some-token' ) );
 	}
@@ -125,13 +141,12 @@ class CaptchaVerifierTest extends TestCase {
 	 * SEC-CAP-04: Fail-closed on invalid JSON response body.
 	 */
 	public function test_verify_returns_false_on_invalid_json_response(): void {
-		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_response_code', 'wp_remote_retrieve_body' ) );
+		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_body' ) );
 
 		Functions\expect( 'wp_remote_post' )->once()->andReturn( array() );
-		Functions\expect( 'wp_remote_retrieve_response_code' )->once()->andReturn( 200 );
 		Functions\expect( 'wp_remote_retrieve_body' )->once()->andReturn( 'not valid json' );
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertFalse( $verifier->verify( 'some-token' ) );
 	}
@@ -141,15 +156,37 @@ class CaptchaVerifierTest extends TestCase {
 	 * SEC-CAP-04: Fail-closed when valid field is missing or false.
 	 */
 	public function test_verify_returns_false_when_valid_is_false(): void {
-		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_response_code', 'wp_remote_retrieve_body' ) );
+		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_body' ) );
 
 		Functions\expect( 'wp_remote_post' )->once()->andReturn( array() );
-		Functions\expect( 'wp_remote_retrieve_response_code' )->once()->andReturn( 200 );
 		Functions\expect( 'wp_remote_retrieve_body' )->once()->andReturn( '{"valid":false}' );
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertFalse( $verifier->verify( 'invalid-token' ) );
+	}
+
+	/**
+	 * @test
+	 * SEC-CAP-04: Fail-closed when API key option is empty (not configured).
+	 */
+	public function test_verify_returns_false_when_api_key_not_configured(): void {
+		$this->stub_captcha_functions( array( 'get_option' ) );
+
+		Functions\expect( 'get_option' )
+			->andReturnUsing(
+				function ( string $option, $default = false ) {
+					if ( 'wpdsgvo_captcha_secret' === $option ) {
+						return '';
+					}
+					return $default;
+				}
+			);
+
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
+
+		// Must return false without even calling wp_remote_post.
+		$this->assertFalse( $verifier->verify( 'some-token' ) );
 	}
 
 	/**
@@ -158,6 +195,8 @@ class CaptchaVerifierTest extends TestCase {
 	 */
 	public function test_constructor_enforces_https_on_verify_url(): void {
 		$this->stub_captcha_functions( array( 'wp_remote_post' ) );
+
+		Functions\when( 'wp_json_encode' )->alias( 'json_encode' );
 
 		$captured_url = '';
 
@@ -171,12 +210,12 @@ class CaptchaVerifierTest extends TestCase {
 			);
 
 		// Pass an HTTP URL (insecure).
-		$verifier = new CaptchaVerifier( 'http://evil.example.com/verify' );
+		$verifier = new CaptchaVerifier( 'http://evil.example.com' );
 		$verifier->verify( 'test-token' );
 
 		// Must fall back to the default HTTPS URL.
 		$this->assertStringStartsWith( 'https://', $captured_url );
-		$this->assertSame( 'https://captcha.repaircafe-bruchsal.de/api/verify', $captured_url );
+		$this->assertSame( 'https://captcha.repaircafe-bruchsal.de/api/validate', $captured_url );
 	}
 
 	/**
@@ -186,24 +225,152 @@ class CaptchaVerifierTest extends TestCase {
 	public function test_verify_sends_only_token_no_user_data(): void {
 		$this->stub_captcha_functions( array( 'wp_remote_post' ) );
 
-		$sent_body = array();
+		Functions\when( 'wp_json_encode' )->alias( 'json_encode' );
+
+		$sent_body    = '';
+		$sent_headers = array();
 
 		Functions\expect( 'wp_remote_post' )
 			->once()
 			->andReturnUsing(
-				function ( string $url, array $args ) use ( &$sent_body ) {
-					$sent_body = $args['body'];
+				function ( string $url, array $args ) use ( &$sent_body, &$sent_headers ) {
+					$sent_body    = $args['body'];
+					$sent_headers = $args['headers'] ?? array();
 					return new \WP_Error( 'test', 'test' );
 				}
 			);
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 		$verifier->verify( 'my-token' );
 
-		// Only token key should be present (SEC-CAP-08: no IP, no user-agent).
-		$this->assertArrayHasKey( 'token', $sent_body );
-		$this->assertCount( 1, $sent_body );
-		$this->assertSame( 'my-token', $sent_body['token'] );
+		// Body is JSON string with only verification_token (SEC-CAP-08: no IP, no user-agent).
+		$decoded = json_decode( $sent_body, true );
+		$this->assertIsArray( $decoded );
+		$this->assertArrayHasKey( 'verification_token', $decoded );
+		$this->assertCount( 1, $decoded );
+		$this->assertSame( 'my-token', $decoded['verification_token'] );
+
+		// No user-identifying data in headers.
+		$this->assertArrayNotHasKey( 'X-Forwarded-For', $sent_headers );
+		$this->assertArrayNotHasKey( 'User-Agent', $sent_headers );
+	}
+
+	/**
+	 * @test
+	 * API contract: Endpoint is /api/validate (not /api/verify).
+	 */
+	public function test_verify_calls_validate_endpoint(): void {
+		$this->stub_captcha_functions( array( 'wp_remote_post' ) );
+
+		Functions\when( 'wp_json_encode' )->alias( 'json_encode' );
+
+		$captured_url = '';
+
+		Functions\expect( 'wp_remote_post' )
+			->once()
+			->andReturnUsing(
+				function ( string $url ) use ( &$captured_url ) {
+					$captured_url = $url;
+					return new \WP_Error( 'test', 'test' );
+				}
+			);
+
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
+		$verifier->verify( 'test-token' );
+
+		$this->assertSame( 'https://captcha.example.com/api/validate', $captured_url );
+	}
+
+	/**
+	 * @test
+	 * API contract: Request body must be JSON (Content-Type: application/json).
+	 */
+	public function test_verify_sends_json_content_type_header(): void {
+		$this->stub_captcha_functions( array( 'wp_remote_post' ) );
+
+		Functions\when( 'wp_json_encode' )->alias( 'json_encode' );
+
+		$sent_content_type = '';
+
+		Functions\expect( 'wp_remote_post' )
+			->once()
+			->andReturnUsing(
+				function ( string $url, array $args ) use ( &$sent_content_type ) {
+					$sent_content_type = $args['headers']['Content-Type'] ?? '';
+					return new \WP_Error( 'test', 'test' );
+				}
+			);
+
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
+		$verifier->verify( 'test-token' );
+
+		$this->assertSame( 'application/json', $sent_content_type );
+	}
+
+	/**
+	 * @test
+	 * API contract: Authorization header with Bearer token from wpdsgvo_captcha_secret option.
+	 */
+	public function test_verify_sends_authorization_bearer_from_option(): void {
+		$this->stub_captcha_functions( array( 'get_option', 'wp_remote_post' ) );
+
+		Functions\when( 'wp_json_encode' )->alias( 'json_encode' );
+
+		$sent_auth = '';
+
+		Functions\expect( 'get_option' )
+			->andReturnUsing(
+				function ( string $option, $default = false ) {
+					if ( 'wpdsgvo_captcha_secret' === $option ) {
+						return 'my-secret-api-key';
+					}
+					return $default;
+				}
+			);
+
+		Functions\expect( 'wp_remote_post' )
+			->once()
+			->andReturnUsing(
+				function ( string $url, array $args ) use ( &$sent_auth ) {
+					$sent_auth = $args['headers']['Authorization'] ?? '';
+					return new \WP_Error( 'test', 'test' );
+				}
+			);
+
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
+		$verifier->verify( 'test-token' );
+
+		$this->assertSame( 'Bearer my-secret-api-key', $sent_auth );
+	}
+
+	/**
+	 * @test
+	 * Fail-closed on missing API key (server returns error, no valid field).
+	 */
+	public function test_verify_returns_false_on_missing_api_key_response(): void {
+		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_body' ) );
+
+		Functions\expect( 'wp_remote_post' )->once()->andReturn( array() );
+		Functions\expect( 'wp_remote_retrieve_body' )->once()->andReturn( '{"error":"missing_api_key"}' );
+
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
+
+		$this->assertFalse( $verifier->verify( 'some-token' ) );
+	}
+
+	/**
+	 * @test
+	 * Fail-closed on invalid/expired token (server returns valid:false).
+	 */
+	public function test_verify_returns_false_on_invalid_token_response(): void {
+		$this->stub_captcha_functions( array( 'wp_remote_post', 'wp_remote_retrieve_body' ) );
+
+		Functions\expect( 'wp_remote_post' )->once()->andReturn( array() );
+		Functions\expect( 'wp_remote_retrieve_body' )->once()->andReturn( '{"valid":false,"error":"invalid_token"}' );
+
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
+
+		$this->assertFalse( $verifier->verify( 'expired-token' ) );
 	}
 
 	/**
@@ -233,7 +400,7 @@ class CaptchaVerifierTest extends TestCase {
 			}
 		);
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertTrue( $verifier->is_enabled_for_form( 1 ) );
 	}
@@ -265,7 +432,7 @@ class CaptchaVerifierTest extends TestCase {
 			}
 		);
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertFalse( $verifier->is_enabled_for_form( 42 ) );
 	}
@@ -296,7 +463,7 @@ class CaptchaVerifierTest extends TestCase {
 		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
 		$GLOBALS['wpdb'] = $wpdb;
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		$this->assertTrue( $verifier->is_enabled_for_form( 999 ) );
 	}
@@ -318,7 +485,7 @@ class CaptchaVerifierTest extends TestCase {
 				}
 			);
 
-		$verifier = new CaptchaVerifier( 'https://captcha.example.com/api/verify' );
+		$verifier = new CaptchaVerifier( 'https://captcha.example.com' );
 
 		// Even if form would have captcha_enabled=true, global 'off' wins.
 		$this->assertFalse( $verifier->is_enabled_for_form( 1 ) );
@@ -328,14 +495,25 @@ class CaptchaVerifierTest extends TestCase {
 	 * @test
 	 * Constructor loads URL from get_option when not provided.
 	 */
-	public function test_constructor_loads_verify_url_from_option(): void {
+	public function test_constructor_loads_base_url_from_option(): void {
 		$this->stub_captcha_functions( array( 'get_option', 'wp_remote_post' ) );
+
+		Functions\when( 'wp_json_encode' )->alias( 'json_encode' );
 
 		$captured_url = '';
 
 		Functions\expect( 'get_option' )
-			->with( 'wpdsgvo_captcha_verify_url', \Mockery::type( 'string' ) )
-			->andReturn( 'https://custom-captcha.example.com/verify' );
+			->andReturnUsing(
+				function ( string $option, $default = false ) {
+					if ( 'wpdsgvo_captcha_base_url' === $option ) {
+						return 'https://custom-captcha.example.com';
+					}
+					if ( 'wpdsgvo_captcha_secret' === $option ) {
+						return 'test-key';
+					}
+					return $default;
+				}
+			);
 
 		Functions\expect( 'wp_remote_post' )
 			->once()
@@ -349,6 +527,6 @@ class CaptchaVerifierTest extends TestCase {
 		$verifier = new CaptchaVerifier();
 		$verifier->verify( 'test' );
 
-		$this->assertSame( 'https://custom-captcha.example.com/verify', $captured_url );
+		$this->assertSame( 'https://custom-captcha.example.com/api/validate', $captured_url );
 	}
 }

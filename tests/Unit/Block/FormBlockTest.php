@@ -603,6 +603,71 @@ class FormBlockTest extends TestCase {
 	}
 
 	// ──────────────────────────────────────────────────
+	// Task #218: form-id attribute on <form> + <captcha-widget>
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * Task #218: <form> tag must have id="dsgvo-{form_id}" attribute.
+	 */
+	public function test_form_tag_has_id_attribute(): void {
+		$this->setup_render_mocks( [
+			'id'              => 7,
+			'legal_basis'     => 'contract',
+			'captcha_enabled' => true,
+		] );
+
+		$html = $this->block->render( [ 'formId' => 7 ] );
+
+		$this->assertStringContainsString( 'id="dsgvo-7"', $html );
+	}
+
+	/**
+	 * @test
+	 * Task #218: captcha-widget form-id must match the <form> id attribute.
+	 */
+	public function test_captcha_widget_form_id_matches_form_tag_id(): void {
+		$this->setup_render_mocks( [
+			'id'              => 42,
+			'legal_basis'     => 'contract',
+			'captcha_enabled' => true,
+		] );
+
+		$html = $this->block->render( [ 'formId' => 42 ] );
+
+		// Both must use the same "dsgvo-{form_id}" pattern.
+		$this->assertStringContainsString( '<form id="dsgvo-42"', $html );
+		$this->assertStringContainsString( 'form-id="dsgvo-42"', $html );
+	}
+
+	/**
+	 * @test
+	 * Task #218: form-id uses esc_attr for safe output.
+	 */
+	public function test_form_id_attribute_is_escaped_via_esc_attr(): void {
+		$esc_attr_calls = [];
+
+		// Override esc_attr to track calls.
+		Functions\when( 'esc_attr' )->alias(
+			function ( string $value ) use ( &$esc_attr_calls ): string {
+				$esc_attr_calls[] = $value;
+				return $value;
+			}
+		);
+
+		$this->setup_render_mocks( [
+			'id'              => 99,
+			'legal_basis'     => 'contract',
+			'captcha_enabled' => true,
+		] );
+
+		$html = $this->block->render( [ 'formId' => 99 ] );
+
+		// The form_id string '99' must have been passed through esc_attr.
+		$this->assertContains( '99', $esc_attr_calls );
+	}
+
+	// ──────────────────────────────────────────────────
 	// get_current_locale()
 	// ──────────────────────────────────────────────────
 
@@ -620,15 +685,23 @@ class FormBlockTest extends TestCase {
 	}
 
 	// ──────────────────────────────────────────────────
-	// SEC-SRI-01: SRI integrity attribute for CAPTCHA script
+	// SEC-SRI-01: CAPTCHA script loading + SRI (Task #223)
 	// ──────────────────────────────────────────────────
 
 	/**
-	 * @test
-	 * @security-relevant SEC-SRI-01 — SRI filter added when hash is configured
+	 * Helper: sets up mocks for enqueue_captcha_assets() scenarios.
+	 *
+	 * @param string $base_url       Value for wpdsgvo_captcha_base_url option.
+	 * @param string $sri_hash       Value for wpdsgvo_captcha_sri_hash option.
+	 * @param array  $form_overrides Form overrides.
+	 * @return string Rendered HTML.
 	 */
-	public function test_captcha_script_adds_sri_filter_when_hash_configured(): void {
-		$form = $this->make_form( [ 'legal_basis' => 'contract' ] );
+	private function render_with_captcha_options( string $base_url, string $sri_hash, array $form_overrides = [] ): string {
+		$defaults = [
+			'legal_basis'     => 'contract',
+			'captcha_enabled' => true,
+		];
+		$form = $this->make_form( array_merge( $defaults, $form_overrides ) );
 		Functions\when( 'get_transient' )->justReturn( $form );
 
 		$GLOBALS['wpdb']->shouldReceive( 'get_results' )->andReturn( [
@@ -643,62 +716,140 @@ class FormBlockTest extends TestCase {
 
 		Functions\when( 'determine_locale' )->justReturn( 'de_DE' );
 		Functions\when( 'wp_nonce_field' )->justReturn( '<input type="hidden" name="_dsgvo_nonce" value="nonce123">' );
-		Functions\when( 'get_option' )->alias( function ( string $key, $default = '' ) {
-			if ( $key === 'wpdsgvo_captcha_sri_hash' ) {
-				return 'sha384-testHash123456';
+		Functions\when( 'get_option' )->alias( function ( string $key, $default = '' ) use ( $base_url, $sri_hash ) {
+			if ( $key === 'wpdsgvo_captcha_base_url' ) {
+				return $base_url;
 			}
-			return 'https://captcha.repaircafe-bruchsal.de';
+			if ( $key === 'wpdsgvo_captcha_sri_hash' ) {
+				return $sri_hash;
+			}
+			return $default;
 		} );
 		Functions\when( 'wp_script_is' )->justReturn( false );
-		Functions\when( 'wp_enqueue_script' )->justReturn( null );
 		Functions\when( 'wp_localize_script' )->justReturn( true );
 		Functions\when( 'wp_style_is' )->justReturn( false );
 		Functions\when( 'wp_enqueue_style' )->justReturn( null );
 
-		Filters\expectAdded( 'script_loader_tag' )->once();
-
-		$html = $this->block->render( [ 'formId' => 1 ] );
-
-		$this->assertNotEmpty( $html );
+		return $this->block->render( [ 'formId' => 1 ] );
 	}
 
 	/**
 	 * @test
-	 * @security-relevant SEC-SRI-01 — No SRI filter when hash is empty
+	 * Task #223: Default CAPTCHA URL loads local bundled script.
 	 */
-	public function test_captcha_script_no_sri_filter_when_hash_empty(): void {
-		$form = $this->make_form( [ 'legal_basis' => 'contract' ] );
-		Functions\when( 'get_transient' )->justReturn( $form );
+	public function test_default_url_enqueues_local_captcha_script(): void {
+		$captured_url = '';
 
-		$GLOBALS['wpdb']->shouldReceive( 'get_results' )->andReturn( [
-			[
-				'id' => 1, 'form_id' => 1, 'field_type' => 'text',
-				'label' => 'Vorname', 'name' => 'vorname', 'placeholder' => '',
-				'is_required' => 0, 'options' => null, 'validation_rules' => null,
-				'static_content' => '', 'css_class' => '', 'file_config' => null,
-				'sort_order' => 0, 'created_at' => '2026-04-17',
-			],
-		] );
-
-		Functions\when( 'determine_locale' )->justReturn( 'de_DE' );
-		Functions\when( 'wp_nonce_field' )->justReturn( '<input type="hidden" name="_dsgvo_nonce" value="nonce123">' );
-		Functions\when( 'get_option' )->alias( function ( string $key, $default = '' ) {
-			if ( $key === 'wpdsgvo_captcha_sri_hash' ) {
-				return '';
+		Functions\when( 'wp_enqueue_script' )->alias(
+			function ( string $handle, string $src = '' ) use ( &$captured_url ): void {
+				if ( $handle === 'dsgvo-captcha' ) {
+					$captured_url = $src;
+				}
 			}
-			return 'https://captcha.repaircafe-bruchsal.de';
-		} );
-		Functions\when( 'wp_script_is' )->justReturn( false );
+		);
+
+		$this->render_with_captcha_options(
+			'https://captcha.repaircafe-bruchsal.de',
+			''
+		);
+
+		$this->assertStringContainsString(
+			'wp-content/plugins/wp-dsgvo-form/public/js/captcha.min.js',
+			$captured_url
+		);
+	}
+
+	/**
+	 * @test
+	 * Task #223: Custom CAPTCHA URL loads external script.
+	 */
+	public function test_custom_url_enqueues_external_captcha_script(): void {
+		$captured_url = '';
+
+		Functions\when( 'wp_enqueue_script' )->alias(
+			function ( string $handle, string $src = '' ) use ( &$captured_url ): void {
+				if ( $handle === 'dsgvo-captcha' ) {
+					$captured_url = $src;
+				}
+			}
+		);
+
+		$this->render_with_captcha_options(
+			'https://custom-captcha.example.com',
+			''
+		);
+
+		$this->assertSame(
+			'https://custom-captcha.example.com/captcha.js',
+			$captured_url
+		);
+	}
+
+	/**
+	 * @test
+	 * Task #223: No SRI filter when local and WPDSGVO_CAPTCHA_SRI not defined.
+	 *
+	 * Must run BEFORE test_local_sri_uses_build_constant (which defines the constant).
+	 */
+	public function test_no_sri_filter_when_local_and_constant_not_defined(): void {
 		Functions\when( 'wp_enqueue_script' )->justReturn( null );
-		Functions\when( 'wp_localize_script' )->justReturn( true );
-		Functions\when( 'wp_style_is' )->justReturn( false );
-		Functions\when( 'wp_enqueue_style' )->justReturn( null );
 
 		Filters\expectAdded( 'script_loader_tag' )->never();
 
-		$html = $this->block->render( [ 'formId' => 1 ] );
+		$this->render_with_captcha_options(
+			'https://captcha.repaircafe-bruchsal.de',
+			''
+		);
+	}
 
-		$this->assertNotEmpty( $html );
+	/**
+	 * @test
+	 * Task #223: External CAPTCHA URL uses SRI hash from option.
+	 */
+	public function test_external_url_sri_from_option(): void {
+		Functions\when( 'wp_enqueue_script' )->justReturn( null );
+
+		Filters\expectAdded( 'script_loader_tag' )->once();
+
+		$this->render_with_captcha_options(
+			'https://custom-captcha.example.com',
+			'sha384-externalHashFromOption'
+		);
+	}
+
+	/**
+	 * @test
+	 * @depends test_no_sri_filter_when_local_and_constant_not_defined
+	 * Task #223: Local script uses build-generated SRI constant.
+	 */
+	public function test_local_sri_uses_build_constant(): void {
+		if ( ! defined( 'WPDSGVO_CAPTCHA_SRI' ) ) {
+			define( 'WPDSGVO_CAPTCHA_SRI', 'sha384-buildGeneratedHash123' );
+		}
+
+		Functions\when( 'wp_enqueue_script' )->justReturn( null );
+
+		Filters\expectAdded( 'script_loader_tag' )->once();
+
+		$this->render_with_captcha_options(
+			'https://captcha.repaircafe-bruchsal.de',
+			''
+		);
+	}
+
+	/**
+	 * @test
+	 * Task #223: No SRI filter when external URL and SRI hash option empty.
+	 */
+	public function test_no_sri_filter_when_external_and_option_empty(): void {
+		Functions\when( 'wp_enqueue_script' )->justReturn( null );
+
+		Filters\expectAdded( 'script_loader_tag' )->never();
+
+		$this->render_with_captcha_options(
+			'https://custom-captcha.example.com',
+			''
+		);
 	}
 
 	// ──────────────────────────────────────────────────

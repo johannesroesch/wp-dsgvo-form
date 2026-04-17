@@ -9,12 +9,13 @@
 #   bin/build-release.sh --version 1.2.0 --skip-install
 #
 # Steps:
-#   1. Pre-flight checks (node, npm, composer)
+#   1. Pre-flight checks (node, npm, composer, openssl)
 #   2. Version bump in wp-dsgvo-form.php (header + constant)
 #   3. npm install + npm run build (webpack production)
 #   4. composer install --no-dev --optimize-autoloader
-#   5. ZIP archive (production files only)
-#   6. Restore dev dependencies (composer install)
+#   5. SRI hash for CAPTCHA script (public/js/captcha.min.js)
+#   6. ZIP archive (production files only)
+#   7. Restore dev dependencies (composer install)
 #
 
 set -euo pipefail
@@ -114,6 +115,7 @@ command -v node    >/dev/null 2>&1 || MISSING+=("node")
 command -v npm     >/dev/null 2>&1 || MISSING+=("npm")
 command -v composer >/dev/null 2>&1 || MISSING+=("composer")
 command -v zip     >/dev/null 2>&1 || MISSING+=("zip")
+command -v openssl >/dev/null 2>&1 || MISSING+=("openssl")
 
 if [[ ${#MISSING[@]} -gt 0 ]]; then
     error "Missing required tools: ${MISSING[*]}"
@@ -123,6 +125,7 @@ fi
 ok "node $(node --version), npm $(npm --version)"
 ok "composer $(composer --version 2>&1 | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
 ok "zip available"
+ok "openssl available"
 
 # Verify we're in the plugin directory.
 if [[ ! -f "$MAIN_FILE" ]]; then
@@ -213,7 +216,21 @@ else
 fi
 
 # ============================================================
-# Step 5: Create ZIP archive
+# Step 5: SRI Hash for CAPTCHA script
+# ============================================================
+step "SRI Hash (CAPTCHA)"
+
+CAPTCHA_FILE="$PLUGIN_DIR/public/js/captcha.min.js"
+if [[ -f "$CAPTCHA_FILE" ]]; then
+    SRI_HASH="sha384-$(openssl dgst -sha384 -binary "$CAPTCHA_FILE" | openssl base64 -A)"
+    sed -i '' "s|define( 'WPDSGVO_CAPTCHA_SRI', '.*' )|define( 'WPDSGVO_CAPTCHA_SRI', '$SRI_HASH' )|" "$MAIN_FILE"
+    ok "WPDSGVO_CAPTCHA_SRI: $SRI_HASH"
+else
+    warn "public/js/captcha.min.js not found — SRI hash left empty"
+fi
+
+# ============================================================
+# Step 6: Create ZIP archive
 # ============================================================
 step "ZIP Archive"
 
@@ -328,7 +345,7 @@ else
 fi
 
 # ============================================================
-# Step 6: Restore dev dependencies
+# Step 7: Restore dev dependencies
 # ============================================================
 step "Restore Dev Environment"
 

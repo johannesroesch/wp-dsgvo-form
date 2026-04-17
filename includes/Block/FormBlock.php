@@ -236,7 +236,7 @@ class FormBlock {
 		$form_id = $form->id;
 
 		$html  = '<div class="wp-block-dsgvo-form-form">';
-		$html .= '<form class="dsgvo-form" data-form-id="' . esc_attr( (string) $form_id ) . '" '
+		$html .= '<form id="dsgvo-' . esc_attr( (string) $form_id ) . '" class="dsgvo-form" data-form-id="' . esc_attr( (string) $form_id ) . '" '
 			. 'data-locale="' . esc_attr( $locale ) . '" method="post" novalidate>';
 
 		// CSRF protection.
@@ -433,25 +433,49 @@ class FormBlock {
 
 	/**
 	 * Enqueues the CAPTCHA Web Component script (defer, in footer).
+	 *
+	 * Uses the local bundled captcha.min.js by default (when the CAPTCHA
+	 * server URL matches the built-in default). Falls back to the external
+	 * URL when the admin has configured a custom CAPTCHA server.
+	 *
+	 * SRI integrity: For the local file, uses the build-generated constant
+	 * WPDSGVO_CAPTCHA_SRI. For external URLs, uses the admin-configured
+	 * wpdsgvo_captcha_sri_hash option.
 	 */
 	private function enqueue_captcha_assets(): void {
 		if ( wp_script_is( 'dsgvo-captcha', 'enqueued' ) ) {
 			return;
 		}
 
+		$captcha_base_url = $this->get_captcha_url();
+		$use_local        = ( $captcha_base_url === self::DEFAULT_CAPTCHA_URL );
+
+		if ( $use_local ) {
+			$script_url = WPDSGVO_PLUGIN_URL . 'public/js/captcha.min.js';
+		} else {
+			$script_url = $captcha_base_url . '/captcha.js';
+		}
+
 		wp_enqueue_script(
 			'dsgvo-captcha',
-			$this->get_captcha_url() . '/captcha.js',
+			esc_url_raw( $script_url ),
 			[],
-			null,
+			$use_local ? WPDSGVO_VERSION : null,
 			[
 				'in_footer' => true,
 				'strategy'  => 'defer',
 			]
 		);
 
-		// Add SRI integrity attribute if configured (SEC-SRI-01).
-		$sri_hash = get_option( 'wpdsgvo_captcha_sri_hash', '' );
+		// SRI integrity attribute (SEC-SRI-01).
+		// Local file: build-generated constant. External: admin-configured option.
+		$sri_hash = '';
+
+		if ( $use_local && defined( 'WPDSGVO_CAPTCHA_SRI' ) && WPDSGVO_CAPTCHA_SRI !== '' ) {
+			$sri_hash = WPDSGVO_CAPTCHA_SRI;
+		} elseif ( ! $use_local ) {
+			$sri_hash = get_option( 'wpdsgvo_captcha_sri_hash', '' );
+		}
 
 		if ( is_string( $sri_hash ) && $sri_hash !== '' ) {
 			add_filter( 'script_loader_tag', function ( string $tag, string $handle ) use ( $sri_hash ): string {

@@ -26,9 +26,9 @@ use WpDsgvoForm\Models\Form;
 class CaptchaVerifier {
 
 	/**
-	 * Default verification endpoint.
+	 * Default CAPTCHA server base URL.
 	 */
-	private const DEFAULT_VERIFY_URL = 'https://captcha.repaircafe-bruchsal.de/api/verify';
+	private const DEFAULT_BASE_URL = 'https://captcha.repaircafe-bruchsal.de';
 
 	/**
 	 * Request timeout in seconds (SEC-CAP-04).
@@ -36,35 +36,48 @@ class CaptchaVerifier {
 	private const TIMEOUT = 5;
 
 	/**
-	 * The verification URL (configurable via admin settings, SEC-CAP-05).
+	 * The CAPTCHA server base URL.
 	 */
-	private string $verify_url;
+	private string $base_url;
 
 	/**
-	 * @param string $verify_url Optional custom CAPTCHA verification URL.
+	 * The server-to-server validation URL (derived from base URL, SEC-CAP-05).
 	 */
-	public function __construct( string $verify_url = '' ) {
-		if ( $verify_url === '' ) {
-			$verify_url = get_option( 'wpdsgvo_captcha_verify_url', self::DEFAULT_VERIFY_URL );
+	private string $validate_url;
+
+	/**
+	 * @param string $base_url Optional custom CAPTCHA server base URL (e.g. https://captcha.example.com).
+	 */
+	public function __construct( string $base_url = '' ) {
+		if ( $base_url === '' ) {
+			$base_url = get_option( 'wpdsgvo_captcha_base_url', self::DEFAULT_BASE_URL );
 		}
+
+		if ( empty( $base_url ) || ! is_string( $base_url ) ) {
+			$base_url = self::DEFAULT_BASE_URL;
+		}
+
+		$base_url = rtrim( $base_url, '/' );
 
 		// SEC-CAP-06: Enforce HTTPS.
-		if ( strpos( $verify_url, 'https://' ) !== 0 ) {
-			$verify_url = self::DEFAULT_VERIFY_URL;
+		if ( strpos( $base_url, 'https://' ) !== 0 ) {
+			$base_url = self::DEFAULT_BASE_URL;
 		}
 
-		$this->verify_url = $verify_url;
+		$this->base_url     = $base_url;
+		$this->validate_url = $base_url . '/api/validate';
 	}
 
 	/**
-	 * Verifies a CAPTCHA token against the external service.
+	 * Validates a CAPTCHA verification token via the server-to-server
+	 * /api/validate endpoint.
 	 *
-	 * SEC-CAP-01: Server-side verification via POST.
-	 * SEC-CAP-04: Fail-closed — timeout or error returns false.
+	 * SEC-CAP-01: Server-side validation via POST to /api/validate.
+	 * SEC-CAP-04: Fail-closed — timeout, error, or missing API key returns false.
 	 * SEC-CAP-06: HTTPS enforced, certificate validated.
-	 * SEC-CAP-08: Only the token is sent, no user data.
+	 * SEC-CAP-08: Only the verification token is sent, no user data.
 	 *
-	 * @param string $token The CAPTCHA response token from the frontend.
+	 * @param string $token The verification token from the captcha-widget hidden input.
 	 * @return bool True if the token is valid, false otherwise.
 	 */
 	public function verify( string $token ): bool {
@@ -72,21 +85,26 @@ class CaptchaVerifier {
 			return false;
 		}
 
-		// SEC-CAP-08: Only send the token, no IP or user-agent.
-		$response = wp_remote_post( $this->verify_url, [
-			'body'      => [ 'token' => $token ],
+		// SEC-CAP-04: Fail-closed — no API key configured means no verification possible.
+		$api_key = get_option( 'wpdsgvo_captcha_secret', '' );
+
+		if ( ! is_string( $api_key ) || $api_key === '' ) {
+			return false;
+		}
+
+		// SEC-CAP-08: Only send the verification token, no IP or user-agent.
+		$response = wp_remote_post( $this->validate_url, [
+			'headers'   => [
+				'Content-Type'  => 'application/json',
+				'Authorization' => 'Bearer ' . $api_key,
+			],
+			'body'      => wp_json_encode( [ 'verification_token' => $token ] ),
 			'timeout'   => self::TIMEOUT,
 			'sslverify' => true, // SEC-CAP-06: Validate certificate.
 		] );
 
 		// SEC-CAP-04: Fail-closed on WP_Error (network error, timeout).
 		if ( is_wp_error( $response ) ) {
-			return false;
-		}
-
-		$status_code = wp_remote_retrieve_response_code( $response );
-
-		if ( $status_code < 200 || $status_code >= 300 ) {
 			return false;
 		}
 
@@ -131,8 +149,6 @@ class CaptchaVerifier {
 	 * @return string The URL to the CAPTCHA JavaScript.
 	 */
 	public function get_script_url(): string {
-		$base = rtrim( dirname( $this->verify_url, 2 ), '/' );
-
-		return $base . '/captcha.js';
+		return $this->base_url . '/captcha.js';
 	}
 }

@@ -3,7 +3,7 @@
  * Plugin Name:       WP DSGVO Form
  * Plugin URI:        https://github.com/johannesroesch/wp-dsgvo-form
  * Description:       DSGVO-konformes Formular-Plugin mit AES-256 verschluesselter Speicherung.
- * Version:           1.0.5
+ * Version:           1.0.6
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Johannes Roesch
@@ -20,7 +20,8 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPDSGVO_VERSION', '1.0.5' );
+define( 'WPDSGVO_VERSION', '1.0.6' );
+define( 'WPDSGVO_CAPTCHA_SRI', 'sha384-N8O+cBn6qc2cXVhRAAZQyZppvk6NGNzKZeL7NYkPcwhZ1Pp5fsfAHgOY07td+/NM' );
 define( 'WPDSGVO_PLUGIN_FILE', __FILE__ );
 define( 'WPDSGVO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPDSGVO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

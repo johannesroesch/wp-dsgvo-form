@@ -3,7 +3,7 @@
 **Status:** VERBINDLICH — Alle Findings MUESSEN vor dem Release umgesetzt sein.
 **Erstellt:** 2026-04-17 | **Autor:** dpo (Datenschutzbeauftragter)
 **Abhaengigkeiten:** SECURITY_REQUIREMENTS.md, ARCHITECTURE.md
-**Review:** v1.5 — Vollstaendiges Projekt-DPO-Review nach v1.0.3 Build
+**Review:** v1.6 — Update DPO-FINDING-10 (CAPTCHA lokal gebundelt, v1.0.6)
 
 ---
 
@@ -375,40 +375,38 @@ Die Supervisor-Rolle ist **datenschutzrechtlich zulaessig**, wenn ALLE folgenden
 
 | Schritt | Daten | Empfaenger | Datenschutz-Relevanz |
 |---------|-------|------------|---------------------|
-| 1. CAPTCHA-Widget laden | HTTP-Request: IP-Adresse des Endnutzers (Browser → CAPTCHA-Server), User-Agent, Referrer | captcha.repaircafe-bruchsal.de | **HOCH** — IP-Adresse wird an externen Service uebertragen (unvermeidlich bei HTTP-Requests) |
-| 2. CAPTCHA loesen | Interaktionsdaten (Klicks, Timing) | captcha.repaircafe-bruchsal.de | **MITTEL** — abhaengig von CAPTCHA-Typ |
+| 1. CAPTCHA-Widget laden | Script wird lokal aus `public/js/captcha.min.js` geladen (v1.0.6). **Kein externer HTTP-Request** beim Seitenaufruf. SRI-geschuetzt. | WordPress-Server (lokal) | **KEINE** — kein Datentransfer an Dritte beim Laden |
+| 2. CAPTCHA loesen | IP-Adresse des Endnutzers bei aktiver Interaktion mit dem Widget. Interaktionsdaten (Klicks, Timing). | captcha.repaircafe-bruchsal.de | **MITTEL** — IP-Uebertragung nur bei bewusster Nutzerinteraktion |
 | 3. Token generieren | CAPTCHA-Token | Browser (hidden input) | **NIEDRIG** — kein Personenbezug |
-| 4. Token verifizieren (Server-zu-Server) | NUR das Token (SEC-CAP-08). KEINE Endnutzer-IP, kein User-Agent. Die IP des WordPress-Servers wird infrastrukturbedingt uebertragen. | captcha.repaircafe-bruchsal.de | **NIEDRIG** — kein Endnutzer-Personenbezug im Verify-Request |
+| 4. Token verifizieren (Server-zu-Server) | NUR `verification_token` im Body. Bearer-Auth via `Authorization`-Header. KEINE Endnutzer-IP, kein User-Agent (SEC-CAP-08). | captcha.repaircafe-bruchsal.de | **NIEDRIG** — kein Endnutzer-Personenbezug im Verify-Request |
 
 ### 8.2 Bewertung
 
-> **[DPO-FINDING-10] WARNUNG — CAPTCHA-Service Datenschutz (Aktualisiert nach SEC v1.4):**
+> **[DPO-FINDING-10] GELOEST — CAPTCHA-Service Datenschutz (v1.0.6):**
 > 
-> **Geklaert (Server-zu-Server):** Die Token-Verifikation (Schritt 4) uebertraegt NUR das Token — keine Endnutzer-IP, keinen User-Agent (SEC-CAP-08). Die IP des WordPress-Servers ist infrastrukturbedingt, aber nicht personenbezogen bzgl. Endnutzer.
+> **Geloest in v1.0.6** durch drei Massnahmen:
 >
-> **Weiterhin offen (Client-seitig, Schritt 1-2):** Das CAPTCHA-Widget wird im Browser des Endnutzers geladen. Dabei wird die IP-Adresse des Endnutzers an den CAPTCHA-Server uebertragen (normaler HTTP-Request). Dies ist der datenschutzrechtlich relevante Punkt.
+> 1. **Lokales Script-Bundling (Task #223):** `captcha.min.js` (16.6 KB) wird lokal aus `public/js/captcha.min.js` geladen. Kein externer Script-Request beim Seitenaufruf — die IP des Endnutzers wird beim Laden der Seite NICHT an den CAPTCHA-Server uebertragen. SRI-Integritaet wird via Build-Script automatisch generiert (WPDSGVO_CAPTCHA_SRI).
 >
-> **Offene Fragen (muessen vor Release geklaert sein):**
-> 1. **Hosting-Standort:** Wo ist der CAPTCHA-Service gehostet? EU/EWR? Die Domain `.de` deutet auf Deutschland hin — muss aber verifiziert werden.
-> 2. **Client-seitige Datenverarbeitung:** Welche Daten verarbeitet das CAPTCHA-Widget im Browser? Cookies? LocalStorage? Tracking?
-> 3. **Speicherdauer:** Wie lange speichert der CAPTCHA-Service die IP-Adressen aus den Widget-Requests?
-> 4. **AVV-Pflicht:** Da die IP des Endnutzers an den CAPTCHA-Server uebertragen wird, ist ein AVV nach Art. 28 DSGVO erforderlich (bestaetigt durch legal-expert).
-> 5. **Datenschutzerklaerung:** Hat der CAPTCHA-Service eine Datenschutzerklaerung?
+> 2. **IP-Uebertragung nur bei aktiver Interaktion:** Die IP des Endnutzers wird erst bei der aktiven CAPTCHA-Loesung (Schritt 2-3) an den CAPTCHA-Server uebertragen. Dies ist datenschutzrechtlich akzeptabel, da der Nutzer durch die aktive Interaktion mit dem Widget eine Handlung vornimmt. HINWEIS: Plugin-Betreiber muessen den CAPTCHA-Service in ihrer Datenschutzerklaerung nennen.
 >
-> **Anforderungen:**
-> - Das Plugin MUSS in der Datenschutzerklaerungsvorlage auf den CAPTCHA-Service hinweisen (SEC-CAP-09).
-> - Das Plugin MUSS die CAPTCHA-Service-URL konfigurierbar machen (SEC-CAP-05).
-> - Plugin-Betreiber MUSS AVV mit CAPTCHA-Anbieter abschliessen (LEGAL-PRIVACY-02/03).
-> - Dokumentation des CAPTCHA-Services in der Plugin-Dokumentation.
+> 3. **Bearer-Token-Authentifizierung (Task #230):** Server-zu-Server-Verifikation (`POST /api/validate`) uebertraegt ausschliesslich `verification_token` im Request-Body. Keine Endnutzer-IP, kein User-Agent (SEC-CAP-08). Authentifizierung via `Authorization: Bearer <api_key>`. HTTPS erzwungen. 5-Sekunden-Timeout mit Fail-Closed.
+>
+> **Konfigurierbarkeit (Task #221):** CAPTCHA-Server-URL ist ueber Plugin-Einstellungen konfigurierbar. Bei externer URL wird das Script vom externen Server geladen (Fallback-Verhalten). **SOLL:** Hinweistext in SettingsPage ergaenzen, dass bei externer URL die IP des Endnutzers an den externen Server uebertragen wird.
+>
+> **Verbleibende Anforderungen an Plugin-Betreiber:**
+> - Plugin-Betreiber MUSS CAPTCHA-Service in Datenschutzerklaerung nennen (SEC-CAP-09).
+> - Plugin-Betreiber MUSS AVV mit CAPTCHA-Anbieter abschliessen, wenn externer Service genutzt wird (LEGAL-PRIVACY-02/03).
+> - Bei Nutzung eines externen CAPTCHA-Servers: Hosting-Standort pruefen (EU/EWR empfohlen).
 
 ### 8.3 Vergleich mit gaengigen CAPTCHA-Diensten
 
 | Kriterium | Google reCAPTCHA | hCaptcha | Eigener Service (repaircafe) |
 |-----------|-----------------|----------|------------------------------|
-| Datenuebertragung USA | Ja (problematisch) | Ja (aber Privacy-freundlicher) | Unklar (muss geprueft werden) |
-| Tracking/Profiling | Ja (Google-Oekosystem) | Minimal | Unklar |
-| AVV verfuegbar | Ja (Google DPA) | Ja | Unklar |
-| DSGVO-Konformitaet | Umstritten (mehrere Bussgelder) | Besser, aber nicht unproblematisch | Potenziell optimal, wenn EU-gehostet + kein Tracking |
+| Datenuebertragung USA | Ja (problematisch) | Ja (aber Privacy-freundlicher) | Nein — Script lokal gebundelt, IP nur bei aktiver Interaktion |
+| Tracking/Profiling | Ja (Google-Oekosystem) | Minimal | Kein Tracking durch lokales Bundling |
+| AVV verfuegbar | Ja (Google DPA) | Ja | Betreiber-Pflicht bei externem Server |
+| DSGVO-Konformitaet | Umstritten (mehrere Bussgelder) | Besser, aber nicht unproblematisch | Optimal: lokales Script, kein Tracking, EU-Server empfohlen |
 
 ---
 
@@ -539,7 +537,7 @@ Das Plugin unterstuetzt DSGVO-Konformitaet, aber die Verantwortung liegt beim Pl
 | DPO-FINDING-07 | EMPFEHLUNG | 7.3 | JSON als primaeres Export-Format fuer Datenportabilitaet | Offen |
 | DPO-FINDING-08 | WARNUNG | 7.4 | Berichtigungsrecht (Art. 16) nicht implementierbar | Offen |
 | DPO-FINDING-09 | WARNUNG | 7.5 | Einschraenkungsrecht (Art. 18) — is_restricted Flag | Geloest (v1.0.3 — DPO-BEDINGUNG-1 und -2 implementiert) |
-| DPO-FINDING-10 | WARNUNG | 8.2 | CAPTCHA-Service: Server-zu-Server geklaert (nur Token), Client-seitig noch offen | Teilweise geloest |
+| DPO-FINDING-10 | GELOEST | 8.2 | CAPTCHA lokal gebundelt (v1.0.6), IP nur bei aktiver Interaktion, Bearer-Auth | Geloest (v1.0.6 — lokales Bundling + Bearer-Auth) |
 | DPO-FINDING-11 | EMPFEHLUNG | 9.2 | Key-Rotation: KEK-Rotation via DEK-Re-Encryption (Incident-Response-Prozess) | Aktualisiert (v1.3) |
 | DPO-FINDING-12 | EMPFEHLUNG | 10.2 | DSFA-Hinweis fuer Plugin-Nutzer | Offen |
 | DPO-FINDING-13 | KRITISCH | 4.1a | Einwilligungstext-Uebersetzung: Fail-Closed bei fehlender Sprache, consent_locale | Geloest (v1.0.3 — FormBlock Fail-Closed + consent_locale implementiert) |
@@ -558,7 +556,6 @@ Das Plugin unterstuetzt DSGVO-Konformitaet, aber die Verantwortung liegt beim Pl
 **Vor Release SOLLEN umgesetzt sein (WARNUNG):**
 3. DPO-FINDING-02 — Art. 9-Hinweis
 4. DPO-FINDING-08 — Berichtigungsrecht (mindestens Workaround)
-5. DPO-FINDING-10 — CAPTCHA Client-seitige Datenschutz-Klaerung
 
 **Empfohlen (MITTEL/NIEDRIG/EMPFEHLUNG):**
 6. DPO-FINDING-16 — role_justification auch fuer Reader
@@ -577,7 +574,7 @@ Das Plugin unterstuetzt DSGVO-Konformitaet, aber die Verantwortung liegt beim Pl
 - **DPO-FINDING-05:** Aktualisiert (v1.3): Per-Form Crypto-Erasure durch DEK-Loeschung moeglich (Envelope Encryption). KEK-Loeschung als Deinstallations-Absicherung.
 - **DPO-FINDING-06:** HMAC-SHA256 Lookup Hash (email_lookup_hash) in KeyManager::calculate_lookup_hash() implementiert. Separater HMAC-Key via derive_hmac_key() (kein Key-Reuse).
 - **DPO-FINDING-09:** is_restricted Flag implementiert. DPO-BEDINGUNG-1: Eingeschraenkte Submissions werden fuer Reader NICHT entschluesselt (SubmissionDetailView). DPO-BEDINGUNG-2: Nur Supervisor/Admin kann Einschraenkung aufheben (SubmissionViewPage).
-- **DPO-FINDING-10 (teilweise):** CAPTCHA Server-zu-Server-Verifikation uebertraegt nur Token, keine Endnutzer-IP (SEC-CAP-08). HTTPS erzwungen. Fail-closed bei Timeout. Client-seitige Aspekte noch offen.
+- **DPO-FINDING-10 (geloest v1.0.6):** CAPTCHA-Script lokal gebundelt (`public/js/captcha.min.js`, 16.6 KB). Kein externer Script-Request beim Seitenaufruf. IP nur bei aktiver CAPTCHA-Interaktion uebertragen. Server-zu-Server-Verifikation mit Bearer-Auth, nur `verification_token` im Body (SEC-CAP-08). SRI automatisch generiert.
 - **DPO-FINDING-11:** Aktualisiert (v1.3): KEK-Rotation erfordert nur DEK-Re-Encryption, nicht Full-Re-Encryption aller Submissions.
 - **DPO-FINDING-13:** FormBlock::render() erzwingt Fail-Closed bei fehlender ConsentVersion fuer aktuelle Locale. consent_locale + consent_version_id werden in Submission gespeichert. ABER: Race-Condition entdeckt (→ DPO-FINDING-14).
 
@@ -593,3 +590,4 @@ Das Plugin unterstuetzt DSGVO-Konformitaet, aber die Verantwortung liegt beim Pl
 | 1.3 | 2026-04-17 | Architektur-Abgleich: Aktualisiert auf Envelope Encryption (KEK→DEK) gemaess ARCHITECTURE.md §3.2 und implementiertem Code (KeyManager.php, EncryptionService.php). DPO-FINDING-05 (Crypto-Erasure per Form moeglich), DPO-FINDING-11 (KEK-Rotation statt Full-Re-Encryption), BREACH-02, TOM-T02 (IP-Hash entfernt), TOM-T06 (Rate-Limiting → Honeypot) aktualisiert. DPO-Code-Review durchgefuehrt. |
 | 1.4 | 2026-04-17 | i18n/Mehrsprachigkeit: CONSENT-I18N-01 bis 05 (Sprachkongruenz, Fail-Closed, sprachspezifische Versionierung, Locale in Submission, sprachspezifischer Datenschutzerklaerung-Link). DPO-FINDING-13 (KRITISCH) und DPO-FINDING-04 erweitert. Konstantenname korrigiert auf DSGVO_FORM_ENCRYPTION_KEY. |
 | 1.5 | 2026-04-17 | **Vollstaendiges DPO-Review nach v1.0.3 Build.** Alle 35+ PHP-Dateien und Frontend-JS analysiert. 5 neue Findings: DPO-FINDING-14 (HOCH, Consent Race Condition), DPO-FINDING-15 (HOCH, Locale Client-seitig), DPO-FINDING-16 (MITTEL, role_justification), DPO-FINDING-17 (MITTEL, Audit Dedup), DPO-FINDING-18 (NIEDRIG, Settings UX). Status-Updates: DPO-FINDING-01/03/04/06/09/13 als geloest/teilweise geloest markiert. Neue Release-Blocker: DPO-FINDING-14 + 15 (Art. 7 Abs. 1). |
+| 1.6 | 2026-04-17 | **DPO-FINDING-10 vollstaendig geloest (v1.0.6).** CAPTCHA-Script lokal gebundelt (public/js/captcha.min.js, 16.6 KB), kein externer HTTP-Request beim Seitenaufruf. IP nur bei aktiver CAPTCHA-Interaktion uebertragen. Bearer-Token-Authentifizierung bei Server-zu-Server-Verifikation. Datenfluss-Tabelle §8.1 aktualisiert. Vergleichstabelle §8.3 aktualisiert. |

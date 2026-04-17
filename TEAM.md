@@ -78,7 +78,8 @@ Experts beraten den Architekten und informieren den Project Lead über ihre Find
 
 - Implementieren auf Basis der freigegebenen Architektur
 - Holen vor Fertigstellung ein Peer-Review ein
-- **Informieren nach jeder Produktivcode-Änderung einen Tester** — project-lead koordiniert die Zuweisung
+- **Schließen ihren Task nach Peer-Review ab** (+ kein Security-Veto) — warten **nicht** auf den Tester
+- **Informieren nach jeder Produktivcode-Änderung einen Tester** — project-lead koordiniert die Zuweisung; Tester arbeitet asynchron
 - Datenschutzrelevanter Code muss von `dpo` oder `security-expert` abgenommen werden
 
 **Peer-Review-Zuweisung (durch project-lead):** Freie Developer übernehmen Review-Tasks zuerst. Nur wenn alle beschäftigt sind, wird der Ring angewendet: `developer-1` → `developer-2` → `developer-3` → `developer-4` → `developer-1`
@@ -112,6 +113,7 @@ Experts beraten den Architekten und informieren den Project Lead über ihre Find
 - Richtet Linting- und Test-Runner-Konfiguration ein (koordiniert mit `quality-expert`)
 - Stellt sicher dass keine personenbezogenen Daten in Build-Logs landen
 - Wartet auf Architektur-Freigabe bevor er mit der Arbeit beginnt
+- **Darf Git-Commits und Tags eigenständig pushen** — keine Einzelgenehmigung pro Push nötig
 
 ### Status Board
 **Agent:** `status-board`

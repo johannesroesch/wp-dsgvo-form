@@ -17,19 +17,30 @@ WordPress-Plugin für DSGVO-konforme Formulare mit verschlüsselter Datenspeiche
 
 Service: `https://captcha.repaircafe-bruchsal.de`
 
+**3-Schritt-Flow:**
+
+1. **Widget → `/api/challenge`** — Challenge anfordern (PoW oder Textfrage)
+2. **Widget → `/api/verify`** — Lösung einreichen, erhält `verification_token`
+3. **Backend → `/api/validate`** — Server-to-Server Token-Validierung
+
 **Frontend:**
 ```html
 <script src="https://captcha.repaircafe-bruchsal.de/captcha.js"></script>
 <captcha-widget form-id="contact" server-url="https://captcha.repaircafe-bruchsal.de" lang="de" theme="auto"></captcha-widget>
 ```
-Das Widget befüllt automatisch ein `<input type="hidden" name="captcha_token">`.
+Das Widget erledigt Schritte 1+2 automatisch und befüllt ein `<input type="hidden" name="captcha_token">` mit dem `verification_token`.
 
-**Backend-Validierung:**
+**Backend-Validierung (Schritt 3 — Server-to-Server):**
 ```
-POST https://captcha.repaircafe-bruchsal.de/api/verify
-Body: { token: <captcha_token from POST> }
-Response: { valid: bool, verification_token: string }
+POST https://captcha.repaircafe-bruchsal.de/api/validate
+Headers: Content-Type: application/json
+         Authorization: Bearer <api_key>
+Body: { "verification_token": "<captcha_token from POST>" }
+Response (200): { "valid": true, "form_id": "contact", "solved_at": "...", "stage_completed": 0 }
+Response (422): { "valid": false, "error": "token expired" }
+Response (401): { "error": "missing_api_key" }
 ```
+API-Key wird in Plugin-Einstellungen als "Secret Key" konfiguriert (`wpdsgvo_captcha_secret`).
 Immer server-seitig validieren — nie nur auf Client-seitiges Token vertrauen.
 
 **Hinweis:** DSGVO-Konformität des CAPTCHA-Service wird durch den DPO geprüft.
@@ -98,7 +109,8 @@ Das Plugin registriert zwei Custom Roles (WP-typische Syntax: Plugin-Slug als Pr
 ## Review-Pflichten
 
 - **Peer-Review:** Jede Produktivcode-Änderung braucht Review durch einen anderen Entwickler. Zuweisung durch project-lead: freie Developer zuerst; nur wenn alle beschäftigt sind, wird der Ring (dev-1→2→3→4→1) angewendet.
-- **Tester informieren:** Nach **jeder** Produktivcode-Änderung muss ein Tester informiert werden, damit er die entsprechenden Tests nachziehen kann. Koordination über project-lead.
+- **Task-Abschluss:** Ein Developer schließt seinen Task ab sobald Peer-Review approved ist (und kein Security-Veto vorliegt). Er wartet **nicht** auf den Tester — der Tester testet asynchron danach.
+- **Tester informieren:** Nach **jeder** Produktivcode-Änderung wird ein Tester informiert, damit er die entsprechenden Tests nachziehen kann. Koordination über project-lead. Der Tester arbeitet parallel/asynchron — er blockiert nicht den Developer.
 - **Architekt & Experts informieren:** Über alle Änderungen müssen `architect` und alle Experts informiert werden. Sie können ihre Findings über `project-lead` in den Backlog einkippen.
 - **Security-Veto:** Nur `security-expert` darf ein hartes Veto erteilen — entweder verbietet es die Änderung oder erzwingt einen unmittelbaren Fix. Ein Security-Veto ist ein Release-Blocker.
 - **Expert-Review nach Build:** Nach jedem Build führen alle Experts + architect ein vollständiges Review des gesamten Projekts durch.
@@ -132,7 +144,7 @@ Das Plugin registriert zwei Custom Roles (WP-typische Syntax: Plugin-Slug als Pr
 | DPO | `dpo` | DSGVO-Konformität, Privacy-by-Design, Verarbeitungsverzeichnis, CAPTCHA-Bewertung |
 | Developer 1–4 | `developer-1` bis `developer-4` | Implementierung (nur sie dürfen Produktivcode ändern) |
 | Tester 1–3 | `tester-1` bis `tester-3` | Tests (nur sie dürfen Tests bearbeiten); Aufteilung: tester-1 Admin-UI/Gutenberg, tester-2 Crypto/CAPTCHA, tester-3 Empfänger/Integration |
-| DevOps Engineer | `devops-engineer` | Infrastruktur (nur er darf composer.json, package.json etc. bearbeiten) — **nur er darf Builds erzeugen** (`npm run build`, `composer install` etc.) |
+| DevOps Engineer | `devops-engineer` | Infrastruktur (nur er darf composer.json, package.json etc. bearbeiten) — **nur er darf Builds erzeugen** (`npm run build`, `composer install` etc.) — **darf Commits und Tags eigenständig pushen** |
 | Status Board | `status-board` | Zeigt Kanban-Board aller offenen Tasks — wird von `project-lead` bei jeder Status-Änderung unverzüglich informiert |
 
 **Schreibrechte:** Entwickler → Produktivcode · Tester → Tests · DevOps → Infrastruktur-Dateien
