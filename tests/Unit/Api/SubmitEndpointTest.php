@@ -19,6 +19,7 @@ namespace WpDsgvoForm\Tests\Unit\Api;
 use WpDsgvoForm\Api\SubmitEndpoint;
 use WpDsgvoForm\Captcha\CaptchaVerifier;
 use WpDsgvoForm\Encryption\EncryptionService;
+use WpDsgvoForm\Models\ConsentVersion;
 use WpDsgvoForm\Models\Field;
 use WpDsgvoForm\Models\Form;
 use WpDsgvoForm\Models\Submission;
@@ -809,5 +810,136 @@ class SubmitEndpointTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_REST_Response::class, $result );
 		$this->assertSame( 201, $result->get_status() );
+	}
+
+	// ──────────────────────────────────────────────────
+	// Task #211: ARCH-v104-02 — Locale whitelist (single source of truth)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * @privacy-relevant ARCH-v104-02 — Unsupported locale rejected via SUPPORTED_LOCALES whitelist
+	 */
+	public function test_returns_422_for_unsupported_consent_locale(): void {
+		$this->encryption->shouldReceive( 'is_available' )->andReturn( true );
+
+		$form = $this->make_form( [ 'legal_basis' => 'consent' ] );
+		Functions\when( 'get_transient' )->justReturn( $form );
+		Functions\when( 'wp_verify_nonce' )->justReturn( true );
+
+		$request = $this->make_request( [
+			'form_id'        => 1,
+			'_wpnonce'       => 'valid',
+			'consent_given'  => true,
+			'consent_locale' => 'pt_BR', // Valid xx_XX format but not in SUPPORTED_LOCALES.
+		] );
+		$result = $this->endpoint->handle_submission( $request );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'consent_locale_unsupported', $result->get_error_code() );
+		$error_data = $result->get_error_data();
+		$this->assertSame( 422, $error_data['status'] ?? null );
+	}
+
+	/**
+	 * @test
+	 * @privacy-relevant ARCH-v104-02 — verify_consent uses ConsentVersion::SUPPORTED_LOCALES
+	 *                   as single source of truth via apply_filters.
+	 */
+	public function test_consent_locale_validated_against_consent_version_supported_locales(): void {
+		$this->encryption->shouldReceive( 'is_available' )->andReturn( true );
+
+		$form = $this->make_form( [ 'legal_basis' => 'consent' ] );
+		Functions\when( 'get_transient' )->justReturn( $form );
+		Functions\when( 'wp_verify_nonce' )->justReturn( true );
+
+		// All six SUPPORTED_LOCALES must be accepted (format-valid + in whitelist).
+		foreach ( array_keys( ConsentVersion::SUPPORTED_LOCALES ) as $locale ) {
+			$request = $this->make_request( [
+				'form_id'        => 1,
+				'_wpnonce'       => 'valid',
+				'consent_given'  => true,
+				'consent_locale' => $locale,
+			] );
+			$result = $this->endpoint->handle_submission( $request );
+
+			// Should NOT be consent_locale_unsupported — may fail later for other reasons
+			// (e.g. missing consent_version_id) but locale itself must pass.
+			if ( $result instanceof \WP_Error ) {
+				$this->assertNotSame(
+					'consent_locale_unsupported',
+					$result->get_error_code(),
+					"Locale '{$locale}' from SUPPORTED_LOCALES should be accepted."
+				);
+			}
+		}
+	}
+
+	// ──────────────────────────────────────────────────
+	// Task #210: ARCH-v104-03 — Defense-in-depth: build_submission
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * @privacy-relevant ARCH-v104-03 — Contract basis stores NO consent metadata in submission.
+	 */
+	public function test_contract_basis_stores_no_consent_metadata_in_submission(): void {
+		$form = $this->make_form( [ 'legal_basis' => 'contract' ] );
+
+		Functions\when( 'get_transient' )->justReturn( $form );
+		Functions\when( 'wp_verify_nonce' )->justReturn( true );
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 12:00:00' );
+		Functions\when( 'is_email' )->justReturn( false );
+
+		$this->captcha->shouldReceive( 'is_enabled_for_form' )->andReturn( false );
+
+		$wpdb = $GLOBALS['wpdb'];
+		$wpdb->shouldReceive( 'get_results' )->andReturn( [] );
+
+		$this->validator->shouldReceive( 'validate' )->andReturn( [
+			'sanitized' => [ 'name' => 'Test' ],
+			'errors'    => [],
+		] );
+
+		$this->encryption->shouldReceive( 'is_available' )->andReturn( true );
+		$this->encryption->shouldReceive( 'encrypt_submission' )->andReturn( [
+			'encrypted_data' => 'enc-data',
+			'iv'             => 'enc-iv',
+			'auth_tag'       => 'enc-tag',
+		] );
+		$this->encryption->shouldReceive( 'calculate_email_lookup_hash' )->andReturn( null );
+
+		// Capture insert data to verify no consent metadata.
+		$captured_data = null;
+		$wpdb->insert_id = 42;
+		$wpdb->shouldReceive( 'insert' )->andReturnUsing(
+			function ( string $table, array $data ) use ( &$captured_data ) {
+				if ( str_contains( $table, 'submissions' ) ) {
+					$captured_data = $data;
+				}
+				return 1;
+			}
+		);
+		$wpdb->shouldReceive( 'query' )->andReturn( true );
+
+		$this->notification->shouldReceive( 'notify' )->once();
+
+		$request = $this->make_request( [
+			'form_id'  => 1,
+			'_wpnonce' => 'valid',
+			'fields'   => [ 'name' => 'Test' ],
+		] );
+		$result = $this->endpoint->handle_submission( $request );
+
+		$this->assertInstanceOf( \WP_REST_Response::class, $result );
+		$this->assertSame( 201, $result->get_status() );
+		$this->assertNotNull( $captured_data, 'Submission insert data must be captured.' );
+
+		// ARCH-v104-03: Defense-in-depth — no consent metadata for contract basis.
+		// Submission::to_db_array() only includes these keys when non-null.
+		$this->assertArrayNotHasKey( 'consent_text_version', $captured_data );
+		$this->assertArrayNotHasKey( 'consent_version_id', $captured_data );
+		$this->assertArrayNotHasKey( 'consent_timestamp', $captured_data );
+		$this->assertArrayNotHasKey( 'consent_locale', $captured_data );
 	}
 }

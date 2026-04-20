@@ -30,7 +30,6 @@ use WpDsgvoForm\Models\Submission;
  */
 class SubmissionListView {
 
-	private const TEXT_DOMAIN = 'wp-dsgvo-form';
 	private const PER_PAGE   = 20;
 
 	private AccessControl $access_control;
@@ -57,7 +56,7 @@ class SubmissionListView {
 
 		// Filter parameters from GET.
 		$filter_form_id = absint( $_GET['form_id'] ?? 0 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$filter_status  = sanitize_text_field( $_GET['status'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$filter_status  = sanitize_text_field( wp_unslash( $_GET['status'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$current_page   = max( 1, absint( $_GET['paged'] ?? 1 ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		// Verify form access for filter.
@@ -167,7 +166,7 @@ class SubmissionListView {
 			<form method="get" action="<?php echo esc_url( $base_url ); ?>" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
 				<?php if ( count( $forms ) > 1 ) : ?>
 					<select name="form_id" style="padding:0.4rem 0.6rem;border:1px solid #ccc;border-radius:4px;">
-						<option value="0"><?php esc_html_e( 'Alle Formulare', self::TEXT_DOMAIN ); ?></option>
+						<option value="0"><?php esc_html_e( 'Alle Formulare', 'wp-dsgvo-form' ); ?></option>
 						<?php foreach ( $forms as $form ) : ?>
 							<option value="<?php echo esc_attr( (string) $form->id ); ?>"
 								<?php selected( $active_form_id, $form->id ); ?>>
@@ -178,22 +177,22 @@ class SubmissionListView {
 				<?php endif; ?>
 
 				<select name="status" style="padding:0.4rem 0.6rem;border:1px solid #ccc;border-radius:4px;">
-					<option value=""><?php esc_html_e( 'Alle Status', self::TEXT_DOMAIN ); ?></option>
+					<option value=""><?php esc_html_e( 'Alle Status', 'wp-dsgvo-form' ); ?></option>
 					<option value="new" <?php selected( $active_status, 'new' ); ?>>
-						<?php esc_html_e( 'Neu', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Neu', 'wp-dsgvo-form' ); ?>
 					</option>
 					<option value="read" <?php selected( $active_status, 'read' ); ?>>
-						<?php esc_html_e( 'Gelesen', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Gelesen', 'wp-dsgvo-form' ); ?>
 					</option>
 				</select>
 
 				<button type="submit" style="padding:0.4rem 1rem;background:#2271b1;color:#fff;border:none;border-radius:4px;cursor:pointer;">
-					<?php esc_html_e( 'Filtern', self::TEXT_DOMAIN ); ?>
+					<?php esc_html_e( 'Filtern', 'wp-dsgvo-form' ); ?>
 				</button>
 
 				<?php if ( $active_form_id > 0 || $active_status !== '' ) : ?>
 					<a href="<?php echo esc_url( $base_url ); ?>" style="padding:0.4rem 0.6rem;color:#666;text-decoration:none;">
-						<?php esc_html_e( 'Filter zuruecksetzen', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Filter zuruecksetzen', 'wp-dsgvo-form' ); ?>
 					</a>
 				<?php endif; ?>
 			</form>
@@ -211,7 +210,7 @@ class SubmissionListView {
 		if ( empty( $submissions ) ) {
 			?>
 			<div style="padding:2rem;text-align:center;color:#666;background:#f9f9f9;border-radius:4px;">
-				<?php esc_html_e( 'Keine Einsendungen gefunden.', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'Keine Einsendungen gefunden.', 'wp-dsgvo-form' ); ?>
 			</div>
 			<?php
 			return;
@@ -222,19 +221,19 @@ class SubmissionListView {
 			<thead>
 				<tr style="background:#f5f5f5;border-bottom:2px solid #ddd;">
 					<th style="padding:0.75rem 1rem;text-align:left;font-weight:600;">
-						<?php esc_html_e( '#', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( '#', 'wp-dsgvo-form' ); ?>
 					</th>
 					<th style="padding:0.75rem 1rem;text-align:left;font-weight:600;">
-						<?php esc_html_e( 'Formular', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Formular', 'wp-dsgvo-form' ); ?>
 					</th>
 					<th style="padding:0.75rem 1rem;text-align:left;font-weight:600;">
-						<?php esc_html_e( 'Eingegangen', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Eingegangen', 'wp-dsgvo-form' ); ?>
 					</th>
 					<th style="padding:0.75rem 1rem;text-align:left;font-weight:600;">
-						<?php esc_html_e( 'Status', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Status', 'wp-dsgvo-form' ); ?>
 					</th>
 					<th style="padding:0.75rem 1rem;text-align:left;font-weight:600;">
-						<?php esc_html_e( 'Aktion', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Aktion', 'wp-dsgvo-form' ); ?>
 					</th>
 				</tr>
 			</thead>
@@ -269,7 +268,7 @@ class SubmissionListView {
 						<td style="<?php echo esc_attr( $row_style ); ?>">
 							<a href="<?php echo esc_url( RecipientPage::get_view_url( $submission->id ) ); ?>"
 								style="color:#2271b1;text-decoration:none;">
-								<?php esc_html_e( 'Anzeigen', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'Anzeigen', 'wp-dsgvo-form' ); ?>
 							</a>
 						</td>
 					</tr>
@@ -287,14 +286,14 @@ class SubmissionListView {
 	 */
 	private function get_status_label( Submission $submission ): string {
 		if ( $submission->is_restricted ) {
-			return __( 'Gesperrt (Art. 18)', self::TEXT_DOMAIN );
+			return __( 'Gesperrt (Art. 18)', 'wp-dsgvo-form' );
 		}
 
 		if ( ! $submission->is_read ) {
-			return __( 'Neu', self::TEXT_DOMAIN );
+			return __( 'Neu', 'wp-dsgvo-form' );
 		}
 
-		return __( 'Gelesen', self::TEXT_DOMAIN );
+		return __( 'Gelesen', 'wp-dsgvo-form' );
 	}
 
 	/**
@@ -311,7 +310,7 @@ class SubmissionListView {
 				<?php
 				printf(
 					/* translators: %d: number of submissions */
-					esc_html( _n( '%d Einsendung', '%d Einsendungen', $total_count, self::TEXT_DOMAIN ) ),
+					esc_html( _n( '%d Einsendung', '%d Einsendungen', $total_count, 'wp-dsgvo-form' ) ),
 					(int) $total_count
 				);
 				?>
@@ -328,7 +327,7 @@ class SubmissionListView {
 			$query_args['form_id'] = absint( $_GET['form_id'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		}
 		if ( ! empty( $_GET['status'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			$query_args['status'] = sanitize_text_field( $_GET['status'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$query_args['status'] = sanitize_text_field( wp_unslash( $_GET['status'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		}
 
 		?>
@@ -337,7 +336,7 @@ class SubmissionListView {
 				<?php
 				printf(
 					/* translators: 1: current page, 2: total pages, 3: total submissions */
-					esc_html__( 'Seite %1$d von %2$d (%3$d Einsendungen)', self::TEXT_DOMAIN ),
+					esc_html__( 'Seite %1$d von %2$d (%3$d Einsendungen)', 'wp-dsgvo-form' ),
 					(int) $current_page,
 					(int) $total_pages,
 					(int) $total_count
@@ -348,14 +347,14 @@ class SubmissionListView {
 				<?php if ( $current_page > 1 ) : ?>
 					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, [ 'paged' => $current_page - 1 ] ), $base_url ) ); ?>"
 						style="padding:0.4rem 0.8rem;border:1px solid #ccc;border-radius:4px;text-decoration:none;color:#333;">
-						&laquo; <?php esc_html_e( 'Zurueck', self::TEXT_DOMAIN ); ?>
+						&laquo; <?php esc_html_e( 'Zurueck', 'wp-dsgvo-form' ); ?>
 					</a>
 				<?php endif; ?>
 
 				<?php if ( $current_page < $total_pages ) : ?>
 					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, [ 'paged' => $current_page + 1 ] ), $base_url ) ); ?>"
 						style="padding:0.4rem 0.8rem;border:1px solid #ccc;border-radius:4px;text-decoration:none;color:#333;">
-						<?php esc_html_e( 'Weiter', self::TEXT_DOMAIN ); ?> &raquo;
+						<?php esc_html_e( 'Weiter', 'wp-dsgvo-form' ); ?> &raquo;
 					</a>
 				<?php endif; ?>
 			</div>

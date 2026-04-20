@@ -426,7 +426,7 @@ class SubmissionViewPage {
 	 * @return void
 	 */
 	private function handle_actions( int $submission_id ): void {
-		$action = sanitize_text_field( $_GET['do'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$action = sanitize_text_field( wp_unslash( $_GET['do'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( '' === $action ) {
 			return;
@@ -539,7 +539,7 @@ class SubmissionViewPage {
 		$audit_logger->log( $current_user, 'export', $submission_id, $submission->form_id );
 
 		// Determine format.
-		$format = sanitize_text_field( $_GET['format'] ?? 'json' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$format = sanitize_text_field( wp_unslash( $_GET['format'] ?? 'json' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( 'csv' === $format ) {
 			$this->send_csv_download( $export_data, $submission_id );
@@ -622,7 +622,7 @@ class SubmissionViewPage {
 		$output = fopen( 'php://output', 'w' );
 
 		// BOM for Excel UTF-8 detection.
-		fwrite( $output, "\xEF\xBB\xBF" );
+		echo "\xEF\xBB\xBF";
 
 		// Header row.
 		fputcsv( $output, [ 'Feld', 'Wert' ] );
@@ -639,7 +639,7 @@ class SubmissionViewPage {
 			fputcsv( $output, [ $label, (string) $value ] );
 		}
 
-		fclose( $output );
+		fclose( $output ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- php://output stream, not filesystem
 		exit;
 	}
 }

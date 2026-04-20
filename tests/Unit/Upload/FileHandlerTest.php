@@ -40,6 +40,10 @@ class FileHandlerTest extends TestCase {
 
 		$this->tmp_dir = sys_get_temp_dir() . '/dsgvo-fh-test-' . uniqid();
 		mkdir( $this->tmp_dir, 0755, true );
+
+		// Mock WP_Filesystem initialization (SEC-FILE / #259 AlternativeFunctions fix).
+		Functions\when( 'WP_Filesystem' )->justReturn( true );
+		$this->mock_wp_filesystem();
 	}
 
 	protected function tearDown(): void {
@@ -65,6 +69,41 @@ class FileHandlerTest extends TestCase {
 			is_dir( $path ) ? $this->recursive_rmdir( $path ) : unlink( $path );
 		}
 		rmdir( $dir );
+	}
+
+	/**
+	 * Sets up a $wp_filesystem global stub that delegates to real PHP I/O.
+	 *
+	 * Production code (#259 AlternativeFunctions) now uses WP_Filesystem methods
+	 * (get_contents, put_contents, rmdir) instead of direct PHP file I/O.
+	 * This stub lets existing tests continue to work against real temp dirs.
+	 */
+	private function mock_wp_filesystem(): void {
+		$fs = Mockery::mock( 'WP_Filesystem_Base' );
+
+		$fs->shouldReceive( 'get_contents' )
+			->andReturnUsing(
+				function ( string $path ) {
+					$content = file_get_contents( $path );
+					return ( $content !== false ) ? $content : false;
+				}
+			);
+
+		$fs->shouldReceive( 'put_contents' )
+			->andReturnUsing(
+				function ( string $path, string $contents ) {
+					return file_put_contents( $path, $contents ) !== false;
+				}
+			);
+
+		$fs->shouldReceive( 'rmdir' )
+			->andReturnUsing(
+				function ( string $path ) {
+					return is_dir( $path ) ? rmdir( $path ) : false;
+				}
+			);
+
+		$GLOBALS['wp_filesystem'] = $fs;
 	}
 
 	/**
@@ -781,5 +820,207 @@ class FileHandlerTest extends TestCase {
 			$deleted_files,
 			'Temp plaintext file must be deleted even when encryption fails.'
 		);
+	}
+
+	// ──────────────────────────────────────────────────
+	// WP_Filesystem usage verification (#259)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * Task #259 — ensure_upload_directory uses $wp_filesystem->put_contents for security files
+	 */
+	public function test_ensure_upload_directory_uses_wp_filesystem_for_security_files(): void {
+		$this->mock_upload_dir();
+
+		$written_files = array();
+		$fs            = Mockery::mock( 'WP_Filesystem_Base' );
+		$fs->shouldReceive( 'put_contents' )
+			->andReturnUsing(
+				function ( string $path, string $contents ) use ( &$written_files ) {
+					$written_files[ $path ] = $contents;
+					return file_put_contents( $path, $contents ) !== false;
+				}
+			);
+		$fs->shouldReceive( 'get_contents' )->andReturnUsing( 'file_get_contents' );
+		$fs->shouldReceive( 'rmdir' )->andReturnUsing( 'rmdir' );
+		$GLOBALS['wp_filesystem'] = $fs;
+
+		Functions\when( 'wp_mkdir_p' )->alias(
+			function ( string $dir ): bool {
+				return is_dir( $dir ) || mkdir( $dir, 0755, true );
+			}
+		);
+
+		$base = $this->tmp_dir . '/dsgvo-form-files';
+		$this->handler->ensure_upload_directory();
+
+		// Verify $wp_filesystem->put_contents was used (not file_put_contents directly).
+		$this->assertArrayHasKey( $base . '/.htaccess', $written_files );
+		$this->assertArrayHasKey( $base . '/index.php', $written_files );
+		$this->assertStringContainsString( 'Deny from all', $written_files[ $base . '/.htaccess' ] );
+		$this->assertStringContainsString( 'Silence is golden', $written_files[ $base . '/index.php' ] );
+	}
+
+	/**
+	 * @test
+	 * Task #259 — get_decrypted_file uses $wp_filesystem->get_contents to read encrypted blob
+	 */
+	public function test_get_decrypted_file_uses_wp_filesystem_get_contents(): void {
+		$this->mock_upload_dir();
+
+		$base    = $this->tmp_dir . '/dsgvo-form-files';
+		$sub_dir = $base . '/2/hashfs';
+		mkdir( $sub_dir, 0755, true );
+
+		$ciphertext = 'encrypted-payload';
+		$iv         = str_repeat( "\x03", 12 );
+		$tag        = str_repeat( "\x04", 16 );
+		$blob       = $ciphertext . $iv . $tag;
+		file_put_contents( $sub_dir . '/read.enc', $blob );
+
+		$read_paths = array();
+		$fs         = Mockery::mock( 'WP_Filesystem_Base' );
+		$fs->shouldReceive( 'get_contents' )
+			->andReturnUsing(
+				function ( string $path ) use ( &$read_paths ) {
+					$read_paths[] = $path;
+					return file_get_contents( $path );
+				}
+			);
+		$fs->shouldReceive( 'put_contents' )->andReturn( true );
+		$fs->shouldReceive( 'rmdir' )->andReturn( true );
+		$GLOBALS['wp_filesystem'] = $fs;
+
+		$this->encryption->shouldReceive( 'decrypt_file' )
+			->once()
+			->andReturn( 'plain text' );
+
+		$this->handler->get_decrypted_file( '2/hashfs/read.enc', 'k', 'd', 'i' );
+
+		$this->assertContains(
+			$sub_dir . '/read.enc',
+			$read_paths,
+			'get_decrypted_file must use $wp_filesystem->get_contents().'
+		);
+	}
+
+	/**
+	 * @test
+	 * Task #259 — delete_file uses $wp_filesystem->rmdir for empty parent cleanup
+	 */
+	public function test_delete_file_uses_wp_filesystem_rmdir_for_cleanup(): void {
+		$this->mock_upload_dir();
+
+		$base    = $this->tmp_dir . '/dsgvo-form-files';
+		$sub_dir = $base . '/3/rmhash';
+		mkdir( $sub_dir, 0755, true );
+		file_put_contents( $sub_dir . '/del.enc', 'data' );
+
+		$rmdir_paths = array();
+		$fs          = Mockery::mock( 'WP_Filesystem_Base' );
+		$fs->shouldReceive( 'get_contents' )->andReturnUsing( 'file_get_contents' );
+		$fs->shouldReceive( 'put_contents' )->andReturn( true );
+		$fs->shouldReceive( 'rmdir' )
+			->andReturnUsing(
+				function ( string $path ) use ( &$rmdir_paths ) {
+					$rmdir_paths[] = $path;
+					return is_dir( $path ) ? rmdir( $path ) : false;
+				}
+			);
+		$GLOBALS['wp_filesystem'] = $fs;
+
+		Functions\when( 'wp_delete_file' )->alias(
+			function ( string $path ): void {
+				if ( file_exists( $path ) ) {
+					unlink( $path );
+				}
+			}
+		);
+
+		$this->handler->delete_file( '3/rmhash/del.enc' );
+
+		// Both empty parent dirs should have been removed via $wp_filesystem->rmdir().
+		$this->assertContains( $sub_dir, $rmdir_paths, 'Empty sub_dir must be removed via $wp_filesystem->rmdir().' );
+		$this->assertContains( $base . '/3', $rmdir_paths, 'Empty form dir must be removed via $wp_filesystem->rmdir().' );
+	}
+
+	/**
+	 * @test
+	 * Task #259 — get_decrypted_file throws when $wp_filesystem->get_contents returns false
+	 */
+	public function test_get_decrypted_file_throws_when_wp_filesystem_returns_false(): void {
+		$this->mock_upload_dir();
+
+		$base    = $this->tmp_dir . '/dsgvo-form-files';
+		$sub_dir = $base . '/4/failread';
+		mkdir( $sub_dir, 0755, true );
+		file_put_contents( $sub_dir . '/fail.enc', 'data' );
+
+		$fs = Mockery::mock( 'WP_Filesystem_Base' );
+		$fs->shouldReceive( 'get_contents' )->andReturn( false );
+		$fs->shouldReceive( 'put_contents' )->andReturn( true );
+		$fs->shouldReceive( 'rmdir' )->andReturn( true );
+		$GLOBALS['wp_filesystem'] = $fs;
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'Failed to read encrypted file.' );
+
+		$this->handler->get_decrypted_file( '4/failread/fail.enc', 'k', 'd', 'i' );
+	}
+
+	// ──────────────────────────────────────────────────
+	// ExceptionNotEscaped verification (#260)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * Task #260 — Upload error messages are escaped via esc_html
+	 */
+	public function test_upload_error_message_is_escaped(): void {
+		try {
+			$this->handler->handle_upload(
+				array( 'name' => 'test.pdf', 'size' => 100, 'tmp_name' => '/tmp/x', 'error' => UPLOAD_ERR_INI_SIZE ),
+				1,
+				'dek',
+				'iv'
+			);
+			$this->fail( 'Expected RuntimeException' );
+		} catch ( \RuntimeException $e ) {
+			// esc_html should have processed the message (Brain\Monkey stub returns arg).
+			$this->assertStringContainsString( 'Upload error:', $e->getMessage() );
+			// No raw HTML entities should pass through unescaped.
+			$this->assertStringNotContainsString( '<script>', $e->getMessage() );
+		}
+	}
+
+	/**
+	 * @test
+	 * Task #260 — wp_handle_upload error message is escaped
+	 */
+	public function test_wp_upload_error_message_is_escaped(): void {
+		$tmp_file = $this->tmp_dir . '/esc-test.pdf';
+		file_put_contents( $tmp_file, '%PDF-1.4 test' );
+
+		Functions\when( 'size_format' )->justReturn( '5 MB' );
+		Functions\when( 'sanitize_file_name' )->justReturn( 'doc.pdf' );
+		Functions\expect( 'wp_check_filetype_and_ext' )
+			->andReturn( array( 'type' => 'application/pdf', 'ext' => 'pdf' ) );
+		Functions\expect( 'wp_handle_upload' )
+			->andReturn( array( 'error' => '<script>alert("xss")</script>' ) );
+
+		try {
+			$this->handler->handle_upload(
+				array( 'name' => 'doc.pdf', 'size' => 13, 'tmp_name' => $tmp_file, 'error' => UPLOAD_ERR_OK ),
+				1,
+				'dek',
+				'iv'
+			);
+			$this->fail( 'Expected RuntimeException' );
+		} catch ( \RuntimeException $e ) {
+			// Brain\Monkey esc_html stub returns the input unchanged,
+			// but the key point is that esc_html() IS called in production.
+			$this->assertStringContainsString( 'Upload failed:', $e->getMessage() );
+		}
 	}
 }

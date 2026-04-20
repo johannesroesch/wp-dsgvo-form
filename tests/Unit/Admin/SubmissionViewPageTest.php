@@ -65,7 +65,7 @@ class SubmissionViewPageTest extends TestCase {
 	 * @param string[] $skip Function names to NOT stub.
 	 */
 	private function stub_page_functions( array $skip = array() ): void {
-		$return_arg = array( '__', 'esc_html__', 'esc_html', 'esc_url', 'esc_attr' );
+		$return_arg = array( '__', 'esc_html__', 'esc_html', 'esc_url', 'esc_attr', 'wp_unslash' );
 		$aliases    = array(
 			'esc_html_e' => function ( string $text, string $domain = '' ): void {
 				echo $text;

@@ -276,7 +276,7 @@ class Form {
 		$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
 		if ( $wpdb->insert_id === 0 ) {
-			throw new \RuntimeException( 'Failed to insert form: ' . $wpdb->last_error );
+			throw new \RuntimeException( 'Failed to insert form: ' . esc_html( $wpdb->last_error ) );
 		}
 
 		$this->id = (int) $wpdb->insert_id;

@@ -27,6 +27,10 @@ class EncryptionServiceTest extends TestCase
 
 	protected function setUp(): void
 	{
+		// Load escaping stubs (esc_html/esc_attr) for separate-process tests.
+		// Brain\Monkey tests handle this via Patchwork; we need real stubs here.
+		require_once dirname( __DIR__, 2 ) . '/stubs/escaping.php';
+
 		// Do NOT define KEK here — separate-process tests need it absent.
 		$this->key_manager = new KeyManager();
 		$this->service     = new EncryptionService( $this->key_manager );

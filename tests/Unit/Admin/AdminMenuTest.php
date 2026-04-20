@@ -48,7 +48,7 @@ class AdminMenuTest extends TestCase {
 	 * @param string[] $skip Function names to NOT stub.
 	 */
 	private function stub_admin_functions( array $skip = array() ): void {
-		$return_arg = array( '__', 'esc_html__', 'esc_html', 'esc_url', 'esc_attr', 'esc_textarea' );
+		$return_arg = array( '__', 'esc_html__', 'esc_html', 'esc_url', 'esc_attr', 'esc_textarea', 'wp_unslash', 'sanitize_key', 'sanitize_text_field' );
 
 		$aliases = array(
 			'esc_html_e'    => function ( string $text, string $domain = '' ): void {
@@ -381,6 +381,8 @@ class AdminMenuTest extends TestCase {
 	 * @test
 	 */
 	public function test_handle_form_page_load_skips_when_no_edit_action(): void {
+		$this->stub_admin_functions();
+
 		$_GET['action'] = 'list';
 
 		$menu = new AdminMenu();
@@ -442,5 +444,219 @@ class AdminMenuTest extends TestCase {
 		ob_start();
 		$callback();
 		return (string) ob_get_clean();
+	}
+
+	// ──────────────────────────────────────────────────
+	// sanitize_key() on $_GET['action'] — Task #177
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * @security-relevant OWASP — $_GET['action'] sanitized before routing comparison
+	 */
+	public function test_sanitize_key_normalizes_action_for_form_page_routing(): void {
+		$this->stub_admin_functions( array( 'sanitize_key', 'wp_unslash' ) );
+
+		// sanitize_key lowercases and strips non-alphanumeric/dash/underscore chars.
+		Functions\when( 'sanitize_key' )->alias(
+			function ( $key ): string {
+				return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+			}
+		);
+		Functions\when( 'wp_unslash' )->alias(
+			function ( $value ) {
+				return is_string( $value ) ? stripslashes( $value ) : $value;
+			}
+		);
+
+		// Mocks for FormEditPage (form not found → renders empty form builder).
+		Functions\when( 'get_transient' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn();
+
+		$wpdb         = \Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( '' );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$wpdb->shouldReceive( 'get_results' )->andReturn( array() );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		// Malicious action value: UPPERCASE + backslash + special chars.
+		$_GET['action']  = 'EDIT\\';
+		$_GET['form_id'] = '0';
+
+		$menu   = new AdminMenu();
+		$output = $this->capture_render( array( $menu, 'render_form_list_page' ) );
+
+		// sanitize_key('EDIT\\') → 'edit' → routes to FormEditPage.
+		$this->assertStringContainsString( 'form-table', $output );
+		$this->assertStringContainsString( 'dsgvo-fields-container', $output );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_sanitize_key_rejects_invalid_action_as_non_match(): void {
+		$this->stub_admin_functions( array( 'sanitize_key', 'wp_unslash' ) );
+
+		Functions\when( 'sanitize_key' )->alias(
+			function ( $key ): string {
+				return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+			}
+		);
+		Functions\when( 'wp_unslash' )->alias(
+			function ( $value ) {
+				return is_string( $value ) ? stripslashes( $value ) : $value;
+			}
+		);
+		Functions\when( 'sanitize_text_field' )->returnArg();
+
+		// Mock wpdb for FormListPage.
+		$wpdb         = \Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'get_results' )->andReturn( array() );
+		$wpdb->shouldReceive( 'prepare' )->andReturn( '' );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		// Action that sanitizes to something that doesn't match any route.
+		$_GET['action'] = '../../etc/passwd';
+
+		$menu   = new AdminMenu();
+		$output = $this->capture_render( array( $menu, 'render_form_list_page' ) );
+
+		// Falls through to default form list page (no edit/consent/view match).
+		$this->assertStringContainsString( 'Formulare', $output );
+		$this->assertStringNotContainsString( 'dsgvo-fields-container', $output );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_handle_form_page_load_sanitizes_action(): void {
+		$this->stub_admin_functions( array( 'sanitize_key', 'wp_unslash' ) );
+
+		Functions\when( 'sanitize_key' )->alias(
+			function ( $key ): string {
+				return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+			}
+		);
+		Functions\when( 'wp_unslash' )->alias(
+			function ( $value ) {
+				return is_string( $value ) ? stripslashes( $value ) : $value;
+			}
+		);
+
+		// Action that sanitizes to 'edit'.
+		$_GET['action'] = 'EDIT';
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+
+		Functions\when( 'get_transient' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn();
+
+		$wpdb         = \Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( '' );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$wpdb->shouldReceive( 'get_results' )->andReturn( array() );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		$menu = new AdminMenu();
+		$menu->handle_form_page_load();
+
+		// If sanitize_key works, 'EDIT' → 'edit' → FormEditPage created.
+		// We can verify by rendering — the shared instance should be used.
+		$output = $this->capture_render( array( $menu, 'render_form_list_page' ) );
+		$this->assertStringContainsString( 'dsgvo-fields-container', $output );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_handle_submission_page_load_sanitizes_action_and_do(): void {
+		$this->stub_admin_functions( array( 'sanitize_key', 'wp_unslash' ) );
+
+		Functions\when( 'sanitize_key' )->alias(
+			function ( $key ): string {
+				return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+			}
+		);
+		Functions\when( 'wp_unslash' )->alias(
+			function ( $value ) {
+				return is_string( $value ) ? stripslashes( $value ) : $value;
+			}
+		);
+
+		// Backslash-injected action and do params.
+		$_GET['action'] = 'VIEW\\';
+		$_GET['do']     = 'EXPORT\\';
+
+		// sanitize_key('VIEW\\') → 'view', sanitize_key('EXPORT\\') → 'export'
+		// This would call SubmissionViewPage::handle_export() which needs many mocks.
+		// Instead, we verify the routing check passes by mocking the expected chain.
+		Functions\when( 'sanitize_text_field' )->returnArg();
+
+		$wpdb         = \Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( '' );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+
+		// SubmissionViewPage::handle_export calls wp_die when submission not found.
+		Functions\expect( 'wp_die' )
+			->once()
+			->andReturnUsing(
+				function (): never {
+					throw new \RuntimeException( 'wp_die: export not found' );
+				}
+			);
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'wp_die: export not found' );
+
+		$menu = new AdminMenu();
+		$menu->handle_submission_page_load();
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_render_submission_page_sanitizes_view_action(): void {
+		$this->stub_admin_functions( array( 'sanitize_key', 'wp_unslash' ) );
+
+		Functions\when( 'sanitize_key' )->alias(
+			function ( $key ): string {
+				return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+			}
+		);
+		Functions\when( 'wp_unslash' )->alias(
+			function ( $value ) {
+				return is_string( $value ) ? stripslashes( $value ) : $value;
+			}
+		);
+		Functions\when( 'sanitize_text_field' )->returnArg();
+
+		$wpdb         = \Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( '' );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		// UPPERCASE 'VIEW' + backslash should sanitize to 'view'.
+		$_GET['action']        = 'VIEW\\';
+		$_GET['submission_id'] = '42';
+
+		Functions\expect( 'wp_die' )
+			->once()
+			->andReturnUsing(
+				function (): never {
+					throw new \RuntimeException( 'wp_die: not found' );
+				}
+			);
+
+		$this->expectException( \RuntimeException::class );
+
+		$menu = new AdminMenu();
+		$menu->render_submission_list_page();
 	}
 }

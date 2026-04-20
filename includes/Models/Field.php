@@ -108,7 +108,7 @@ class Field {
 			$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
 			if ( $wpdb->insert_id === 0 ) {
-				throw new \RuntimeException( 'Failed to insert field: ' . $wpdb->last_error );
+				throw new \RuntimeException( 'Failed to insert field: ' . esc_html( $wpdb->last_error ) );
 			}
 
 			$this->id = (int) $wpdb->insert_id;
@@ -233,7 +233,7 @@ class Field {
 
 		if ( ! in_array( $this->field_type, self::ALLOWED_TYPES, true ) ) {
 			throw new \RuntimeException(
-				'Invalid field type "' . $this->field_type . '". Allowed: '
+				'Invalid field type "' . esc_html( $this->field_type ) . '". Allowed: '
 				. implode( ', ', self::ALLOWED_TYPES ) . '.'
 			);
 		}

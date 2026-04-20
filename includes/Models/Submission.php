@@ -126,12 +126,12 @@ class Submission {
 		$values[]     = $per_page;
 		$values[]     = $offset;
 
+		// SEC-SQL-01: Query assembled from hardcoded fragments only; all user-facing values use %d placeholders.
+		$sql = "SELECT {$columns} FROM `{$table}` WHERE {$where_clause} ORDER BY submitted_at DESC LIMIT %d OFFSET %d";
+
 		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $columns is a hardcoded string literal, not user input.
-				"SELECT {$columns} FROM `{$table}` WHERE {$where_clause} ORDER BY submitted_at DESC LIMIT %d OFFSET %d",
-				...$values
-			),
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql built from hardcoded column list, table name, and %d-only WHERE; safe by construction.
+			$wpdb->prepare( $sql, ...$values ),
 			ARRAY_A
 		);
 
@@ -164,11 +164,12 @@ class Submission {
 
 		$where_clause = implode( ' AND ', $where );
 
+		// SEC-SQL-01: Query assembled from hardcoded fragments only; all user-facing values use %d placeholders.
+		$sql = "SELECT COUNT(*) FROM `{$table}` WHERE {$where_clause}";
+
 		return (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM `{$table}` WHERE {$where_clause}",
-				...$values
-			)
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql built from hardcoded table name and %d-only WHERE; safe by construction.
+			$wpdb->prepare( $sql, ...$values )
 		);
 	}
 
@@ -225,12 +226,12 @@ class Submission {
 		$values[]     = $per_page;
 		$values[]     = $offset;
 
+		// SEC-SQL-01: Query assembled from hardcoded fragments only; IN() uses %d placeholders per form ID.
+		$sql = "SELECT {$columns} FROM `{$table}` WHERE {$where_clause} ORDER BY submitted_at DESC LIMIT %d OFFSET %d";
+
 		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $columns is a hardcoded string literal, not user input.
-				"SELECT {$columns} FROM `{$table}` WHERE {$where_clause} ORDER BY submitted_at DESC LIMIT %d OFFSET %d",
-				...$values
-			),
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql built from hardcoded column list, table name, and %d-only WHERE with IN(); safe by construction.
+			$wpdb->prepare( $sql, ...$values ),
 			ARRAY_A
 		);
 
@@ -273,11 +274,12 @@ class Submission {
 
 		$where_clause = implode( ' AND ', $where );
 
+		// SEC-SQL-01: Query assembled from hardcoded fragments only; IN() uses %d placeholders per form ID.
+		$sql = "SELECT COUNT(*) FROM `{$table}` WHERE {$where_clause}";
+
 		return (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM `{$table}` WHERE {$where_clause}",
-				...$values
-			)
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql built from hardcoded table name and %d-only WHERE with IN(); safe by construction.
+			$wpdb->prepare( $sql, ...$values )
 		);
 	}
 
@@ -320,7 +322,7 @@ class Submission {
 			$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
 			if ( $wpdb->insert_id === 0 ) {
-				throw new \RuntimeException( 'Failed to insert submission: ' . $wpdb->last_error );
+				throw new \RuntimeException( 'Failed to insert submission: ' . esc_html( $wpdb->last_error ) );
 			}
 
 			$this->id = (int) $wpdb->insert_id;
@@ -425,19 +427,19 @@ class Submission {
 		// Collect file paths before deletion (for physical cleanup by caller).
 		$id_placeholders = implode( ',', array_fill( 0, count( $expired_ids ), '%d' ) );
 
+		// SEC-SQL-01: Queries assembled from hardcoded fragments; IN() uses %d placeholders per expired ID.
+		$file_sql   = "SELECT file_path FROM `{$files_table}` WHERE submission_id IN ({$id_placeholders})";
+		$delete_sql = "DELETE FROM `{$table}` WHERE id IN ({$id_placeholders})";
+
 		$file_paths = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT file_path FROM `{$files_table}` WHERE submission_id IN ({$id_placeholders})",
-				...array_map( 'intval', $expired_ids )
-			)
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $file_sql built from hardcoded table name and %d-only IN(); safe by construction.
+			$wpdb->prepare( $file_sql, ...array_map( 'intval', $expired_ids ) )
 		);
 
 		// Delete submissions (FK CASCADE deletes file records).
 		$deleted = $wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM `{$table}` WHERE id IN ({$id_placeholders})",
-				...array_map( 'intval', $expired_ids )
-			)
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $delete_sql built from hardcoded table name and %d-only IN(); safe by construction.
+			$wpdb->prepare( $delete_sql, ...array_map( 'intval', $expired_ids ) )
 		);
 
 		return [

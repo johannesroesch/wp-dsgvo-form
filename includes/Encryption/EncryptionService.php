@@ -94,7 +94,7 @@ class EncryptionService
 		);
 
 		if ($ciphertext === false) {
-			throw new \RuntimeException('Encryption failed: ' . openssl_error_string());
+			throw new \RuntimeException('Encryption failed: ' . esc_html( (string) openssl_error_string() ));
 		}
 
 		return [
@@ -134,14 +134,14 @@ class EncryptionService
 
 		if (strlen($iv) !== self::IV_LENGTH) {
 			throw new \RuntimeException(
-				'Invalid IV length: expected ' . self::IV_LENGTH
+				'Invalid IV length: expected ' . (int) self::IV_LENGTH
 				. ' bytes, got ' . strlen($iv) . '.'
 			);
 		}
 
 		if (strlen($tag) !== self::TAG_LENGTH) {
 			throw new \RuntimeException(
-				'Invalid authentication tag length: expected ' . self::TAG_LENGTH
+				'Invalid authentication tag length: expected ' . (int) self::TAG_LENGTH
 				. ' bytes, got ' . strlen($tag) . '.'
 			);
 		}
@@ -339,7 +339,7 @@ class EncryptionService
 		);
 
 		if ($ciphertext === false) {
-			throw new \RuntimeException('Key encryption failed: ' . openssl_error_string());
+			throw new \RuntimeException('Key encryption failed: ' . esc_html( (string) openssl_error_string() ));
 		}
 
 		return base64_encode($iv . $tag . $ciphertext);
@@ -401,7 +401,7 @@ class EncryptionService
 	{
 		if (strlen($key) !== self::KEY_LENGTH) {
 			throw new \RuntimeException(
-				'Encryption key must be exactly ' . self::KEY_LENGTH . ' bytes (256 bits), '
+				'Encryption key must be exactly ' . (int) self::KEY_LENGTH . ' bytes (256 bits), '
 				. 'got ' . strlen($key) . '.'
 			);
 		}

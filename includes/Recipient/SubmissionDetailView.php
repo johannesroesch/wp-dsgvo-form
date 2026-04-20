@@ -36,8 +36,6 @@ use WpDsgvoForm\Encryption\KeyManager;
  */
 class SubmissionDetailView {
 
-	private const TEXT_DOMAIN = 'wp-dsgvo-form';
-
 	private AccessControl $access_control;
 	private bool $action_performed = false;
 	private string $action_type    = '';
@@ -54,13 +52,13 @@ class SubmissionDetailView {
 	 */
 	public function render( int $user_id, int $submission_id ): void {
 		if ( 0 === $submission_id ) {
-			$this->render_error( __( 'Keine Einsendung angegeben.', self::TEXT_DOMAIN ) );
+			$this->render_error( __( 'Keine Einsendung angegeben.', 'wp-dsgvo-form' ) );
 			return;
 		}
 
 		// SEC-AUTH-14: IDOR protection.
 		if ( ! $this->access_control->can_view_submission( $user_id, $submission_id ) ) {
-			$this->render_error( __( 'Sie haben keine Berechtigung, diese Einsendung anzuzeigen.', self::TEXT_DOMAIN ) );
+			$this->render_error( __( 'Sie haben keine Berechtigung, diese Einsendung anzuzeigen.', 'wp-dsgvo-form' ) );
 			return;
 		}
 
@@ -72,7 +70,7 @@ class SubmissionDetailView {
 		$submission = Submission::find( $submission_id );
 
 		if ( $submission === null ) {
-			$this->render_error( __( 'Einsendung nicht gefunden.', self::TEXT_DOMAIN ) );
+			$this->render_error( __( 'Einsendung nicht gefunden.', 'wp-dsgvo-form' ) );
 			return;
 		}
 
@@ -89,7 +87,7 @@ class SubmissionDetailView {
 		$form = Form::find( $submission->form_id );
 
 		if ( $form === null ) {
-			$this->render_error( __( 'Zugehoeriges Formular nicht gefunden.', self::TEXT_DOMAIN ) );
+			$this->render_error( __( 'Zugehoeriges Formular nicht gefunden.', 'wp-dsgvo-form' ) );
 			return;
 		}
 
@@ -120,7 +118,7 @@ class SubmissionDetailView {
 	 * @param bool $is_privileged Whether user is supervisor/admin.
 	 */
 	private function handle_actions( int $submission_id, bool $is_privileged ): void {
-		$action = sanitize_text_field( $_GET['do'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$action = sanitize_text_field( wp_unslash( $_GET['do'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( '' === $action ) {
 			return;
@@ -185,7 +183,7 @@ class SubmissionDetailView {
 		<div style="margin-bottom:1.5rem;">
 			<a href="<?php echo esc_url( RecipientPage::get_base_url() ); ?>"
 				style="color:#2271b1;text-decoration:none;">
-				&laquo; <?php esc_html_e( 'Zurueck zur Uebersicht', self::TEXT_DOMAIN ); ?>
+				&laquo; <?php esc_html_e( 'Zurueck zur Uebersicht', 'wp-dsgvo-form' ); ?>
 			</a>
 		</div>
 		<?php
@@ -200,13 +198,13 @@ class SubmissionDetailView {
 		if ( $this->action_performed && 'restrict' === $this->action_type ) {
 			?>
 			<div style="padding:0.75rem 1rem;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;margin-bottom:1rem;">
-				<?php esc_html_e( 'Gesperrt (Art. 18 DSGVO).', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'Gesperrt (Art. 18 DSGVO).', 'wp-dsgvo-form' ); ?>
 			</div>
 			<?php
 		} elseif ( $this->action_performed && 'unrestrict' === $this->action_type ) {
 			?>
 			<div style="padding:0.75rem 1rem;background:#d4edda;border:1px solid #28a745;border-radius:4px;margin-bottom:1rem;">
-				<?php esc_html_e( 'Sperre aufgehoben.', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'Sperre aufgehoben.', 'wp-dsgvo-form' ); ?>
 			</div>
 			<?php
 		}
@@ -214,9 +212,9 @@ class SubmissionDetailView {
 		if ( $submission->is_restricted ) {
 			?>
 			<div style="padding:0.75rem 1rem;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;margin-bottom:1rem;">
-				<strong><?php esc_html_e( 'Gesperrt (Art. 18 DSGVO)', self::TEXT_DOMAIN ); ?></strong>
+				<strong><?php esc_html_e( 'Gesperrt (Art. 18 DSGVO)', 'wp-dsgvo-form' ); ?></strong>
 				&mdash;
-				<?php esc_html_e( 'Diese Einsendung ist gesperrt (Art. 18 DSGVO).', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'Diese Einsendung ist gesperrt (Art. 18 DSGVO).', 'wp-dsgvo-form' ); ?>
 			</div>
 			<?php
 		}
@@ -236,7 +234,7 @@ class SubmissionDetailView {
 				<?php
 				printf(
 					/* translators: %d: submission ID */
-					esc_html__( 'Einsendung #%d', self::TEXT_DOMAIN ),
+					esc_html__( 'Einsendung #%d', 'wp-dsgvo-form' ),
 					(int) $submission_id
 				);
 				?>
@@ -244,7 +242,7 @@ class SubmissionDetailView {
 			<div style="padding:1rem;">
 				<?php if ( $data === null ) : ?>
 					<div style="padding:0.75rem 1rem;background:#f8d7da;border:1px solid #dc3545;border-radius:4px;color:#721c24;">
-						<?php esc_html_e( 'Entschluesselung fehlgeschlagen. Pruefen Sie den Encryption Key.', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Entschluesselung fehlgeschlagen. Pruefen Sie den Encryption Key.', 'wp-dsgvo-form' ); ?>
 					</div>
 				<?php else : ?>
 					<table style="width:100%;border-collapse:collapse;">
@@ -262,13 +260,13 @@ class SubmissionDetailView {
 										$value = $data[ $field->name ] ?? '';
 
 										if ( 'file' === $field->field_type ) {
-											esc_html_e( '[Datei — Download ueber Dateiliste]', self::TEXT_DOMAIN );
+											esc_html_e( '[Datei — Download ueber Dateiliste]', 'wp-dsgvo-form' );
 										} elseif ( is_array( $value ) ) {
 											echo esc_html( implode( ', ', $value ) );
 										} elseif ( 'checkbox' === $field->field_type ) {
 											echo $value
-												? esc_html__( 'Ja', self::TEXT_DOMAIN )
-												: esc_html__( 'Nein', self::TEXT_DOMAIN );
+												? esc_html__( 'Ja', 'wp-dsgvo-form' )
+												: esc_html__( 'Nein', 'wp-dsgvo-form' );
 										} else {
 											echo nl2br( esc_html( (string) $value ) );
 										}
@@ -294,14 +292,14 @@ class SubmissionDetailView {
 		?>
 		<div style="background:#fff;border:1px solid #ddd;border-radius:4px;margin-bottom:1.5rem;">
 			<div style="padding:1rem;border-bottom:1px solid #ddd;font-weight:600;">
-				<?php esc_html_e( 'Metadaten', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'Metadaten', 'wp-dsgvo-form' ); ?>
 			</div>
 			<div style="padding:1rem;">
 				<table style="width:100%;border-collapse:collapse;">
 					<tbody>
 						<tr style="border-bottom:1px solid #eee;">
 							<th style="padding:0.5rem 1rem;text-align:left;width:30%;color:#555;">
-								<?php esc_html_e( 'Formular', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'Formular', 'wp-dsgvo-form' ); ?>
 							</th>
 							<td style="padding:0.5rem 1rem;">
 								<?php echo esc_html( $form->title ); ?>
@@ -309,7 +307,7 @@ class SubmissionDetailView {
 						</tr>
 						<tr style="border-bottom:1px solid #eee;">
 							<th style="padding:0.5rem 1rem;text-align:left;color:#555;">
-								<?php esc_html_e( 'Eingegangen', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'Eingegangen', 'wp-dsgvo-form' ); ?>
 							</th>
 							<td style="padding:0.5rem 1rem;">
 								<?php
@@ -325,7 +323,7 @@ class SubmissionDetailView {
 						<?php if ( $submission->expires_at ) : ?>
 							<tr style="border-bottom:1px solid #eee;">
 								<th style="padding:0.5rem 1rem;text-align:left;color:#555;">
-									<?php esc_html_e( 'Ablaufdatum', self::TEXT_DOMAIN ); ?>
+									<?php esc_html_e( 'Ablaufdatum', 'wp-dsgvo-form' ); ?>
 								</th>
 								<td style="padding:0.5rem 1rem;">
 									<?php
@@ -342,7 +340,7 @@ class SubmissionDetailView {
 						<?php if ( $submission->consent_timestamp ) : ?>
 							<tr style="border-bottom:1px solid #eee;">
 								<th style="padding:0.5rem 1rem;text-align:left;color:#555;">
-									<?php esc_html_e( 'Einwilligung', self::TEXT_DOMAIN ); ?>
+									<?php esc_html_e( 'Einwilligung', 'wp-dsgvo-form' ); ?>
 								</th>
 								<td style="padding:0.5rem 1rem;">
 									<?php
@@ -358,7 +356,7 @@ class SubmissionDetailView {
 										<?php
 										printf(
 											/* translators: %d: consent version number */
-											esc_html__( 'Version %d', self::TEXT_DOMAIN ),
+											esc_html__( 'Version %d', 'wp-dsgvo-form' ),
 											(int) $submission->consent_text_version
 										);
 										?>
@@ -379,11 +377,11 @@ class SubmissionDetailView {
 							<?php if ( $consent_version_record !== null ) : ?>
 								<tr style="border-bottom:1px solid #eee;">
 									<th style="padding:0.5rem 1rem;text-align:left;color:#555;vertical-align:top;">
-										<?php esc_html_e( 'Einwilligungstext', self::TEXT_DOMAIN ); ?>
+										<?php esc_html_e( 'Einwilligungstext', 'wp-dsgvo-form' ); ?>
 									</th>
 									<td style="padding:0.5rem 1rem;">
 										<details>
-											<summary style="cursor:pointer;color:#2271b1;"><?php esc_html_e( 'Text anzeigen', self::TEXT_DOMAIN ); ?></summary>
+											<summary style="cursor:pointer;color:#2271b1;"><?php esc_html_e( 'Text anzeigen', 'wp-dsgvo-form' ); ?></summary>
 											<div style="margin-top:0.5rem;padding:0.75rem;background:#f9f9f9;border:1px solid #eee;border-radius:3px;">
 												<?php echo wp_kses_post( $consent_version_record->consent_text ); ?>
 											</div>
@@ -391,7 +389,7 @@ class SubmissionDetailView {
 										<?php if ( $consent_version_record->privacy_policy_url ) : ?>
 											<div style="margin-top:0.5rem;">
 												<a href="<?php echo esc_url( $consent_version_record->privacy_policy_url ); ?>" target="_blank" rel="noopener noreferrer">
-													<?php esc_html_e( 'Datenschutzerklaerung', self::TEXT_DOMAIN ); ?>
+													<?php esc_html_e( 'Datenschutzerklaerung', 'wp-dsgvo-form' ); ?>
 												</a>
 											</div>
 										<?php endif; ?>
@@ -401,7 +399,7 @@ class SubmissionDetailView {
 						<?php endif; ?>
 						<tr>
 							<th style="padding:0.5rem 1rem;text-align:left;color:#555;">
-								<?php esc_html_e( 'Rechtsgrundlage', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'Rechtsgrundlage', 'wp-dsgvo-form' ); ?>
 							</th>
 							<td style="padding:0.5rem 1rem;">
 								<?php echo esc_html( $form->legal_basis ); ?>
@@ -428,7 +426,7 @@ class SubmissionDetailView {
 		?>
 		<div style="background:#fff;border:1px solid #ddd;border-radius:4px;">
 			<div style="padding:1rem;border-bottom:1px solid #ddd;font-weight:600;">
-				<?php esc_html_e( 'DSGVO-Aktionen', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'DSGVO-Aktionen', 'wp-dsgvo-form' ); ?>
 			</div>
 			<div style="padding:1rem;">
 				<?php if ( $submission->is_restricted && $is_privileged ) : ?>
@@ -440,7 +438,7 @@ class SubmissionDetailView {
 					?>
 					<a href="<?php echo esc_url( $unrestrict_url ); ?>"
 						style="display:inline-block;padding:0.5rem 1rem;background:#f0f0f0;border:1px solid #ccc;border-radius:4px;text-decoration:none;color:#333;">
-						<?php esc_html_e( 'Sperre aufheben', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Sperre aufheben', 'wp-dsgvo-form' ); ?>
 					</a>
 				<?php elseif ( ! $submission->is_restricted ) : ?>
 					<?php
@@ -451,7 +449,7 @@ class SubmissionDetailView {
 					?>
 					<a href="<?php echo esc_url( $restrict_url ); ?>"
 						style="display:inline-block;padding:0.5rem 1rem;background:#f0f0f0;border:1px solid #ccc;border-radius:4px;text-decoration:none;color:#333;">
-						<?php esc_html_e( 'Sperren (Art. 18 DSGVO)', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Sperren (Art. 18 DSGVO)', 'wp-dsgvo-form' ); ?>
 					</a>
 				<?php endif; ?>
 			</div>
@@ -474,17 +472,17 @@ class SubmissionDetailView {
 				<?php
 				printf(
 					/* translators: %d: submission ID */
-					esc_html__( 'Einsendung #%d', self::TEXT_DOMAIN ),
+					esc_html__( 'Einsendung #%d', 'wp-dsgvo-form' ),
 					(int) $submission_id
 				);
 				?>
 			</div>
 			<div style="padding:2rem;text-align:center;color:#666;">
 				<p style="font-size:1.1rem;margin-bottom:0.5rem;">
-					<strong><?php esc_html_e( 'Gesperrt (Art. 18 DSGVO)', self::TEXT_DOMAIN ); ?></strong>
+					<strong><?php esc_html_e( 'Gesperrt (Art. 18 DSGVO)', 'wp-dsgvo-form' ); ?></strong>
 				</p>
 				<p>
-					<?php esc_html_e( 'Diese Einsendung ist gesperrt (Art. 18 DSGVO). Die Formulardaten koennen nicht angezeigt werden.', self::TEXT_DOMAIN ); ?>
+					<?php esc_html_e( 'Diese Einsendung ist gesperrt (Art. 18 DSGVO). Die Formulardaten koennen nicht angezeigt werden.', 'wp-dsgvo-form' ); ?>
 				</p>
 			</div>
 		</div>
@@ -504,7 +502,7 @@ class SubmissionDetailView {
 		<div style="margin-top:1rem;">
 			<a href="<?php echo esc_url( RecipientPage::get_base_url() ); ?>"
 				style="color:#2271b1;text-decoration:none;">
-				&laquo; <?php esc_html_e( 'Zurueck zur Uebersicht', self::TEXT_DOMAIN ); ?>
+				&laquo; <?php esc_html_e( 'Zurueck zur Uebersicht', 'wp-dsgvo-form' ); ?>
 			</a>
 		</div>
 		<?php

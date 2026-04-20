@@ -302,8 +302,8 @@ class FormListTable extends \WP_List_Table {
 		$forms = Form::find_all();
 
 		// Client-side sorting (Form::find_all returns created_at DESC by default).
-		$orderby = sanitize_text_field( $_GET['orderby'] ?? 'created_at' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$order   = sanitize_text_field( $_GET['order'] ?? 'desc' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$orderby = sanitize_text_field( wp_unslash( $_GET['orderby'] ?? 'created_at' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$order   = sanitize_text_field( wp_unslash( $_GET['order'] ?? 'desc' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		usort(
 			$forms,

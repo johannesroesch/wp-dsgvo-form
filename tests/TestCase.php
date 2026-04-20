@@ -14,6 +14,7 @@ namespace WpDsgvoForm\Tests;
 
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Brain\Monkey;
+use Brain\Monkey\Functions;
 use PHPUnit\Framework\TestCase as PHPUnitTestCase;
 
 /**
@@ -29,6 +30,12 @@ abstract class TestCase extends PHPUnitTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
+
+		// Auto-stub WordPress escaping functions for all Brain\Monkey tests.
+		// Production code (Task #260) uses esc_html()/esc_attr() in exception
+		// messages and output; these stubs return the input unchanged.
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_attr' )->returnArg();
 	}
 
 	/**

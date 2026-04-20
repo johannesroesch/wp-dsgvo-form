@@ -93,8 +93,6 @@ final class Plugin {
 	 * @return void
 	 */
 	private function register_hooks(): void {
-		add_action( 'init', array( $this, 'load_textdomain' ) );
-
 		if ( is_admin() ) {
 			$this->register_admin_hooks();
 		}
@@ -115,6 +113,20 @@ final class Plugin {
 		// Recipient area: /dsgvo-empfaenger/ (Task #33).
 		$recipient_page = new Recipient\RecipientPage( $access_control );
 		$recipient_page->register();
+
+		// Admin Bar Notification (outside is_admin() — admin bar also on frontend).
+		$notification = new Admin\AdminBarNotification( $access_control );
+		$notification->register_hooks();
+
+		// LEGAL-F01: WordPress Privacy Data Exporter/Eraser (Art. 15 + 17 DSGVO).
+		// Runs OUTSIDE is_admin() — privacy filters fire during WP-CLI and REST contexts too.
+		$key_manager     = new Encryption\KeyManager();
+		$encryption      = new Encryption\EncryptionService( $key_manager );
+		$file_handler    = new Upload\FileHandler( $encryption );
+		$deleter         = new Api\SubmissionDeleter( $file_handler );
+		$audit_logger    = new Audit\AuditLogger();
+		$privacy_handler = new Privacy\PrivacyHandler( $encryption, $deleter, $audit_logger );
+		$privacy_handler->register();
 	}
 
 	/**
@@ -128,6 +140,10 @@ final class Plugin {
 
 		$settings_page = new Admin\SettingsPage();
 		add_action( 'admin_init', array( $settings_page, 'register_settings' ) );
+
+		// LEGAL-F02: Suggested privacy policy content (Art. 13 DSGVO).
+		$privacy_policy = new Privacy\PrivacyPolicy();
+		$privacy_policy->register();
 	}
 
 	/**
@@ -189,16 +205,4 @@ final class Plugin {
 		$audit_logger->cleanup_old_entries();
 	}
 
-	/**
-	 * Load the plugin text domain for translations.
-	 *
-	 * @return void
-	 */
-	public function load_textdomain(): void {
-		load_plugin_textdomain(
-			'wp-dsgvo-form',
-			false,
-			dirname( WPDSGVO_PLUGIN_BASENAME ) . '/languages'
-		);
-	}
 }

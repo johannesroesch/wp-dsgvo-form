@@ -452,22 +452,53 @@ class ConsentManagementPageTest extends TestCase {
 	/**
 	 * @test
 	 */
-	public function test_render_shows_legal_basis_notice_for_contract_forms(): void {
+	/**
+	 * @test
+	 * @security ARCH-v104-03 — Hard-block: non-consent forms cannot access consent management.
+	 */
+	public function test_render_shows_hard_block_for_non_consent_legal_basis(): void {
 		$this->stub_wp_functions();
 		Functions\when( 'current_user_can' )->justReturn( true );
 
 		$form = $this->create_form( 1, 'contract' );
 		$this->mock_form_find( $form );
 		$_GET['form_id'] = '1';
-		$this->mock_consent_versions( [] );
 
 		ob_start();
 		$this->page->render();
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'Vertrag', $output );
-		$this->assertStringContainsString( 'optional', $output );
-		unset( $GLOBALS['wpdb'] );
+		// Hard-block: error notice shown.
+		$this->assertStringContainsString( 'notice-error', $output );
+		$this->assertStringContainsString( 'Einwilligung', $output );
+		$this->assertStringContainsString( 'Rechtsgrundlage', $output );
+		// No editor form rendered (hard-block returns early).
+		$this->assertStringNotContainsString( 'dsgvo_consent_action', $output );
+		$this->assertStringNotContainsString( 'Neue Version speichern', $output );
+		// Back link still present.
+		$this->assertStringContainsString( 'Zurueck zur Uebersicht', $output );
+	}
+
+	/**
+	 * @test
+	 * @security ARCH-v104-03 — Hard-block: no locale tabs rendered for non-consent forms.
+	 */
+	public function test_render_hard_block_does_not_show_locale_tabs(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'current_user_can' )->justReturn( true );
+
+		$form = $this->create_form( 1, 'contract' );
+		$this->mock_form_find( $form );
+		$_GET['form_id'] = '1';
+
+		ob_start();
+		$this->page->render();
+		$output = ob_get_clean();
+
+		// No locale tabs (nav-tab-wrapper) rendered.
+		$this->assertStringNotContainsString( 'nav-tab-wrapper', $output );
+		$this->assertStringNotContainsString( 'Deutsch', $output );
+		$this->assertStringNotContainsString( 'English', $output );
 	}
 
 	// ------------------------------------------------------------------
@@ -1006,6 +1037,406 @@ class ConsentManagementPageTest extends TestCase {
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'https://example.com/privacy', $output );
+		unset( $GLOBALS['wpdb'] );
+	}
+
+	// ------------------------------------------------------------------
+	// #256 NonceVerification.Missing — Nonce includes form_id
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * @security SEC-CSRF — Nonce action is form-specific (prevents cross-form CSRF).
+	 */
+	public function test_nonce_action_contains_form_id(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'current_user_can' )->justReturn( true );
+
+		$form = $this->create_form( 99 );
+		$this->mock_form_find( $form );
+		$_GET['form_id'] = '99';
+
+		$this->setup_post_save( 99, 'xx_XX', 'Text' );
+
+		$nonce_action = '';
+		Functions\expect( 'check_admin_referer' )
+			->once()
+			->andReturnUsing( function ( string $action ) use ( &$nonce_action ): bool {
+				$nonce_action = $action;
+				return true;
+			} );
+
+		Functions\when( 'set_transient' )->justReturn( true );
+		$this->mock_redirect_throws();
+
+		try {
+			$this->page->render();
+		} catch ( \LogicException $e ) {
+			// Expected — redirect after invalid locale.
+		}
+
+		$this->assertSame( 'dsgvo_consent_save_99', $nonce_action );
+	}
+
+	/**
+	 * @test
+	 * @security SEC-CSRF — Nonce is checked before any POST data is processed.
+	 */
+	public function test_nonce_checked_before_post_data_processing(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'current_user_can' )->justReturn( true );
+
+		$form = $this->create_form( 1 );
+		$this->mock_form_find( $form );
+		$_GET['form_id'] = '1';
+
+		$this->setup_post_save( 1, 'de_DE', 'Text' );
+
+		// check_admin_referer throws immediately — if any POST processing
+		// happened before it, we would see side effects.
+		Functions\expect( 'check_admin_referer' )
+			->once()
+			->andReturnUsing( function (): never {
+				throw new \RuntimeException( 'nonce_check_first' );
+			} );
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'nonce_check_first' );
+
+		$this->page->render();
+	}
+
+	// ------------------------------------------------------------------
+	// MUSS-Q-01: validate_consent_input() direct tests via Reflection
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * @security CONSENT-I18N-01 — validate_consent_input rejects invalid locale.
+	 */
+	public function test_validate_consent_input_returns_null_for_invalid_locale(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'set_transient' )->justReturn( true );
+		$this->mock_redirect_throws();
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'validate_consent_input' );
+		$method->setAccessible( true );
+
+		try {
+			$result = $method->invoke( $this->page, $form, 'xx_XX', 'Some text', '' );
+		} catch ( \LogicException $e ) {
+			$result = null; // Redirect thrown = validation rejected input.
+		}
+
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * @test
+	 * @security DPO-FINDING-13 — validate_consent_input rejects empty text.
+	 */
+	public function test_validate_consent_input_returns_null_for_empty_text(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'set_transient' )->justReturn( true );
+		$this->mock_redirect_throws();
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'validate_consent_input' );
+		$method->setAccessible( true );
+
+		try {
+			$result = $method->invoke( $this->page, $form, 'de_DE', '   ', '' );
+		} catch ( \LogicException $e ) {
+			$result = null;
+		}
+
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * @test
+	 * @security CONSENT-I18N-04 — validate_consent_input rejects unchanged text.
+	 */
+	public function test_validate_consent_input_returns_null_for_unchanged_text(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'set_transient' )->justReturn( true );
+		$this->mock_redirect_throws();
+
+		$existing_text = 'Ich stimme zu.';
+		$current       = $this->create_version( 1, 'de_DE', 1, $existing_text, 'https://example.com' );
+		$this->mock_consent_versions( [ $current ], $current );
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'validate_consent_input' );
+		$method->setAccessible( true );
+
+		try {
+			$result = $method->invoke( $this->page, $form, 'de_DE', $existing_text, 'https://example.com' );
+		} catch ( \LogicException $e ) {
+			$result = null;
+		}
+
+		$this->assertNull( $result );
+		unset( $GLOBALS['wpdb'] );
+	}
+
+	/**
+	 * @test
+	 * @security SEC-HTTPS — validate_consent_input rejects HTTP privacy URL.
+	 */
+	public function test_validate_consent_input_returns_null_for_http_url(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'set_transient' )->justReturn( true );
+		$this->mock_redirect_throws();
+
+		// No existing version so "unchanged" check passes.
+		$this->mock_consent_versions( [], null );
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'validate_consent_input' );
+		$method->setAccessible( true );
+
+		try {
+			$result = $method->invoke( $this->page, $form, 'de_DE', 'New text', 'http://insecure.com' );
+		} catch ( \LogicException $e ) {
+			$result = null;
+		}
+
+		$this->assertNull( $result );
+		unset( $GLOBALS['wpdb'] );
+	}
+
+	/**
+	 * @test
+	 * @security CONSENT-I18N-02 — validate_consent_input returns data array for valid input.
+	 */
+	public function test_validate_consent_input_returns_array_for_valid_input(): void {
+		$this->stub_wp_functions();
+
+		// No existing version.
+		$this->mock_consent_versions( [], null );
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'validate_consent_input' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->page, $form, 'de_DE', 'Gültiger Einwilligungstext', 'https://example.com/privacy' );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'de_DE', $result['locale'] );
+		$this->assertSame( 'Gültiger Einwilligungstext', $result['text'] );
+		$this->assertSame( 'https://example.com/privacy', $result['privacy_url'] );
+		unset( $GLOBALS['wpdb'] );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_validate_consent_input_accepts_empty_privacy_url(): void {
+		$this->stub_wp_functions();
+
+		$this->mock_consent_versions( [], null );
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'validate_consent_input' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->page, $form, 'en_US', 'I consent to data processing.', '' );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'en_US', $result['locale'] );
+		$this->assertSame( '', $result['privacy_url'] );
+		unset( $GLOBALS['wpdb'] );
+	}
+
+	// ------------------------------------------------------------------
+	// MUSS-Q-01: persist_consent_version() direct tests via Reflection
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * @security CONSENT-I18N-02 — persist_consent_version saves and redirects on success.
+	 */
+	public function test_persist_consent_version_saves_and_redirects(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'apply_filters' )->alias( function ( string $tag, $value ) {
+			return $value;
+		} );
+
+		$wpdb         = \Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		// Form::find(1) in validate() — cache miss → DB lookup.
+		$wpdb->shouldReceive( 'get_row' )->andReturn( [
+			'id'            => 1,
+			'title'         => 'Test',
+			'slug'          => 'test',
+			'description'   => '',
+			'legal_basis'   => 'consent',
+			'purpose'       => '',
+			'retention_days' => 90,
+			'is_active'     => 1,
+			'captcha_enabled' => 0,
+			'success_message' => '',
+			'email_subject' => '',
+			'email_template' => '',
+		] );
+		$wpdb->shouldReceive( 'get_var' )->once()->andReturn( 3 ); // max version = 3 → new version = 4
+		$wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+		$wpdb->insert_id = 10;
+		$GLOBALS['wpdb'] = $wpdb;
+
+		$notice_set = [];
+		Functions\when( 'set_transient' )->alias( function ( string $key, $value ) use ( &$notice_set ): bool {
+			if ( is_array( $value ) && isset( $value['type'] ) ) {
+				$notice_set = $value;
+			}
+			return true;
+		} );
+		$this->mock_redirect_throws();
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'persist_consent_version' );
+		$method->setAccessible( true );
+
+		$validated = [
+			'locale'      => 'de_DE',
+			'text'        => 'Neuer Einwilligungstext',
+			'privacy_url' => 'https://example.com/datenschutz',
+		];
+
+		try {
+			$method->invoke( $this->page, $form, $validated );
+		} catch ( \LogicException $e ) {
+			$this->assertSame( 'redirect_exit', $e->getMessage() );
+		}
+
+		$this->assertSame( 'success', $notice_set['type'] ?? '' );
+		$this->assertStringContainsString( 'gespeichert', $notice_set['message'] ?? '' );
+		unset( $GLOBALS['wpdb'] );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_persist_consent_version_handles_runtime_exception(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'apply_filters' )->alias( function ( string $tag, $value ) {
+			return $value;
+		} );
+
+		$wpdb         = \Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( [
+			'id'            => 1,
+			'title'         => 'Test',
+			'slug'          => 'test',
+			'description'   => '',
+			'legal_basis'   => 'consent',
+			'purpose'       => '',
+			'retention_days' => 90,
+			'is_active'     => 1,
+			'captcha_enabled' => 0,
+			'success_message' => '',
+			'email_subject' => '',
+			'email_template' => '',
+		] );
+		$wpdb->shouldReceive( 'get_var' )->once()->andReturn( null );
+		$wpdb->shouldReceive( 'insert' )->once()->andReturn( false );
+		$wpdb->insert_id  = 0;
+		$wpdb->last_error = 'DB error';
+		$GLOBALS['wpdb'] = $wpdb;
+
+		$notice_set = [];
+		Functions\when( 'set_transient' )->alias( function ( string $key, $value ) use ( &$notice_set ): bool {
+			if ( is_array( $value ) && isset( $value['type'] ) ) {
+				$notice_set = $value;
+			}
+			return true;
+		} );
+		$this->mock_redirect_throws();
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'persist_consent_version' );
+		$method->setAccessible( true );
+
+		$validated = [
+			'locale'      => 'de_DE',
+			'text'        => 'Text',
+			'privacy_url' => '',
+		];
+
+		try {
+			$method->invoke( $this->page, $form, $validated );
+		} catch ( \LogicException $e ) {
+			$this->assertSame( 'redirect_exit', $e->getMessage() );
+		}
+
+		$this->assertSame( 'error', $notice_set['type'] ?? '' );
+		$this->assertStringContainsString( 'Fehler', $notice_set['message'] ?? '' );
+		unset( $GLOBALS['wpdb'] );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_persist_consent_version_sets_null_for_empty_privacy_url(): void {
+		$this->stub_wp_functions();
+		Functions\when( 'apply_filters' )->alias( function ( string $tag, $value ) {
+			return $value;
+		} );
+
+		$inserted_data = [];
+		$wpdb          = \Mockery::mock( 'wpdb' );
+		$wpdb->prefix  = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( [
+			'id'            => 1,
+			'title'         => 'Test',
+			'slug'          => 'test',
+			'description'   => '',
+			'legal_basis'   => 'consent',
+			'purpose'       => '',
+			'retention_days' => 90,
+			'is_active'     => 1,
+			'captcha_enabled' => 0,
+			'success_message' => '',
+			'email_subject' => '',
+			'email_template' => '',
+		] );
+		$wpdb->shouldReceive( 'get_var' )->once()->andReturn( null );
+		$wpdb->shouldReceive( 'insert' )->once()->andReturnUsing(
+			function ( string $table, array $data ) use ( &$inserted_data ): int {
+				$inserted_data = $data;
+				return 1;
+			}
+		);
+		$wpdb->insert_id = 1;
+		$GLOBALS['wpdb'] = $wpdb;
+
+		Functions\when( 'set_transient' )->justReturn( true );
+		$this->mock_redirect_throws();
+
+		$form   = $this->create_form( 1 );
+		$method = new \ReflectionMethod( $this->page, 'persist_consent_version' );
+		$method->setAccessible( true );
+
+		$validated = [
+			'locale'      => 'de_DE',
+			'text'        => 'Text ohne URL',
+			'privacy_url' => '',
+		];
+
+		try {
+			$method->invoke( $this->page, $form, $validated );
+		} catch ( \LogicException $e ) {
+			// Expected redirect.
+		}
+
+		// Empty privacy_url should NOT be in the insert data (null = omitted from to_db_array).
+		$this->assertArrayNotHasKey( 'privacy_policy_url', $inserted_data );
 		unset( $GLOBALS['wpdb'] );
 	}
 

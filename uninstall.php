@@ -23,7 +23,7 @@ global $wpdb;
  *
  * Order matters: child tables first to avoid FK issues on strict engines.
  */
-$tables = array(
+$wpdsgvo_tables = array(
 	$wpdb->prefix . 'dsgvo_audit_log',
 	$wpdb->prefix . 'dsgvo_submission_files',
 	$wpdb->prefix . 'dsgvo_form_recipients',
@@ -33,9 +33,9 @@ $tables = array(
 	$wpdb->prefix . 'dsgvo_forms',
 );
 
-foreach ( $tables as $table ) {
+foreach ( $wpdsgvo_tables as $wpdsgvo_table ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+	$wpdb->query( "DROP TABLE IF EXISTS {$wpdsgvo_table}" );
 }
 
 /*
@@ -47,8 +47,8 @@ remove_role( 'wp_dsgvo_form_supervisor' );
 /*
  * 3. Remove capabilities from administrator (SEC-AUTH-16).
  */
-$admin_role   = get_role( 'administrator' );
-$capabilities = array(
+$wpdsgvo_admin_role   = get_role( 'administrator' );
+$wpdsgvo_capabilities = array(
 	'dsgvo_form_manage',
 	'dsgvo_form_view_submissions',
 	'dsgvo_form_view_all_submissions',
@@ -56,9 +56,9 @@ $capabilities = array(
 	'dsgvo_form_export',
 );
 
-if ( $admin_role ) {
-	foreach ( $capabilities as $cap ) {
-		$admin_role->remove_cap( $cap );
+if ( $wpdsgvo_admin_role ) {
+	foreach ( $wpdsgvo_capabilities as $wpdsgvo_cap ) {
+		$wpdsgvo_admin_role->remove_cap( $wpdsgvo_cap );
 	}
 }
 
@@ -86,28 +86,34 @@ $wpdb->query(
  * @security-critical Kaskadierte Loeschung verschluesselter Dateien.
  * @privacy-relevant Art. 17 DSGVO — Recht auf Loeschung.
  */
-$upload_dir       = wp_upload_dir();
-$dsgvo_upload_dir = $upload_dir['basedir'] . '/dsgvo-form-files';
+$wpdsgvo_upload_dir  = wp_upload_dir();
+$wpdsgvo_upload_path = $wpdsgvo_upload_dir['basedir'] . '/dsgvo-form-files';
 
-if ( is_dir( $dsgvo_upload_dir ) ) {
-	$iterator = new RecursiveDirectoryIterator(
-		$dsgvo_upload_dir,
+if ( is_dir( $wpdsgvo_upload_path ) ) {
+	if ( ! function_exists( 'WP_Filesystem' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+	}
+	WP_Filesystem();
+	global $wp_filesystem;
+
+	$wpdsgvo_iterator = new RecursiveDirectoryIterator(
+		$wpdsgvo_upload_path,
 		RecursiveDirectoryIterator::SKIP_DOTS
 	);
-	$files    = new RecursiveIteratorIterator(
-		$iterator,
+	$wpdsgvo_files    = new RecursiveIteratorIterator(
+		$wpdsgvo_iterator,
 		RecursiveIteratorIterator::CHILD_FIRST
 	);
 
-	foreach ( $files as $file ) {
-		if ( $file->isDir() ) {
-			rmdir( $file->getRealPath() );
+	foreach ( $wpdsgvo_files as $wpdsgvo_file ) {
+		if ( $wpdsgvo_file->isDir() ) {
+			$wp_filesystem->rmdir( $wpdsgvo_file->getRealPath() );
 		} else {
-			wp_delete_file( $file->getRealPath() );
+			wp_delete_file( $wpdsgvo_file->getRealPath() );
 		}
 	}
 
-	rmdir( $dsgvo_upload_dir );
+	$wp_filesystem->rmdir( $wpdsgvo_upload_path );
 }
 
 /*

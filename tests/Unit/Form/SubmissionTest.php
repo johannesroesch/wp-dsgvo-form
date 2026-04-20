@@ -21,6 +21,12 @@ use Brain\Monkey\Functions;
  */
 class SubmissionTest extends TestCase {
 
+	protected function setUp(): void {
+		parent::setUp();
+		// esc_html is used in exception messages (Task #242: ExceptionNotEscaped fix).
+		Functions\when( 'esc_html' )->returnArg();
+	}
+
 	/**
 	 * Creates a mock $wpdb and sets it as global.
 	 *
@@ -751,5 +757,180 @@ class SubmissionTest extends TestCase {
 		$this->mock_wpdb();
 
 		$this->assertSame( 'wp_dsgvo_submission_files', Submission::get_files_table_name() );
+	}
+
+	// ──────────────────────────────────────────────────
+	// find_by_form_ids — Multi-form query (#261 PreparedSQL)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * Task #261 — find_by_form_ids returns empty array for empty form_ids
+	 */
+	public function test_find_by_form_ids_returns_empty_for_no_form_ids(): void {
+		// Should not call wpdb at all.
+		$result = Submission::find_by_form_ids( [] );
+
+		$this->assertSame( [], $result );
+	}
+
+	/**
+	 * @test
+	 * Task #261 — find_by_form_ids uses IN() with %d placeholders per form ID
+	 */
+	public function test_find_by_form_ids_uses_prepared_in_clause(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				// Verify IN clause with multiple %d placeholders was prepared.
+				return str_contains( $sql, 'form_id IN' )
+					&& str_contains( $sql, 'LIMIT' )
+					&& str_contains( $sql, 'OFFSET' );
+			} )
+			->andReturn( [] );
+
+		$result = Submission::find_by_form_ids( [ 1, 2, 3 ] );
+
+		$this->assertSame( [], $result );
+	}
+
+	/**
+	 * @test
+	 * Task #261 — find_by_form_ids returns Submission instances
+	 */
+	public function test_find_by_form_ids_returns_submission_instances(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->andReturn( [
+				[
+					'id'           => 10,
+					'form_id'      => 2,
+					'submitted_at' => '2026-04-17 10:00:00',
+					'is_read'      => 0,
+					'is_restricted'    => 0,
+				],
+				[
+					'id'           => 11,
+					'form_id'      => 3,
+					'submitted_at' => '2026-04-17 11:00:00',
+					'is_read'      => 1,
+					'is_restricted'    => 0,
+				],
+			] );
+
+		$result = Submission::find_by_form_ids( [ 2, 3 ] );
+
+		$this->assertCount( 2, $result );
+		$this->assertInstanceOf( Submission::class, $result[0] );
+		$this->assertSame( 2, $result[0]->form_id );
+		$this->assertSame( 3, $result[1]->form_id );
+	}
+
+	/**
+	 * @test
+	 * Task #261 — find_by_form_ids excludes restricted by default
+	 */
+	public function test_find_by_form_ids_excludes_restricted_by_default(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				return str_contains( $sql, 'is_restricted' );
+			} )
+			->andReturn( [] );
+
+		Submission::find_by_form_ids( [ 1, 2 ] );
+	}
+
+	/**
+	 * @test
+	 * Task #261 — find_by_form_ids includes restricted when requested
+	 */
+	public function test_find_by_form_ids_includes_restricted_when_requested(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				return ! str_contains( $sql, "is_restricted = '0'" );
+			} )
+			->andReturn( [] );
+
+		Submission::find_by_form_ids( [ 1, 2 ], 1, 20, null, true );
+	}
+
+	// ──────────────────────────────────────────────────
+	// count_by_form_ids — Multi-form count (#261 PreparedSQL)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * Task #261 — count_by_form_ids returns 0 for empty form_ids
+	 */
+	public function test_count_by_form_ids_returns_zero_for_no_form_ids(): void {
+		$count = Submission::count_by_form_ids( [] );
+
+		$this->assertSame( 0, $count );
+	}
+
+	/**
+	 * @test
+	 * Task #261 — count_by_form_ids uses prepared IN() with %d placeholders
+	 */
+	public function test_count_by_form_ids_uses_prepared_in_clause(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_var' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				return str_contains( $sql, 'COUNT(*)' )
+					&& str_contains( $sql, 'form_id IN' );
+			} )
+			->andReturn( '5' );
+
+		$count = Submission::count_by_form_ids( [ 1, 2, 3 ] );
+
+		$this->assertSame( 5, $count );
+	}
+
+	/**
+	 * @test
+	 * Task #261 — count_by_form_ids filters unread only
+	 */
+	public function test_count_by_form_ids_filters_unread(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_var' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				return str_contains( $sql, 'is_read' );
+			} )
+			->andReturn( '2' );
+
+		$count = Submission::count_by_form_ids( [ 1 ], false );
+
+		$this->assertSame( 2, $count );
+	}
+
+	/**
+	 * @test
+	 * Task #261 — count_by_form_ids excludes restricted by default
+	 */
+	public function test_count_by_form_ids_excludes_restricted_by_default(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_var' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				return str_contains( $sql, 'is_restricted' );
+			} )
+			->andReturn( '0' );
+
+		Submission::count_by_form_ids( [ 1, 2 ] );
 	}
 }

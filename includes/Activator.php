@@ -49,6 +49,12 @@ class Activator {
 
 		self::create_tables();
 		self::migrate_consent_locale_default();
+
+		// Remove deprecated CAPTCHA settings (Task #278 — now hardcoded as WPDSGVO_CAPTCHA_URL constant).
+		delete_option( 'wpdsgvo_captcha_provider' );
+		delete_option( 'wpdsgvo_captcha_base_url' );
+		delete_option( 'wpdsgvo_captcha_sitekey' );
+		delete_option( 'wpdsgvo_captcha_sri_hash' );
 	}
 
 	/**

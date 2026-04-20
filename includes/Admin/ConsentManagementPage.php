@@ -27,22 +27,6 @@ defined( 'ABSPATH' ) || exit;
  */
 class ConsentManagementPage {
 
-	private const TEXT_DOMAIN = 'wp-dsgvo-form';
-
-	/**
-	 * Supported locales (CONSENT-I18N-01).
-	 *
-	 * @var array<string, string>
-	 */
-	private const SUPPORTED_LOCALES = [
-		'de_DE' => 'Deutsch',
-		'en_US' => 'English',
-		'fr_FR' => 'Français',
-		'es_ES' => 'Español',
-		'it_IT' => 'Italiano',
-		'sv_SE' => 'Svenska',
-	];
-
 	/**
 	 * Maximum length for consent text excerpt in history table.
 	 */
@@ -55,18 +39,46 @@ class ConsentManagementPage {
 	 */
 	public function render(): void {
 		if ( ! current_user_can( 'dsgvo_form_manage' ) ) {
-			wp_die( esc_html__( 'Keine Berechtigung.', self::TEXT_DOMAIN ) );
+			wp_die( esc_html__( 'Keine Berechtigung.', 'wp-dsgvo-form' ) );
 		}
 
 		$form_id = isset( $_GET['form_id'] ) ? absint( $_GET['form_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$form    = $form_id > 0 ? Form::find( $form_id ) : null;
 
 		if ( $form === null ) {
-			wp_die( esc_html__( 'Formular nicht gefunden.', self::TEXT_DOMAIN ) );
+			wp_die( esc_html__( 'Formular nicht gefunden.', 'wp-dsgvo-form' ) );
+		}
+
+		// ARCH-v104-03: Hard-block — consent management only for forms with legal_basis = 'consent'.
+		if ( $form->legal_basis !== 'consent' ) {
+			$back_url = admin_url( 'admin.php?page=' . AdminMenu::MENU_SLUG );
+			?>
+			<div class="wrap">
+				<h1><?php esc_html_e( 'Einwilligungstexte', 'wp-dsgvo-form' ); ?></h1>
+				<a href="<?php echo esc_url( $back_url ); ?>" class="page-title-action">
+					<?php esc_html_e( 'Zurueck zur Uebersicht', 'wp-dsgvo-form' ); ?>
+				</a>
+				<hr class="wp-header-end">
+				<div class="notice notice-error">
+					<p>
+						<?php
+						printf(
+							/* translators: %s: form title */
+							esc_html__( 'Das Formular "%s" verwendet nicht die Rechtsgrundlage "Einwilligung". Einwilligungstexte koennen nur fuer Formulare mit Rechtsgrundlage "Einwilligung" verwaltet werden.', 'wp-dsgvo-form' ),
+							esc_html( $form->title )
+						);
+						?>
+					</p>
+				</div>
+			</div>
+			<?php
+			return;
 		}
 
 		// Handle POST submission.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- isset() routing only; nonce verified immediately below
 		if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['dsgvo_consent_action'] ) ) {
+			check_admin_referer( 'dsgvo_consent_save_' . $form->id );
 			$this->handle_save( $form );
 			return;
 		}
@@ -86,20 +98,39 @@ class ConsentManagementPage {
 	/**
 	 * Handles the consent text save action.
 	 *
+	 * Sanitizes POST input, delegates to validation and persistence.
+	 *
 	 * @param Form $form The form to save consent for.
 	 * @return void
 	 */
 	private function handle_save( Form $form ): void {
-		check_admin_referer( 'dsgvo_consent_save_' . $form->id );
-
-		$locale      = sanitize_text_field( $_POST['consent_locale'] ?? '' );
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in render() before dispatch
+		$locale      = sanitize_text_field( wp_unslash( $_POST['consent_locale'] ?? '' ) );
 		$text        = wp_kses_post( wp_unslash( $_POST['consent_text'] ?? '' ) );
 		$privacy_url = esc_url_raw( wp_unslash( $_POST['privacy_policy_url'] ?? '' ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
+		$validated = $this->validate_consent_input( $form, $locale, $text, $privacy_url );
+
+		if ( is_array( $validated ) ) {
+			$this->persist_consent_version( $form, $validated );
+		}
+	}
+
+	/**
+	 * Validates consent input data.
+	 *
+	 * @param Form   $form        The form.
+	 * @param string $locale      Sanitized locale.
+	 * @param string $text        Sanitized consent text.
+	 * @param string $privacy_url Sanitized privacy policy URL.
+	 * @return array{locale: string, text: string, privacy_url: string}|null Validated data or null on validation failure (redirect already sent).
+	 */
+	private function validate_consent_input( Form $form, string $locale, string $text, string $privacy_url ): ?array {
 		// Validate locale.
-		if ( ! array_key_exists( $locale, self::SUPPORTED_LOCALES ) ) {
-			$this->redirect_with_notice( $form->id, $locale, 'error', __( 'Ungueltige Sprache.', self::TEXT_DOMAIN ) );
-			return;
+		if ( ! array_key_exists( $locale, ConsentVersion::SUPPORTED_LOCALES ) ) {
+			$this->redirect_with_notice( $form->id, $locale, 'error', __( 'Ungueltige Sprache.', 'wp-dsgvo-form' ) );
+			return null;
 		}
 
 		// Empty text = no save (Fail-Closed, DPO-FINDING-13).
@@ -108,9 +139,9 @@ class ConsentManagementPage {
 				$form->id,
 				$locale,
 				'warning',
-				__( 'Leerer Text wurde nicht gespeichert. Das Formular wird fuer diese Sprache nicht gerendert (Fail-Closed).', self::TEXT_DOMAIN )
+				__( 'Leerer Text wurde nicht gespeichert. Das Formular wird fuer diese Sprache nicht gerendert (Fail-Closed).', 'wp-dsgvo-form' )
 			);
-			return;
+			return null;
 		}
 
 		// Check if text differs from current version.
@@ -120,9 +151,9 @@ class ConsentManagementPage {
 				$form->id,
 				$locale,
 				'info',
-				__( 'Text unveraendert — keine neue Version erstellt.', self::TEXT_DOMAIN )
+				__( 'Text unveraendert — keine neue Version erstellt.', 'wp-dsgvo-form' )
 			);
-			return;
+			return null;
 		}
 
 		// Validate privacy URL (HTTPS only, if provided).
@@ -131,39 +162,53 @@ class ConsentManagementPage {
 				$form->id,
 				$locale,
 				'error',
-				__( 'Privacy-Policy-URL muss HTTPS verwenden.', self::TEXT_DOMAIN )
+				__( 'Privacy-Policy-URL muss HTTPS verwenden.', 'wp-dsgvo-form' )
 			);
-			return;
+			return null;
 		}
 
-		// Create new immutable consent version.
-		$version                    = new ConsentVersion();
-		$version->form_id           = $form->id;
-		$version->locale            = $locale;
-		$version->version           = 0; // Trigger auto-increment in save().
-		$version->consent_text      = $text;
-		$version->privacy_policy_url = $privacy_url !== '' ? $privacy_url : null;
+		return [
+			'locale'      => $locale,
+			'text'        => $text,
+			'privacy_url' => $privacy_url,
+		];
+	}
+
+	/**
+	 * Creates and saves an immutable consent version.
+	 *
+	 * @param Form  $form      The form.
+	 * @param array $validated Validated input from validate_consent_input().
+	 * @return void
+	 */
+	private function persist_consent_version( Form $form, array $validated ): void {
+		$version                     = new ConsentVersion();
+		$version->form_id            = $form->id;
+		$version->locale             = $validated['locale'];
+		$version->version            = 0; // Trigger auto-increment in save().
+		$version->consent_text       = $validated['text'];
+		$version->privacy_policy_url = $validated['privacy_url'] !== '' ? $validated['privacy_url'] : null;
 
 		try {
 			$version->save();
 
 			$this->redirect_with_notice(
 				$form->id,
-				$locale,
+				$validated['locale'],
 				'success',
 				sprintf(
 					/* translators: 1: version number, 2: locale label */
-					__( 'Version %1$d fuer %2$s gespeichert.', self::TEXT_DOMAIN ),
+					__( 'Version %1$d fuer %2$s gespeichert.', 'wp-dsgvo-form' ),
 					$version->version,
-					self::SUPPORTED_LOCALES[ $locale ]
+					ConsentVersion::SUPPORTED_LOCALES[ $validated['locale'] ]
 				)
 			);
 		} catch ( \RuntimeException $e ) {
 			$this->redirect_with_notice(
 				$form->id,
-				$locale,
+				$validated['locale'],
 				'error',
-				__( 'Fehler beim Speichern.', self::TEXT_DOMAIN ) . ' ' . esc_html( $e->getMessage() )
+				__( 'Fehler beim Speichern.', 'wp-dsgvo-form' ) . ' ' . esc_html( $e->getMessage() )
 			);
 		}
 	}
@@ -203,9 +248,9 @@ class ConsentManagementPage {
 	 * @return string Locale string (defaults to de_DE).
 	 */
 	private function get_active_locale(): string {
-		$locale = sanitize_text_field( $_GET['locale'] ?? 'de_DE' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$locale = sanitize_text_field( wp_unslash( $_GET['locale'] ?? 'de_DE' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-		if ( ! array_key_exists( $locale, self::SUPPORTED_LOCALES ) ) {
+		if ( ! array_key_exists( $locale, ConsentVersion::SUPPORTED_LOCALES ) ) {
 			return 'de_DE';
 		}
 
@@ -221,7 +266,7 @@ class ConsentManagementPage {
 	private function group_by_locale( array $versions ): array {
 		$grouped = [];
 
-		foreach ( self::SUPPORTED_LOCALES as $locale => $label ) {
+		foreach ( ConsentVersion::SUPPORTED_LOCALES as $locale => $label ) {
 			$grouped[ $locale ] = [];
 		}
 
@@ -250,27 +295,19 @@ class ConsentManagementPage {
 				<?php
 				printf(
 					/* translators: %s: form title */
-					esc_html__( 'Einwilligungstexte — %s', self::TEXT_DOMAIN ),
+					esc_html__( 'Einwilligungstexte — %s', 'wp-dsgvo-form' ),
 					esc_html( $form->title )
 				);
 				?>
 			</h1>
 
 			<a href="<?php echo esc_url( $back_url ); ?>" class="page-title-action">
-				<?php esc_html_e( 'Zurueck zur Uebersicht', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'Zurueck zur Uebersicht', 'wp-dsgvo-form' ); ?>
 			</a>
 
 			<hr class="wp-header-end">
 
 			<?php $this->render_notices(); ?>
-
-			<?php if ( $form->legal_basis !== 'consent' ) : ?>
-				<div class="notice notice-info">
-					<p>
-						<?php esc_html_e( 'Dieses Formular verwendet die Rechtsgrundlage "Vertrag" — Einwilligungstexte sind optional.', self::TEXT_DOMAIN ); ?>
-					</p>
-				</div>
-			<?php endif; ?>
 
 			<?php $this->render_locale_tabs( $form->id, $active_locale, $versions_by_locale ); ?>
 
@@ -330,7 +367,7 @@ class ConsentManagementPage {
 	private function render_locale_tabs( int $form_id, string $active_locale, array $versions_by_locale ): void {
 		?>
 		<nav class="nav-tab-wrapper" style="margin-bottom:1.5rem;">
-			<?php foreach ( self::SUPPORTED_LOCALES as $locale => $label ) : ?>
+			<?php foreach ( ConsentVersion::SUPPORTED_LOCALES as $locale => $label ) : ?>
 				<?php
 				$tab_url   = admin_url(
 					sprintf(
@@ -347,7 +384,7 @@ class ConsentManagementPage {
 				<a href="<?php echo esc_url( $tab_url ); ?>" class="<?php echo esc_attr( $css ); ?>">
 					<?php echo esc_html( $label ); ?>
 					<?php if ( $has_text ) : ?>
-						<span class="dashicons dashicons-yes" style="font-size:16px;width:16px;height:16px;vertical-align:middle;color:#46b450;" title="<?php esc_attr_e( 'Text vorhanden', self::TEXT_DOMAIN ); ?>"></span>
+						<span class="dashicons dashicons-yes" style="font-size:16px;width:16px;height:16px;vertical-align:middle;color:#46b450;" title="<?php esc_attr_e( 'Text vorhanden', 'wp-dsgvo-form' ); ?>"></span>
 					<?php endif; ?>
 				</a>
 			<?php endforeach; ?>
@@ -365,7 +402,7 @@ class ConsentManagementPage {
 	 */
 	private function render_locale_content( Form $form, string $locale, array $versions ): void {
 		$current     = ! empty( $versions ) ? $versions[0] : null;
-		$locale_label = self::SUPPORTED_LOCALES[ $locale ] ?? $locale;
+		$locale_label = ConsentVersion::SUPPORTED_LOCALES[ $locale ] ?? $locale;
 
 		// Current version info.
 		if ( $current !== null ) {
@@ -375,7 +412,7 @@ class ConsentManagementPage {
 					<?php
 					printf(
 						/* translators: 1: version number, 2: valid_from date */
-						esc_html__( 'Aktuelle Version: %1$d (gueltig seit %2$s)', self::TEXT_DOMAIN ),
+						esc_html__( 'Aktuelle Version: %1$d (gueltig seit %2$s)', 'wp-dsgvo-form' ),
 						(int) $current->version,
 						esc_html(
 							wp_date(
@@ -395,7 +432,7 @@ class ConsentManagementPage {
 					<?php
 					printf(
 						/* translators: %s: locale label */
-						esc_html__( 'Kein Einwilligungstext fuer %s vorhanden. Das Formular wird fuer diese Sprache nicht gerendert (Fail-Closed).', self::TEXT_DOMAIN ),
+						esc_html__( 'Kein Einwilligungstext fuer %s vorhanden. Das Formular wird fuer diese Sprache nicht gerendert (Fail-Closed).', 'wp-dsgvo-form' ),
 						esc_html( $locale_label )
 					);
 					?>
@@ -441,7 +478,7 @@ class ConsentManagementPage {
 					<tr>
 						<th scope="row">
 							<label for="consent_text">
-								<?php esc_html_e( 'Einwilligungstext', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'Einwilligungstext', 'wp-dsgvo-form' ); ?>
 							</label>
 						</th>
 						<td>
@@ -450,17 +487,17 @@ class ConsentManagementPage {
 								name="consent_text"
 								rows="8"
 								class="large-text"
-								placeholder="<?php esc_attr_e( 'Einwilligungstext eingeben...', self::TEXT_DOMAIN ); ?>"
+								placeholder="<?php esc_attr_e( 'Einwilligungstext eingeben...', 'wp-dsgvo-form' ); ?>"
 							><?php echo esc_textarea( $current !== null ? $current->consent_text : '' ); ?></textarea>
 							<p class="description">
-								<?php esc_html_e( 'HTML-Formatierung erlaubt (Links, Fettschrift). Jede Aenderung erstellt eine neue, unveraenderliche Version (Art. 7 DSGVO).', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'HTML-Formatierung erlaubt (Links, Fettschrift). Jede Aenderung erstellt eine neue, unveraenderliche Version (Art. 7 DSGVO).', 'wp-dsgvo-form' ); ?>
 							</p>
 						</td>
 					</tr>
 					<tr>
 						<th scope="row">
 							<label for="privacy_policy_url">
-								<?php esc_html_e( 'Datenschutzerklaerung-URL', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'Datenschutzerklaerung-URL', 'wp-dsgvo-form' ); ?>
 							</label>
 						</th>
 						<td>
@@ -472,7 +509,7 @@ class ConsentManagementPage {
 								class="regular-text"
 								placeholder="https://example.com/datenschutz">
 							<p class="description">
-								<?php esc_html_e( 'Optional. Sprachspezifischer Link zur Datenschutzerklaerung. Muss HTTPS verwenden.', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'Optional. Sprachspezifischer Link zur Datenschutzerklaerung. Muss HTTPS verwenden.', 'wp-dsgvo-form' ); ?>
 							</p>
 						</td>
 					</tr>
@@ -481,7 +518,7 @@ class ConsentManagementPage {
 
 			<?php
 			submit_button(
-				__( 'Neue Version speichern', self::TEXT_DOMAIN ),
+				__( 'Neue Version speichern', 'wp-dsgvo-form' ),
 				'primary',
 				'submit',
 				true
@@ -502,19 +539,19 @@ class ConsentManagementPage {
 	 */
 	private function render_version_history( array $versions ): void {
 		?>
-		<h2><?php esc_html_e( 'Versions-Historie', self::TEXT_DOMAIN ); ?></h2>
+		<h2><?php esc_html_e( 'Versions-Historie', 'wp-dsgvo-form' ); ?></h2>
 		<p class="description" style="margin-bottom:0.5rem;">
-			<?php esc_html_e( 'Fruehere Versionen sind unveraenderlich und dienen als Nachweis der exakten Einwilligungsformulierung (Art. 7 Abs. 1 DSGVO).', self::TEXT_DOMAIN ); ?>
+			<?php esc_html_e( 'Fruehere Versionen sind unveraenderlich und dienen als Nachweis der exakten Einwilligungsformulierung (Art. 7 Abs. 1 DSGVO).', 'wp-dsgvo-form' ); ?>
 		</p>
 
 		<table class="widefat striped">
 			<thead>
 				<tr>
-					<th style="width:5%;"><?php esc_html_e( 'Version', self::TEXT_DOMAIN ); ?></th>
-					<th style="width:45%;"><?php esc_html_e( 'Einwilligungstext', self::TEXT_DOMAIN ); ?></th>
-					<th style="width:20%;"><?php esc_html_e( 'Datenschutz-URL', self::TEXT_DOMAIN ); ?></th>
-					<th style="width:15%;"><?php esc_html_e( 'Gueltig seit', self::TEXT_DOMAIN ); ?></th>
-					<th style="width:15%;"><?php esc_html_e( 'Erstellt am', self::TEXT_DOMAIN ); ?></th>
+					<th style="width:5%;"><?php esc_html_e( 'Version', 'wp-dsgvo-form' ); ?></th>
+					<th style="width:45%;"><?php esc_html_e( 'Einwilligungstext', 'wp-dsgvo-form' ); ?></th>
+					<th style="width:20%;"><?php esc_html_e( 'Datenschutz-URL', 'wp-dsgvo-form' ); ?></th>
+					<th style="width:15%;"><?php esc_html_e( 'Gueltig seit', 'wp-dsgvo-form' ); ?></th>
+					<th style="width:15%;"><?php esc_html_e( 'Erstellt am', 'wp-dsgvo-form' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>

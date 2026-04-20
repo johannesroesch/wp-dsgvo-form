@@ -122,7 +122,12 @@ class FileHandler
 
 		try {
 			// Read the uploaded file content.
-			$file_contents = file_get_contents($uploaded['file']);
+			global $wp_filesystem;
+			if ( ! function_exists( 'WP_Filesystem' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			WP_Filesystem();
+			$file_contents = $wp_filesystem->get_contents($uploaded['file']);
 
 			if ($file_contents === false) {
 				throw new \RuntimeException('Failed to read uploaded file.');
@@ -185,7 +190,12 @@ class FileHandler
 			throw new \RuntimeException('Encrypted file not found or not readable.');
 		}
 
-		$encrypted_blob = file_get_contents($full_path);
+		global $wp_filesystem;
+		if ( ! function_exists( 'WP_Filesystem' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+		WP_Filesystem();
+		$encrypted_blob = $wp_filesystem->get_contents($full_path);
 
 		if ($encrypted_blob === false) {
 			throw new \RuntimeException('Failed to read encrypted file.');
@@ -230,9 +240,17 @@ class FileHandler
 		$parent = dirname($full_path);
 		$base   = $this->get_upload_base_dir();
 
-		while ($parent !== $base && is_dir($parent) && $this->is_dir_empty($parent)) {
-			rmdir($parent);
-			$parent = dirname($parent);
+		if ( $parent !== $base && is_dir($parent) && $this->is_dir_empty($parent) ) {
+			global $wp_filesystem;
+			if ( ! function_exists( 'WP_Filesystem' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			WP_Filesystem();
+
+			while ($parent !== $base && is_dir($parent) && $this->is_dir_empty($parent)) {
+				$wp_filesystem->rmdir( $parent );
+				$parent = dirname($parent);
+			}
 		}
 
 		return true;
@@ -254,7 +272,7 @@ class FileHandler
 		if (!is_dir($base_dir)) {
 			if (!wp_mkdir_p($base_dir)) {
 				throw new \RuntimeException(
-					'Failed to create upload directory: ' . $base_dir
+					'Failed to create upload directory: ' . esc_html( $base_dir )
 				);
 			}
 		}
@@ -271,15 +289,23 @@ class FileHandler
 				. "  php_flag engine off\n"
 				. "</IfModule>\n";
 
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			file_put_contents($htaccess_path, $htaccess_content);
+			global $wp_filesystem;
+			if ( ! function_exists( 'WP_Filesystem' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			WP_Filesystem();
+			$wp_filesystem->put_contents($htaccess_path, $htaccess_content);
 		}
 
 		// SEC-FILE-06: index.php to prevent directory listing.
 		$index_path = $base_dir . '/index.php';
 		if (!file_exists($index_path)) {
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			file_put_contents($index_path, "<?php\n// Silence is golden.\n");
+			global $wp_filesystem;
+			if ( ! function_exists( 'WP_Filesystem' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			WP_Filesystem();
+			$wp_filesystem->put_contents($index_path, "<?php\n// Silence is golden.\n");
 		}
 
 		return $base_dir;
@@ -412,7 +438,7 @@ class FileHandler
 			];
 
 			$message = $messages[$file['error']] ?? 'Unknown upload error.';
-			throw new \RuntimeException('Upload error: ' . $message);
+			throw new \RuntimeException('Upload error: ' . esc_html( $message ));
 		}
 	}
 
@@ -431,7 +457,7 @@ class FileHandler
 			throw new \RuntimeException(
 				sprintf(
 					'File size exceeds the maximum allowed size of %s.',
-					size_format($max_size)
+					esc_html( size_format($max_size) )
 				)
 			);
 		}
@@ -504,7 +530,7 @@ class FileHandler
 		if (empty($wp_check['type'])) {
 			throw new \RuntimeException(
 				'File type is not allowed. Permitted types: '
-				. implode(', ', array_keys($allowed_mimes)) . '.'
+				. esc_html( implode(', ', array_keys($allowed_mimes)) ) . '.'
 			);
 		}
 
@@ -517,7 +543,7 @@ class FileHandler
 			if ($real_mime !== false && !in_array($real_mime, $allowed_mimes, true)) {
 				throw new \RuntimeException(
 					'File content does not match its extension. '
-					. 'Detected type: ' . $real_mime . '.'
+					. 'Detected type: ' . esc_html( $real_mime ) . '.'
 				);
 			}
 		}
@@ -545,7 +571,7 @@ class FileHandler
 		$result = wp_handle_upload($file, $overrides);
 
 		if (isset($result['error'])) {
-			throw new \RuntimeException('Upload failed: ' . $result['error']);
+			throw new \RuntimeException('Upload failed: ' . esc_html( $result['error'] ));
 		}
 
 		return $result;
@@ -576,8 +602,12 @@ class FileHandler
 		$filename = wp_generate_password(32, false) . '.enc';
 		$filepath = $dir . '/' . $filename;
 
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-		$written = file_put_contents($filepath, $encrypted_blob);
+		global $wp_filesystem;
+		if ( ! function_exists( 'WP_Filesystem' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+		WP_Filesystem();
+		$written = $wp_filesystem->put_contents($filepath, $encrypted_blob);
 
 		if ($written === false) {
 			throw new \RuntimeException('Failed to write encrypted file to disk.');

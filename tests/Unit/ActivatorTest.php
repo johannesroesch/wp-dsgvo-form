@@ -40,6 +40,7 @@ class ActivatorTest extends TestCase {
 			'wp_schedule_event'   => true,
 			'add_option'          => true,
 			'update_option'       => true,
+			'delete_option'       => true,
 			'flush_rewrite_rules' => null,
 		);
 
@@ -369,6 +370,44 @@ class ActivatorTest extends TestCase {
 		Functions\expect( 'dbDelta' )->never();
 
 		Activator::maybe_upgrade();
+	}
+
+	/**
+	 * @test
+	 * Task #278: maybe_upgrade() deletes deprecated CAPTCHA options.
+	 */
+	public function test_maybe_upgrade_deletes_deprecated_captcha_options(): void {
+		$this->stub_activation_deps( array( 'dbDelta', 'get_option', 'update_option', 'delete_option' ) );
+
+		Functions\expect( 'get_option' )
+			->with( 'wpdsgvo_db_version', '0' )
+			->andReturn( '0' );
+
+		Functions\when( 'dbDelta' )->justReturn( array() );
+
+		// migrate_consent_locale_default needs $wpdb->query.
+		$GLOBALS['wpdb']->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$GLOBALS['wpdb']->shouldReceive( 'query' )->andReturn( 0 );
+
+		Functions\when( 'update_option' )->justReturn( true );
+
+		$deleted_options = array();
+
+		Functions\expect( 'delete_option' )
+			->times( 4 )
+			->andReturnUsing(
+				function ( string $option ) use ( &$deleted_options ): bool {
+					$deleted_options[] = $option;
+					return true;
+				}
+			);
+
+		Activator::maybe_upgrade();
+
+		$this->assertContains( 'wpdsgvo_captcha_provider', $deleted_options );
+		$this->assertContains( 'wpdsgvo_captcha_base_url', $deleted_options );
+		$this->assertContains( 'wpdsgvo_captcha_sitekey', $deleted_options );
+		$this->assertContains( 'wpdsgvo_captcha_sri_hash', $deleted_options );
 	}
 
 	/**

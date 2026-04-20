@@ -71,6 +71,9 @@ class SubmissionDetailViewTest extends TestCase {
 				'home_url'      => function ( string $path = '' ): string {
 					return 'https://example.com' . $path;
 				},
+				'wp_unslash'    => function ( $value ) {
+					return $value;
+				},
 				'get_transient' => false,
 				'set_transient' => true,
 			]

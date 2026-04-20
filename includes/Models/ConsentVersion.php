@@ -20,9 +20,19 @@ class ConsentVersion {
 	/**
 	 * Supported locales for consent versioning (LEGAL-I18N-04).
 	 *
+	 * Single source of truth for locale codes and their display labels.
 	 * Extensible via the 'wpdsgvo_supported_locales' filter.
+	 *
+	 * @var array<string, string> Locale code => display label.
 	 */
-	public const SUPPORTED_LOCALES = array( 'de_DE', 'en_US', 'fr_FR', 'es_ES', 'it_IT', 'sv_SE' );
+	public const SUPPORTED_LOCALES = [
+		'de_DE' => 'Deutsch',
+		'en_US' => 'English',
+		'fr_FR' => 'Français',
+		'es_ES' => 'Español',
+		'it_IT' => 'Italiano',
+		'sv_SE' => 'Svenska',
+	];
 
 	public int $id                    = 0;
 	public int $form_id               = 0;
@@ -184,7 +194,7 @@ class ConsentVersion {
 		$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
 		if ( $wpdb->insert_id === 0 ) {
-			throw new \RuntimeException( 'Failed to insert consent version: ' . $wpdb->last_error );
+			throw new \RuntimeException( 'Failed to insert consent version: ' . esc_html( $wpdb->last_error ) );
 		}
 
 		$this->id = (int) $wpdb->insert_id;
@@ -202,6 +212,23 @@ class ConsentVersion {
 			throw new \RuntimeException( 'ConsentVersion must belong to a form (form_id required).' );
 		}
 
+		// ARCH-v104-03: Verify parent form uses legal_basis = 'consent'.
+		$form = Form::find( $this->form_id );
+
+		if ( $form === null ) {
+			throw new \RuntimeException( 'ConsentVersion references a non-existent form.' );
+		}
+
+		if ( $form->legal_basis !== 'consent' ) {
+			throw new \RuntimeException(
+				sprintf(
+					'ConsentVersion cannot be created for form %d: legal_basis is "%s", not "consent".',
+					$this->form_id,
+					esc_html( $form->legal_basis )
+				)
+			);
+		}
+
 		if ( trim( $this->consent_text ) === '' ) {
 			throw new \RuntimeException( 'ConsentVersion must contain consent text (DPO-FINDING-13).' );
 		}
@@ -212,9 +239,9 @@ class ConsentVersion {
 
 		$supported = apply_filters( 'wpdsgvo_supported_locales', self::SUPPORTED_LOCALES );
 
-		if ( ! in_array( $this->locale, $supported, true ) ) {
+		if ( ! array_key_exists( $this->locale, $supported ) ) {
 			throw new \RuntimeException(
-				sprintf( 'ConsentVersion locale "%s" is not in the supported locales list.', $this->locale )
+				sprintf( 'ConsentVersion locale "%s" is not in the supported locales list.', esc_html( $this->locale ) )
 			);
 		}
 	}

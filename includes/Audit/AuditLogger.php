@@ -162,13 +162,14 @@ class AuditLogger
         $offset = max(0, $offset);
 
         // SEC-SQL-01: Prepared statement.
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is passed directly to prepare() on the next line; values are bound via ...$values.
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Hardcoded table name; $where_clause built from validated %d/%s placeholders matching $values by construction.
         $sql = "SELECT * FROM `{$table}` {$where_clause} ORDER BY `created_at` DESC LIMIT %d OFFSET %d";
 
         $values[] = $limit;
         $values[] = $offset;
 
         $results = $wpdb->get_results(
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $sql passed to prepare(); dynamic WHERE built from validated placeholders matching $values by construction.
             $wpdb->prepare($sql, ...$values)
         );
 
@@ -222,7 +223,9 @@ class AuditLogger
             );
         } else {
             $count = $wpdb->get_var(
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $sql passed to prepare(); dynamic WHERE built from validated placeholders matching $values by construction.
                 $wpdb->prepare(
+                    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Hardcoded table name; $where_clause built from validated %d/%s placeholders matching $values by construction.
                     "SELECT COUNT(*) FROM `{$table}` {$where_clause}",
                     ...$values
                 )

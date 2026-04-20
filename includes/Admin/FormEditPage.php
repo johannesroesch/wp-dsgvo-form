@@ -23,8 +23,6 @@ use WpDsgvoForm\Models\Form;
  */
 class FormEditPage {
 
-	private const TEXT_DOMAIN = 'wp-dsgvo-form';
-
 	/**
 	 * Error message from a failed save attempt (set by maybe_save_and_redirect).
 	 *
@@ -63,14 +61,14 @@ class FormEditPage {
 	 * On failure: stores error for render() to display.
 	 */
 	public function maybe_save_and_redirect(): void {
-		if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'POST' ) {
+		if ( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ?? '' ) ) !== 'POST' ) {
 			return;
 		}
 
 		check_admin_referer( 'dsgvo_form_save' );
 
 		if ( ! current_user_can( 'dsgvo_form_manage' ) ) {
-			wp_die( esc_html__( 'Keine Berechtigung.', self::TEXT_DOMAIN ) );
+			wp_die( esc_html__( 'Keine Berechtigung.', 'wp-dsgvo-form' ) );
 		}
 
 		$form_id = isset( $_POST['form_id'] ) ? absint( $_POST['form_id'] ) : 0;
@@ -96,7 +94,7 @@ class FormEditPage {
 			exit;
 
 		} catch ( \RuntimeException $e ) {
-			$this->save_error         = $e->getMessage();
+			$this->save_error         = esc_html( $e->getMessage() );
 			$this->save_error_form_id = $form_id;
 		}
 	}
@@ -106,7 +104,7 @@ class FormEditPage {
 	 */
 	public function render(): void {
 		if ( ! current_user_can( 'dsgvo_form_manage' ) ) {
-			wp_die( esc_html__( 'Keine Berechtigung.', self::TEXT_DOMAIN ) );
+			wp_die( esc_html__( 'Keine Berechtigung.', 'wp-dsgvo-form' ) );
 		}
 
 		// Display save error stored by maybe_save_and_redirect().
@@ -120,8 +118,8 @@ class FormEditPage {
 		$form    = $form_id > 0 ? Form::find( $form_id ) : null;
 		$fields  = $form_id > 0 ? Field::find_by_form_id( $form_id ) : [];
 		$title   = $form !== null
-			? __( 'Formular bearbeiten', self::TEXT_DOMAIN )
-			: __( 'Neues Formular', self::TEXT_DOMAIN );
+			? __( 'Formular bearbeiten', 'wp-dsgvo-form' )
+			: __( 'Neues Formular', 'wp-dsgvo-form' );
 
 		$this->render_page( $title, $form ?? new Form(), $fields );
 	}
@@ -136,18 +134,21 @@ class FormEditPage {
 			$form = new Form();
 		}
 
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in maybe_save_and_redirect()
 		$form->title           = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
 		$form->description     = sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) );
 		$form->success_message = sanitize_textarea_field( wp_unslash( $_POST['success_message'] ?? '' ) );
 		$form->email_subject   = sanitize_text_field( wp_unslash( $_POST['email_subject'] ?? '' ) );
 		$form->email_template  = sanitize_textarea_field( wp_unslash( $_POST['email_template'] ?? '' ) );
-		$form->legal_basis     = in_array( $_POST['legal_basis'] ?? '', [ 'consent', 'contract' ], true )
-			? sanitize_key( $_POST['legal_basis'] )
+		$legal_basis_raw       = sanitize_key( wp_unslash( $_POST['legal_basis'] ?? '' ) );
+		$form->legal_basis     = in_array( $legal_basis_raw, [ 'consent', 'contract' ], true )
+			? $legal_basis_raw
 			: 'consent';
 		$form->purpose         = sanitize_textarea_field( wp_unslash( $_POST['purpose'] ?? '' ) );
 		$form->is_active       = isset( $_POST['is_active'] );
 		$form->captcha_enabled = isset( $_POST['captcha_enabled'] );
-		$form->retention_days  = min( max( (int) ( $_POST['retention_days'] ?? 90 ), 1 ), 3650 );
+		$form->retention_days  = min( max( (int) wp_unslash( $_POST['retention_days'] ?? 90 ), 1 ), 3650 );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		return $form;
 	}
@@ -159,8 +160,8 @@ class FormEditPage {
 		$form   = $form_id > 0 ? Form::find( $form_id ) : new Form();
 		$fields = $form_id > 0 ? Field::find_by_form_id( $form_id ) : [];
 		$title  = $form_id > 0
-			? __( 'Formular bearbeiten', self::TEXT_DOMAIN )
-			: __( 'Neues Formular', self::TEXT_DOMAIN );
+			? __( 'Formular bearbeiten', 'wp-dsgvo-form' )
+			: __( 'Neues Formular', 'wp-dsgvo-form' );
 
 		add_settings_error(
 			'dsgvo_form_save',
@@ -198,27 +199,21 @@ class FormEditPage {
 	 * @return array{ids: int[], types: string[], labels: string[], names: string[], placeholders: string[], required: string[], css_classes: string[], options: array, static: string[], file_config: array}
 	 */
 	private function extract_field_post_data(): array {
-		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_save()
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in maybe_save_and_redirect()
 		// array_values() ensures contiguous keys after DOM reorder (Fix: Array-Key-Reorder).
 		return [
-			'ids'          => array_values( array_map( 'absint', (array) ( $_POST['field_id'] ?? [] ) ) ),
-			'types'        => array_values( array_map( 'sanitize_key', (array) ( $_POST['field_type'] ?? [] ) ) ),
-			'labels'       => array_values( array_map(
-				fn ( $v ) => sanitize_text_field( wp_unslash( $v ) ),
-				(array) ( $_POST['field_label'] ?? [] )
-			) ),
-			'names'        => array_values( array_map( 'sanitize_key', (array) ( $_POST['field_name'] ?? [] ) ) ),
-			'placeholders' => array_values( array_map(
-				fn ( $v ) => sanitize_text_field( wp_unslash( $v ) ),
-				(array) ( $_POST['field_placeholder'] ?? [] )
-			) ),
-			'required'     => array_values( (array) ( $_POST['field_required'] ?? [] ) ),
-			'css_classes'  => array_values( array_map( 'sanitize_html_class', (array) ( $_POST['field_css_class'] ?? [] ) ) ),
-			'options'      => array_values( (array) ( $_POST['field_options'] ?? [] ) ),
-			'static'       => array_values( array_map( 'wp_kses_post', (array) ( $_POST['field_static_content'] ?? [] ) ) ),
+			'ids'          => array_values( array_map( 'absint', (array) wp_unslash( $_POST['field_id'] ?? [] ) ) ),
+			'types'        => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_type'] ?? [] ) ) ),
+			'labels'       => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_label'] ?? [] ) ) ),
+			'names'        => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_name'] ?? [] ) ) ),
+			'placeholders' => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_placeholder'] ?? [] ) ) ),
+			'required'     => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_required'] ?? [] ) ) ),
+			'css_classes'  => array_values( array_map( 'sanitize_html_class', (array) wp_unslash( $_POST['field_css_class'] ?? [] ) ) ),
+			'options'      => array_values( (array) wp_unslash( $_POST['field_options'] ?? [] ) ),
+			'static'       => array_values( array_map( 'wp_kses_post', (array) wp_unslash( $_POST['field_static_content'] ?? [] ) ) ),
 			'file_config'  => [
-				'allowed_types' => array_values( (array) ( $_POST['field_file_types'] ?? [] ) ),
-				'max_size'      => array_values( (array) ( $_POST['field_file_max_size'] ?? [] ) ),
+				'allowed_types' => array_values( (array) wp_unslash( $_POST['field_file_types'] ?? [] ) ),
+				'max_size'      => array_values( (array) wp_unslash( $_POST['field_file_max_size'] ?? [] ) ),
 			],
 		];
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
@@ -349,14 +344,14 @@ class FormEditPage {
 			<h1><?php echo esc_html( $title ); ?></h1>
 
 			<a href="<?php echo esc_url( $back_url ); ?>" class="page-title-action">
-				<?php esc_html_e( 'Zurueck zur Uebersicht', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'Zurueck zur Uebersicht', 'wp-dsgvo-form' ); ?>
 			</a>
 
 			<hr class="wp-header-end">
 
 			<?php if ( $saved ) : ?>
 				<div class="notice notice-success is-dismissible">
-					<p><?php esc_html_e( 'Formular gespeichert.', self::TEXT_DOMAIN ); ?></p>
+					<p><?php esc_html_e( 'Formular gespeichert.', 'wp-dsgvo-form' ); ?></p>
 				</div>
 			<?php endif; ?>
 
@@ -381,44 +376,44 @@ class FormEditPage {
 				<?php wp_nonce_field( 'dsgvo_form_save' ); ?>
 				<input type="hidden" name="form_id" value="<?php echo esc_attr( (string) $form->id ); ?>">
 
-				<h2><?php esc_html_e( 'Allgemeine Einstellungen', self::TEXT_DOMAIN ); ?></h2>
+				<h2><?php esc_html_e( 'Allgemeine Einstellungen', 'wp-dsgvo-form' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
-						<th><label for="dsgvo-title"><?php esc_html_e( 'Titel', self::TEXT_DOMAIN ); ?> <span style="color:red">*</span></label></th>
+						<th><label for="dsgvo-title"><?php esc_html_e( 'Titel', 'wp-dsgvo-form' ); ?> <span style="color:red">*</span></label></th>
 						<td><input type="text" id="dsgvo-title" name="title" class="regular-text"
 							value="<?php echo esc_attr( $form->title ); ?>" required></td>
 					</tr>
 					<tr>
-						<th><label for="dsgvo-description"><?php esc_html_e( 'Beschreibung', self::TEXT_DOMAIN ); ?></label></th>
+						<th><label for="dsgvo-description"><?php esc_html_e( 'Beschreibung', 'wp-dsgvo-form' ); ?></label></th>
 						<td><textarea id="dsgvo-description" name="description" rows="3" class="large-text"><?php
 							echo esc_textarea( $form->description );
 						?></textarea></td>
 					</tr>
 					<tr>
-						<th><label for="dsgvo-legal-basis"><?php esc_html_e( 'Rechtsgrundlage', self::TEXT_DOMAIN ); ?></label></th>
+						<th><label for="dsgvo-legal-basis"><?php esc_html_e( 'Rechtsgrundlage', 'wp-dsgvo-form' ); ?></label></th>
 						<td>
 							<select id="dsgvo-legal-basis" name="legal_basis">
 								<option value="consent" <?php selected( $form->legal_basis, 'consent' ); ?>>
-									<?php esc_html_e( 'Einwilligung (Art. 6 Abs. 1 lit. a DSGVO)', self::TEXT_DOMAIN ); ?>
+									<?php esc_html_e( 'Einwilligung (Art. 6 Abs. 1 lit. a DSGVO)', 'wp-dsgvo-form' ); ?>
 								</option>
 								<option value="contract" <?php selected( $form->legal_basis, 'contract' ); ?>>
-									<?php esc_html_e( 'Vertragserfuellung (Art. 6 Abs. 1 lit. b DSGVO)', self::TEXT_DOMAIN ); ?>
+									<?php esc_html_e( 'Vertragserfuellung (Art. 6 Abs. 1 lit. b DSGVO)', 'wp-dsgvo-form' ); ?>
 								</option>
 							</select>
 						</td>
 					</tr>
 					<tr>
-						<th><label for="dsgvo-purpose"><?php esc_html_e( 'Verarbeitungszweck', self::TEXT_DOMAIN ); ?></label></th>
+						<th><label for="dsgvo-purpose"><?php esc_html_e( 'Verarbeitungszweck', 'wp-dsgvo-form' ); ?></label></th>
 						<td><textarea id="dsgvo-purpose" name="purpose" rows="2" class="large-text"><?php
 							echo esc_textarea( $form->purpose );
 						?></textarea></td>
 					</tr>
 					<tr>
-						<th><label for="dsgvo-retention"><?php esc_html_e( 'Aufbewahrungsdauer (Tage)', self::TEXT_DOMAIN ); ?></label></th>
+						<th><label for="dsgvo-retention"><?php esc_html_e( 'Aufbewahrungsdauer (Tage)', 'wp-dsgvo-form' ); ?></label></th>
 						<td>
 							<input type="number" id="dsgvo-retention" name="retention_days" min="1" max="3650"
 								value="<?php echo esc_attr( (string) $form->retention_days ); ?>" class="small-text">
-							<p class="description"><?php esc_html_e( '1–3650 Tage (DPO-FINDING-01)', self::TEXT_DOMAIN ); ?></p>
+							<p class="description"><?php esc_html_e( '1–3650 Tage (DPO-FINDING-01)', 'wp-dsgvo-form' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -432,20 +427,20 @@ class FormEditPage {
 		?>
 				<table class="form-table" role="presentation">
 					<tr>
-						<th><?php esc_html_e( 'Status', self::TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'Status', 'wp-dsgvo-form' ); ?></th>
 						<td>
 							<label>
 								<input type="checkbox" name="is_active" <?php checked( $form->is_active ); ?>>
-								<?php esc_html_e( 'Formular aktiv', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'Formular aktiv', 'wp-dsgvo-form' ); ?>
 							</label>
 						</td>
 					</tr>
 					<tr>
-						<th><?php esc_html_e( 'CAPTCHA', self::TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'CAPTCHA', 'wp-dsgvo-form' ); ?></th>
 						<td>
 							<label>
 								<input type="checkbox" name="captcha_enabled" <?php checked( $form->captcha_enabled ); ?>>
-								<?php esc_html_e( 'CAPTCHA aktivieren', self::TEXT_DOMAIN ); ?>
+								<?php esc_html_e( 'CAPTCHA aktivieren', 'wp-dsgvo-form' ); ?>
 							</label>
 						</td>
 					</tr>
@@ -458,24 +453,24 @@ class FormEditPage {
 	 */
 	private function render_email_settings( Form $form ): void {
 		?>
-				<h2><?php esc_html_e( 'E-Mail-Benachrichtigung', self::TEXT_DOMAIN ); ?></h2>
+				<h2><?php esc_html_e( 'E-Mail-Benachrichtigung', 'wp-dsgvo-form' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
-						<th><label for="dsgvo-email-subject"><?php esc_html_e( 'Betreff', self::TEXT_DOMAIN ); ?></label></th>
+						<th><label for="dsgvo-email-subject"><?php esc_html_e( 'Betreff', 'wp-dsgvo-form' ); ?></label></th>
 						<td><input type="text" id="dsgvo-email-subject" name="email_subject" class="regular-text"
 							value="<?php echo esc_attr( $form->email_subject ); ?>"></td>
 					</tr>
 					<tr>
-						<th><label for="dsgvo-email-template"><?php esc_html_e( 'E-Mail-Vorlage', self::TEXT_DOMAIN ); ?></label></th>
+						<th><label for="dsgvo-email-template"><?php esc_html_e( 'E-Mail-Vorlage', 'wp-dsgvo-form' ); ?></label></th>
 						<td>
 							<textarea id="dsgvo-email-template" name="email_template" rows="5" class="large-text"><?php
 								echo esc_textarea( $form->email_template );
 							?></textarea>
-							<p class="description"><?php esc_html_e( 'Verfuegbare Platzhalter: {field_name}', self::TEXT_DOMAIN ); ?></p>
+							<p class="description"><?php esc_html_e( 'Verfuegbare Platzhalter: {field_name}', 'wp-dsgvo-form' ); ?></p>
 						</td>
 					</tr>
 					<tr>
-						<th><label for="dsgvo-success-msg"><?php esc_html_e( 'Erfolgsmeldung', self::TEXT_DOMAIN ); ?></label></th>
+						<th><label for="dsgvo-success-msg"><?php esc_html_e( 'Erfolgsmeldung', 'wp-dsgvo-form' ); ?></label></th>
 						<td><textarea id="dsgvo-success-msg" name="success_message" rows="2" class="large-text"><?php
 							echo esc_textarea( $form->success_message );
 						?></textarea></td>
@@ -489,7 +484,7 @@ class FormEditPage {
 	 */
 	private function render_fields_section( array $fields ): void {
 		?>
-				<h2><?php esc_html_e( 'Formularfelder', self::TEXT_DOMAIN ); ?></h2>
+				<h2><?php esc_html_e( 'Formularfelder', 'wp-dsgvo-form' ); ?></h2>
 
 				<div id="dsgvo-fields-container">
 					<?php foreach ( $fields as $index => $field ) : ?>
@@ -499,11 +494,11 @@ class FormEditPage {
 
 				<p>
 					<button type="button" id="dsgvo-add-field" class="button">
-						<?php esc_html_e( '+ Feld hinzufuegen', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( '+ Feld hinzufuegen', 'wp-dsgvo-form' ); ?>
 					</button>
 				</p>
 
-				<?php submit_button( __( 'Formular speichern', self::TEXT_DOMAIN ) ); ?>
+				<?php submit_button( __( 'Formular speichern', 'wp-dsgvo-form' ) ); ?>
 			</form>
 		</div>
 		<?php
@@ -555,16 +550,16 @@ class FormEditPage {
 		?>
 		<div class="dsgvo-field-row" data-field-db-id="<?php echo esc_attr( (string) $id ); ?>">
 			<h4>
-				<span><?php esc_html_e( 'Feld', self::TEXT_DOMAIN ); ?> #<?php echo esc_html( (string) ( (int) $idx + 1 ) ); ?></span>
+				<span><?php esc_html_e( 'Feld', 'wp-dsgvo-form' ); ?> #<?php echo esc_html( (string) ( (int) $idx + 1 ) ); ?></span>
 				<span class="dsgvo-field-actions">
-					<button type="button" class="dsgvo-move-field-up button-link" title="<?php esc_attr_e( 'Nach oben', self::TEXT_DOMAIN ); ?>">&#9650;</button>
-					<button type="button" class="dsgvo-move-field-down button-link" title="<?php esc_attr_e( 'Nach unten', self::TEXT_DOMAIN ); ?>">&#9660;</button>
+					<button type="button" class="dsgvo-move-field-up button-link" title="<?php esc_attr_e( 'Nach oben', 'wp-dsgvo-form' ); ?>">&#9650;</button>
+					<button type="button" class="dsgvo-move-field-down button-link" title="<?php esc_attr_e( 'Nach unten', 'wp-dsgvo-form' ); ?>">&#9660;</button>
 					<button type="button" class="dsgvo-remove-field button-link" style="color:#d63638;">
-						<?php esc_html_e( 'Entfernen', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Entfernen', 'wp-dsgvo-form' ); ?>
 					</button>
 				</span>
 			</h4>
-			<input type="hidden" name="field_id[<?php echo $idx; ?>]" value="<?php echo esc_attr( (string) $id ); ?>">
+			<input type="hidden" name="field_id[<?php echo esc_attr( $idx ); ?>]" value="<?php echo esc_attr( (string) $id ); ?>">
 		<?php
 	}
 
@@ -575,8 +570,8 @@ class FormEditPage {
 		?>
 			<div class="dsgvo-field-grid">
 				<div>
-					<label for="dsgvo-field-type-<?php echo $idx; ?>"><?php esc_html_e( 'Typ', self::TEXT_DOMAIN ); ?></label>
-					<select id="dsgvo-field-type-<?php echo $idx; ?>" name="field_type[<?php echo $idx; ?>]" class="dsgvo-type-select">
+					<label for="dsgvo-field-type-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'Typ', 'wp-dsgvo-form' ); ?></label>
+					<select id="dsgvo-field-type-<?php echo esc_attr( $idx ); ?>" name="field_type[<?php echo esc_attr( $idx ); ?>]" class="dsgvo-type-select">
 						<?php foreach ( self::FIELD_TYPE_LABELS as $slug => $type_label ) : ?>
 							<option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $type, $slug ); ?>>
 								<?php echo esc_html( $type_label ); ?>
@@ -585,31 +580,31 @@ class FormEditPage {
 					</select>
 				</div>
 				<div>
-					<label for="dsgvo-field-label-<?php echo $idx; ?>"><?php esc_html_e( 'Bezeichnung', self::TEXT_DOMAIN ); ?> *</label>
-					<input type="text" id="dsgvo-field-label-<?php echo $idx; ?>" name="field_label[<?php echo $idx; ?>]"
+					<label for="dsgvo-field-label-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'Bezeichnung', 'wp-dsgvo-form' ); ?> *</label>
+					<input type="text" id="dsgvo-field-label-<?php echo esc_attr( $idx ); ?>" name="field_label[<?php echo esc_attr( $idx ); ?>]"
 						value="<?php echo esc_attr( $label ); ?>" required>
 				</div>
 				<div class="dsgvo-name-row" style="display:flex;flex-direction:column;">
-					<label for="dsgvo-field-name-<?php echo $idx; ?>"><?php esc_html_e( 'Feldname (HTML name-Attribut)', self::TEXT_DOMAIN ); ?></label>
-					<input type="text" id="dsgvo-field-name-<?php echo $idx; ?>" name="field_name[<?php echo $idx; ?>]"
+					<label for="dsgvo-field-name-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'Feldname (HTML name-Attribut)', 'wp-dsgvo-form' ); ?></label>
+					<input type="text" id="dsgvo-field-name-<?php echo esc_attr( $idx ); ?>" name="field_name[<?php echo esc_attr( $idx ); ?>]"
 						value="<?php echo esc_attr( $name ); ?>"
-						placeholder="<?php esc_attr_e( 'z.B. vorname', self::TEXT_DOMAIN ); ?>">
+						placeholder="<?php esc_attr_e( 'z.B. vorname', 'wp-dsgvo-form' ); ?>">
 				</div>
 				<div class="dsgvo-placeholder-row" style="display:flex;flex-direction:column;">
-					<label for="dsgvo-field-ph-<?php echo $idx; ?>"><?php esc_html_e( 'Platzhalter', self::TEXT_DOMAIN ); ?></label>
-					<input type="text" id="dsgvo-field-ph-<?php echo $idx; ?>" name="field_placeholder[<?php echo $idx; ?>]"
+					<label for="dsgvo-field-ph-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'Platzhalter', 'wp-dsgvo-form' ); ?></label>
+					<input type="text" id="dsgvo-field-ph-<?php echo esc_attr( $idx ); ?>" name="field_placeholder[<?php echo esc_attr( $idx ); ?>]"
 						value="<?php echo esc_attr( $placeholder ); ?>">
 				</div>
 				<div>
-					<label for="dsgvo-field-css-<?php echo $idx; ?>"><?php esc_html_e( 'CSS-Klasse', self::TEXT_DOMAIN ); ?></label>
-					<input type="text" id="dsgvo-field-css-<?php echo $idx; ?>" name="field_css_class[<?php echo $idx; ?>]"
+					<label for="dsgvo-field-css-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'CSS-Klasse', 'wp-dsgvo-form' ); ?></label>
+					<input type="text" id="dsgvo-field-css-<?php echo esc_attr( $idx ); ?>" name="field_css_class[<?php echo esc_attr( $idx ); ?>]"
 						value="<?php echo esc_attr( $css_class ); ?>">
 				</div>
 				<div>
 					<label>
-						<input type="checkbox" name="field_required[]" value="<?php echo $idx; ?>"
+						<input type="checkbox" name="field_required[]" value="<?php echo esc_attr( $idx ); ?>"
 							<?php checked( $required ); ?>>
-						<?php esc_html_e( 'Pflichtfeld', self::TEXT_DOMAIN ); ?>
+						<?php esc_html_e( 'Pflichtfeld', 'wp-dsgvo-form' ); ?>
 					</label>
 				</div>
 			</div>
@@ -624,29 +619,29 @@ class FormEditPage {
 		$max_size          = $file_config['max_size_mb'] ?? 5;
 		?>
 			<div class="dsgvo-options-section" style="margin-top:8px;">
-				<label for="dsgvo-field-opts-<?php echo $idx; ?>"><?php esc_html_e( 'Optionen (eine pro Zeile)', self::TEXT_DOMAIN ); ?></label>
-				<textarea id="dsgvo-field-opts-<?php echo $idx; ?>" name="field_options[<?php echo $idx; ?>]" rows="4"
+				<label for="dsgvo-field-opts-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'Optionen (eine pro Zeile)', 'wp-dsgvo-form' ); ?></label>
+				<textarea id="dsgvo-field-opts-<?php echo esc_attr( $idx ); ?>" name="field_options[<?php echo esc_attr( $idx ); ?>]" rows="4"
 					style="width:100%;font-family:monospace;"><?php echo esc_textarea( $options_str ); ?></textarea>
 			</div>
 
 			<div class="dsgvo-static-section" style="margin-top:8px;">
-				<label for="dsgvo-field-static-<?php echo $idx; ?>"><?php esc_html_e( 'Statischer Inhalt (HTML erlaubt)', self::TEXT_DOMAIN ); ?></label>
-				<textarea id="dsgvo-field-static-<?php echo $idx; ?>" name="field_static_content[<?php echo $idx; ?>]" rows="4"
+				<label for="dsgvo-field-static-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'Statischer Inhalt (HTML erlaubt)', 'wp-dsgvo-form' ); ?></label>
+				<textarea id="dsgvo-field-static-<?php echo esc_attr( $idx ); ?>" name="field_static_content[<?php echo esc_attr( $idx ); ?>]" rows="4"
 					style="width:100%;"><?php echo esc_textarea( $static_html ); ?></textarea>
 			</div>
 
 			<div class="dsgvo-file-config-section" style="margin-top:8px;">
 				<div class="dsgvo-field-grid">
 					<div>
-						<label for="dsgvo-field-ftypes-<?php echo $idx; ?>"><?php esc_html_e( 'Erlaubte Dateitypen', self::TEXT_DOMAIN ); ?></label>
-						<input type="text" id="dsgvo-field-ftypes-<?php echo $idx; ?>" name="field_file_types[<?php echo $idx; ?>]"
+						<label for="dsgvo-field-ftypes-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'Erlaubte Dateitypen', 'wp-dsgvo-form' ); ?></label>
+						<input type="text" id="dsgvo-field-ftypes-<?php echo esc_attr( $idx ); ?>" name="field_file_types[<?php echo esc_attr( $idx ); ?>]"
 							value="<?php echo esc_attr( $allowed_types_str ); ?>"
-							placeholder="<?php esc_attr_e( 'z.B. pdf, jpg, png', self::TEXT_DOMAIN ); ?>">
-						<p class="description"><?php esc_html_e( 'Kommagetrennt. Leer = alle erlaubten WordPress-Typen.', self::TEXT_DOMAIN ); ?></p>
+							placeholder="<?php esc_attr_e( 'z.B. pdf, jpg, png', 'wp-dsgvo-form' ); ?>">
+						<p class="description"><?php esc_html_e( 'Kommagetrennt. Leer = alle erlaubten WordPress-Typen.', 'wp-dsgvo-form' ); ?></p>
 					</div>
 					<div>
-						<label for="dsgvo-field-fsize-<?php echo $idx; ?>"><?php esc_html_e( 'Max. Dateigroesse (MB)', self::TEXT_DOMAIN ); ?></label>
-						<input type="number" id="dsgvo-field-fsize-<?php echo $idx; ?>" name="field_file_max_size[<?php echo $idx; ?>]"
+						<label for="dsgvo-field-fsize-<?php echo esc_attr( $idx ); ?>"><?php esc_html_e( 'Max. Dateigroesse (MB)', 'wp-dsgvo-form' ); ?></label>
+						<input type="number" id="dsgvo-field-fsize-<?php echo esc_attr( $idx ); ?>" name="field_file_max_size[<?php echo esc_attr( $idx ); ?>]"
 							value="<?php echo esc_attr( (string) $max_size ); ?>" min="1" max="50" class="small-text">
 					</div>
 				</div>
@@ -686,11 +681,16 @@ class FormEditPage {
 			var container = document.getElementById('dsgvo-fields-container');
 			var template  = document.getElementById('dsgvo-field-template');
 			var addBtn    = document.getElementById('dsgvo-add-field');
-			var fieldCount = <?php echo $field_count; ?>;
+			var fieldCount = <?php echo (int) $field_count; ?>;
 
-			<?php echo $this->render_script_bind_row(); ?>
-			<?php echo $this->render_script_toggle_sections(); ?>
-			<?php echo $this->render_script_init(); ?>
+			<?php
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted JS from internal methods
+			echo $this->render_script_bind_row();
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted JS from internal methods
+			echo $this->render_script_toggle_sections();
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted JS from internal methods
+			echo $this->render_script_init();
+			?>
 		})();
 		</script>
 		<?php
@@ -705,45 +705,44 @@ class FormEditPage {
 	 * @return string JavaScript code block.
 	 */
 	private function render_script_bind_row(): string {
-		$confirm_msg = wp_json_encode( __( 'Feld wirklich entfernen? Das Feld wird beim Speichern geloescht.', self::TEXT_DOMAIN ) );
+		$confirm_msg = wp_json_encode( __( 'Feld wirklich entfernen? Das Feld wird beim Speichern geloescht.', 'wp-dsgvo-form' ) );
 
-		return <<<JS
-			function bindRow(row) {
-				var removeBtn = row.querySelector('.dsgvo-remove-field');
-				if (removeBtn) {
-					removeBtn.addEventListener('click', function() {
-						var dbId = parseInt(row.getAttribute('data-field-db-id') || '0', 10);
-						if (dbId > 0) {
-							if (!confirm({$confirm_msg})) {
-								return;
-							}
-						}
-						row.remove();
-					});
-				}
-
-				var upBtn = row.querySelector('.dsgvo-move-field-up');
-				var downBtn = row.querySelector('.dsgvo-move-field-down');
-				if (upBtn) {
-					upBtn.addEventListener('click', function() {
-						var prev = row.previousElementSibling;
-						if (prev) { container.insertBefore(row, prev); }
-					});
-				}
-				if (downBtn) {
-					downBtn.addEventListener('click', function() {
-						var next = row.nextElementSibling;
-						if (next) { container.insertBefore(next, row); }
-					});
-				}
-
-				var typeSelect = row.querySelector('.dsgvo-type-select');
-				if (typeSelect) {
-					typeSelect.addEventListener('change', function() { toggleFieldSections(row, this.value); });
-					toggleFieldSections(row, typeSelect.value);
-				}
-			}
-JS;
+		return sprintf(
+			"function bindRow(row) {\n"
+			. "var removeBtn = row.querySelector('.dsgvo-remove-field');\n"
+			. "if (removeBtn) {\n"
+			. "removeBtn.addEventListener('click', function() {\n"
+			. "var dbId = parseInt(row.getAttribute('data-field-db-id') || '0', 10);\n"
+			. "if (dbId > 0) {\n"
+			. "if (!confirm(%s)) {\n"
+			. "return;\n"
+			. "}\n"
+			. "}\n"
+			. "row.remove();\n"
+			. "});\n"
+			. "}\n"
+			. "var upBtn = row.querySelector('.dsgvo-move-field-up');\n"
+			. "var downBtn = row.querySelector('.dsgvo-move-field-down');\n"
+			. "if (upBtn) {\n"
+			. "upBtn.addEventListener('click', function() {\n"
+			. "var prev = row.previousElementSibling;\n"
+			. "if (prev) { container.insertBefore(row, prev); }\n"
+			. "});\n"
+			. "}\n"
+			. "if (downBtn) {\n"
+			. "downBtn.addEventListener('click', function() {\n"
+			. "var next = row.nextElementSibling;\n"
+			. "if (next) { container.insertBefore(next, row); }\n"
+			. "});\n"
+			. "}\n"
+			. "var typeSelect = row.querySelector('.dsgvo-type-select');\n"
+			. "if (typeSelect) {\n"
+			. "typeSelect.addEventListener('change', function() { toggleFieldSections(row, this.value); });\n"
+			. "toggleFieldSections(row, typeSelect.value);\n"
+			. "}\n"
+			. "}",
+			$confirm_msg
+		);
 	}
 
 	/**
@@ -755,31 +754,29 @@ JS;
 	 * @return string JavaScript code block.
 	 */
 	private function render_script_toggle_sections(): string {
-		return <<<'JS'
-			function toggleFieldSections(row, type) {
-				var optionsSection = row.querySelector('.dsgvo-options-section');
-				var staticSection  = row.querySelector('.dsgvo-static-section');
-				var fileSection    = row.querySelector('.dsgvo-file-config-section');
-				var nameRow        = row.querySelector('.dsgvo-name-row');
-				var placeholderRow = row.querySelector('.dsgvo-placeholder-row');
-
-				if (optionsSection) {
-					optionsSection.style.display = ['radio','select','checkbox'].includes(type) ? 'block' : 'none';
-				}
-				if (staticSection) {
-					staticSection.style.display = type === 'static' ? 'block' : 'none';
-				}
-				if (fileSection) {
-					fileSection.style.display = type === 'file' ? 'block' : 'none';
-				}
-				if (nameRow) {
-					nameRow.style.display = type === 'static' ? 'none' : 'flex';
-				}
-				if (placeholderRow) {
-					placeholderRow.style.display = ['text','email','tel','textarea','date'].includes(type) ? 'flex' : 'none';
-				}
-			}
-JS;
+		return "function toggleFieldSections(row, type) {\n"
+			. "	var optionsSection = row.querySelector('.dsgvo-options-section');\n"
+			. "	var staticSection  = row.querySelector('.dsgvo-static-section');\n"
+			. "	var fileSection    = row.querySelector('.dsgvo-file-config-section');\n"
+			. "	var nameRow        = row.querySelector('.dsgvo-name-row');\n"
+			. "	var placeholderRow = row.querySelector('.dsgvo-placeholder-row');\n"
+			. "\n"
+			. "	if (optionsSection) {\n"
+			. "		optionsSection.style.display = ['radio','select','checkbox'].includes(type) ? 'block' : 'none';\n"
+			. "	}\n"
+			. "	if (staticSection) {\n"
+			. "		staticSection.style.display = type === 'static' ? 'block' : 'none';\n"
+			. "	}\n"
+			. "	if (fileSection) {\n"
+			. "		fileSection.style.display = type === 'file' ? 'block' : 'none';\n"
+			. "	}\n"
+			. "	if (nameRow) {\n"
+			. "		nameRow.style.display = type === 'static' ? 'none' : 'flex';\n"
+			. "	}\n"
+			. "	if (placeholderRow) {\n"
+			. "		placeholderRow.style.display = ['text','email','tel','textarea','date'].includes(type) ? 'flex' : 'none';\n"
+			. "	}\n"
+			. "}";
 	}
 
 	/**
@@ -788,18 +785,16 @@ JS;
 	 * @return string JavaScript code block.
 	 */
 	private function render_script_init(): string {
-		return <<<'JS'
-			addBtn.addEventListener('click', function() {
-				var html = template.innerHTML.replace(/__INDEX__/g, fieldCount);
-				var div = document.createElement('div');
-				div.innerHTML = html;
-				container.appendChild(div.firstElementChild);
-				fieldCount++;
-				bindRow(container.lastElementChild);
-			});
-
-			var rows = container.querySelectorAll('.dsgvo-field-row');
-			rows.forEach(function(row) { bindRow(row); });
-JS;
+		return "addBtn.addEventListener('click', function() {\n"
+			. "	var html = template.innerHTML.replace(/__INDEX__/g, fieldCount);\n"
+			. "	var div = document.createElement('div');\n"
+			. "	div.innerHTML = html;\n"
+			. "	container.appendChild(div.firstElementChild);\n"
+			. "	fieldCount++;\n"
+			. "	bindRow(container.lastElementChild);\n"
+			. "});\n"
+			. "\n"
+			. "var rows = container.querySelectorAll('.dsgvo-field-row');\n"
+			. "rows.forEach(function(row) { bindRow(row); });";
 	}
 }

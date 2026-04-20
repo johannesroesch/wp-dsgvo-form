@@ -32,7 +32,6 @@ class SubmissionDeleteEndpoint {
 
 	private const NAMESPACE   = 'dsgvo-form/v1';
 	private const ROUTE       = '/submissions/(?P<id>[\d]+)';
-	private const TEXT_DOMAIN = 'wp-dsgvo-form';
 
 	private SubmissionDeleter $deleter;
 	private AccessControl $access_control;
@@ -78,7 +77,7 @@ class SubmissionDeleteEndpoint {
 		if ( ! $this->access_control->can_delete_submission( get_current_user_id() ) ) {
 			return new \WP_Error(
 				'forbidden',
-				__( 'Sie haben keine Berechtigung, Einsendungen zu loeschen.', self::TEXT_DOMAIN ),
+				__( 'Sie haben keine Berechtigung, Einsendungen zu loeschen.', 'wp-dsgvo-form' ),
 				[ 'status' => 403 ]
 			);
 		}
@@ -104,7 +103,7 @@ class SubmissionDeleteEndpoint {
 		if ( $submission === null ) {
 			return new \WP_Error(
 				'not_found',
-				__( 'Einsendung nicht gefunden.', self::TEXT_DOMAIN ),
+				__( 'Einsendung nicht gefunden.', 'wp-dsgvo-form' ),
 				[ 'status' => 404 ]
 			);
 		}
@@ -113,7 +112,7 @@ class SubmissionDeleteEndpoint {
 		if ( $submission->is_restricted ) {
 			return new \WP_Error(
 				'submission_locked',
-				__( 'Diese Einsendung ist gesperrt (Art. 18 DSGVO) und kann nicht geloescht werden.', self::TEXT_DOMAIN ),
+				__( 'Diese Einsendung ist gesperrt (Art. 18 DSGVO) und kann nicht geloescht werden.', 'wp-dsgvo-form' ),
 				[ 'status' => 409 ]
 			);
 		}
@@ -127,7 +126,7 @@ class SubmissionDeleteEndpoint {
 		if ( ! $deleted ) {
 			return new \WP_Error(
 				'delete_failed',
-				__( 'Beim Loeschen ist ein Fehler aufgetreten.', self::TEXT_DOMAIN ),
+				__( 'Beim Loeschen ist ein Fehler aufgetreten.', 'wp-dsgvo-form' ),
 				[ 'status' => 500 ]
 			);
 		}

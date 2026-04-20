@@ -429,7 +429,7 @@ class RecipientListPage {
 		$recipient->user_id      = $user_id;
 		$recipient->notify_email = isset( $_POST['notify_email'] );
 
-		$role_justification = sanitize_textarea_field( $_POST['role_justification'] ?? '' );
+		$role_justification = sanitize_textarea_field( wp_unslash( $_POST['role_justification'] ?? '' ) );
 
 		// SEC-AUTH-DSGVO-01: Supervisors require justification (Art. 5 Abs. 1 lit. b).
 		$user = get_userdata( $user_id );
@@ -477,7 +477,7 @@ class RecipientListPage {
 	 * @return void
 	 */
 	private function handle_recipient_action(): void {
-		$action = sanitize_text_field( $_GET['do'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$action = sanitize_text_field( wp_unslash( $_GET['do'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( '' === $action ) {
 			return;

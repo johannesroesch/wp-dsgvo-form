@@ -26,17 +26,12 @@ use WpDsgvoForm\Models\Form;
 class CaptchaVerifier {
 
 	/**
-	 * Default CAPTCHA server base URL.
-	 */
-	private const DEFAULT_BASE_URL = 'https://captcha.repaircafe-bruchsal.de';
-
-	/**
 	 * Request timeout in seconds (SEC-CAP-04).
 	 */
 	private const TIMEOUT = 5;
 
 	/**
-	 * The CAPTCHA server base URL.
+	 * The CAPTCHA server base URL (from WPDSGVO_CAPTCHA_URL constant).
 	 */
 	private string $base_url;
 
@@ -45,27 +40,9 @@ class CaptchaVerifier {
 	 */
 	private string $validate_url;
 
-	/**
-	 * @param string $base_url Optional custom CAPTCHA server base URL (e.g. https://captcha.example.com).
-	 */
-	public function __construct( string $base_url = '' ) {
-		if ( $base_url === '' ) {
-			$base_url = get_option( 'wpdsgvo_captcha_base_url', self::DEFAULT_BASE_URL );
-		}
-
-		if ( empty( $base_url ) || ! is_string( $base_url ) ) {
-			$base_url = self::DEFAULT_BASE_URL;
-		}
-
-		$base_url = rtrim( $base_url, '/' );
-
-		// SEC-CAP-06: Enforce HTTPS.
-		if ( strpos( $base_url, 'https://' ) !== 0 ) {
-			$base_url = self::DEFAULT_BASE_URL;
-		}
-
-		$this->base_url     = $base_url;
-		$this->validate_url = $base_url . '/api/validate';
+	public function __construct() {
+		$this->base_url     = WPDSGVO_CAPTCHA_URL;
+		$this->validate_url = WPDSGVO_CAPTCHA_URL . '/api/validate';
 	}
 
 	/**

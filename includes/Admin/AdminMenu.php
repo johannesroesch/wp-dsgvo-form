@@ -151,7 +151,7 @@ class AdminMenu {
 	 */
 	public function handle_form_page_load(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing only, no state change
-		if ( isset( $_GET['action'] ) && 'edit' === $_GET['action'] ) {
+		if ( isset( $_GET['action'] ) && 'edit' === sanitize_key( wp_unslash( $_GET['action'] ) ) ) {
 			$this->form_edit_page = new FormEditPage();
 			$this->form_edit_page->maybe_save_and_redirect();
 		}
@@ -167,7 +167,7 @@ class AdminMenu {
 	 */
 	public function handle_submission_page_load(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing only, no state change
-		if ( isset( $_GET['action'] ) && 'view' === $_GET['action'] && isset( $_GET['do'] ) && 'export' === $_GET['do'] ) {
+		if ( isset( $_GET['action'] ) && 'view' === sanitize_key( wp_unslash( $_GET['action'] ) ) && isset( $_GET['do'] ) && 'export' === sanitize_key( wp_unslash( $_GET['do'] ) ) ) {
 			( new SubmissionViewPage() )->handle_export();
 		}
 	}
@@ -179,14 +179,14 @@ class AdminMenu {
 	 */
 	public function render_form_list_page(): void {
 		// Delegate to FormEditPage when editing a single form.
-		if ( isset( $_GET['action'] ) && 'edit' === $_GET['action'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['action'] ) && 'edit' === sanitize_key( wp_unslash( $_GET['action'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$page = $this->form_edit_page ?? new FormEditPage();
 			$page->render();
 			return;
 		}
 
 		// Delegate to ConsentManagementPage for consent text management.
-		if ( isset( $_GET['action'] ) && 'consent' === $_GET['action'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['action'] ) && 'consent' === sanitize_key( wp_unslash( $_GET['action'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			( new ConsentManagementPage() )->render();
 			return;
 		}
@@ -201,7 +201,7 @@ class AdminMenu {
 	 */
 	public function render_submission_list_page(): void {
 		// Delegate to detail view when viewing a single submission.
-		if ( isset( $_GET['action'] ) && 'view' === $_GET['action'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['action'] ) && 'view' === sanitize_key( wp_unslash( $_GET['action'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			( new SubmissionViewPage() )->render();
 			return;
 		}

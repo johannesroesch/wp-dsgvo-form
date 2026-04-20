@@ -31,6 +31,9 @@ class FieldTest extends TestCase {
 		$this->wpdb->insert_id  = 0;
 		$this->wpdb->last_error = '';
 		$GLOBALS['wpdb']    = $this->wpdb;
+
+		// esc_html is used in exception messages (Task #242: ExceptionNotEscaped fix).
+		Functions\when( 'esc_html' )->returnArg();
 	}
 
 	protected function tearDown(): void {

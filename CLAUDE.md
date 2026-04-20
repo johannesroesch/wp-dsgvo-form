@@ -23,12 +23,13 @@ Service: `https://captcha.repaircafe-bruchsal.de`
 2. **Widget → `/api/verify`** — Lösung einreichen, erhält `verification_token`
 3. **Backend → `/api/validate`** — Server-to-Server Token-Validierung
 
-**Frontend:**
+**Frontend (lokales Bundling):**
 ```html
-<script src="https://captcha.repaircafe-bruchsal.de/captcha.js"></script>
-<captcha-widget form-id="contact" server-url="https://captcha.repaircafe-bruchsal.de" lang="de" theme="auto"></captcha-widget>
+<!-- captcha.min.js ist lokal gebundelt unter public/js/captcha.min.js -->
+<script src="{plugin_url}/public/js/captcha.min.js" integrity="{WPDSGVO_CAPTCHA_SRI}" crossorigin="anonymous"></script>
+<captcha-widget form-id="dsgvo-{form_id}" server-url="https://captcha.repaircafe-bruchsal.de" lang="de" theme="auto"></captcha-widget>
 ```
-Das Widget erledigt Schritte 1+2 automatisch und befüllt ein `<input type="hidden" name="captcha_token">` mit dem `verification_token`.
+`captcha.min.js` wird lokal gebundelt (DSGVO-Vorteil: IP-Übertragung nur bei POST /api/validate, nicht beim Script-Load). SRI-Hash wird automatisch beim Build generiert (`WPDSGVO_CAPTCHA_SRI`-Konstante). Das Widget erledigt Schritte 1+2 automatisch und befüllt ein `<input type="hidden" name="captcha_token">` mit dem `verification_token`.
 
 **Backend-Validierung (Schritt 3 — Server-to-Server):**
 ```
@@ -64,7 +65,9 @@ Architektur-Details: `ARCHITECTURE.md` (vom Architekten erstellt)
 - `wp-dsgvo-form.php` — Plugin-Einstiegspunkt, Hooks registrieren
 - `includes/` — PHP-Klassen (Namespaces: `WpDsgvoForm\`)
 - `includes/Admin/FormEditPage.php` — PHP-basierter Formular-Builder (Admin-UI)
+- `includes/Admin/AdminBarNotification.php` — Admin Bar Notification für ungelesene Einsendungen
 - `src/` — React-Quellcode für Gutenberg Block
+- `public/js/captcha.min.js` — lokal gebundeltes CAPTCHA-Script (via Build generiert)
 - `build/` — Kompilierte Block-Assets (nicht in Git)
 - `tests/` — PHPUnit-Tests (nur Tester dürfen hier Änderungen vornehmen)
 
@@ -105,6 +108,9 @@ Das Plugin registriert zwei Custom Roles (WP-typische Syntax: Plugin-Slug als Pr
 - REST-API: `permission_callback` mit Capability-Checks
 - CAPTCHA: **immer** server-seitig verifizieren
 - Kein direkter Dateizugriff: `defined('ABSPATH') || exit;` in jeder PHP-Datei
+- `$_POST`/`$_GET`-Werte: **immer** `wp_unslash()` vor `sanitize_*()` — z.B. `sanitize_text_field(wp_unslash($_POST['field']))`
+- i18n-Funktionen: Text-Domain **immer** als String-Literal — `__('Text', 'wp-dsgvo-form')` (nicht `self::TEXT_DOMAIN`)
+- Exception-Messages: bei HTML-Ausgabe mit `esc_html()` escapen; in `error_log()` kein Escaping nötig
 
 ## Review-Pflichten
 
@@ -134,18 +140,20 @@ Das Plugin registriert zwei Custom Roles (WP-typische Syntax: Plugin-Slug als Pr
 | Rolle | Agent | Zuständigkeit |
 |-------|-------|---------------|
 | Team Lead | `team-lead` (Claude Code) | Status-Tracking, Kommunikation mit Auftraggeber und project-lead, kein Schreibrecht auf Code/Tests/Infra, **keine Analysen** — einziger Agent der Agents spawnen darf, nur mit expliziter Zustimmung des Auftraggebers |
-| Project Lead | `project-lead` | Koordination, Task-Verteilung, Projektsteuerung, sammelt gesamten Projektfortschritt, hält team-lead auf dem Laufenden — kein Schreibrecht auf Code/Tests/Infra, **keine Analysen** |
-| Architekt | `architect` | Alle Design-Entscheidungen (alleinige Gewalt) |
-| Security Expert | `security-expert` | Technische DSGVO, Verschlüsselung, XSS/CSRF, ISO 27001-Controls |
-| Performance Expert | `performance-expert` | DB-Optimierung, Caching, Lösch-Batch-Jobs |
-| UX Expert | `ux-expert` | Admin-UI, Formular-Builder-UX, Privacy-by-Design in UI |
-| Quality Expert | `quality-expert` | Coding-Standards, Code-Review, DSGVO-Checks in Reviews |
-| Legal Expert | `legal-expert` | Rechtsgrundlagen, Einwilligungstexte, Betroffenenrechte, Haftung |
-| DPO | `dpo` | DSGVO-Konformität, Privacy-by-Design, Verarbeitungsverzeichnis, CAPTCHA-Bewertung |
-| Developer 1–4 | `developer-1` bis `developer-4` | Implementierung (nur sie dürfen Produktivcode ändern) |
-| Tester 1–3 | `tester-1` bis `tester-3` | Tests (nur sie dürfen Tests bearbeiten); Aufteilung: tester-1 Admin-UI/Gutenberg, tester-2 Crypto/CAPTCHA, tester-3 Empfänger/Integration |
-| DevOps Engineer | `devops-engineer` | Infrastruktur (nur er darf composer.json, package.json etc. bearbeiten) — **nur er darf Builds erzeugen** (`npm run build`, `composer install` etc.) — **darf Commits und Tags eigenständig pushen** |
-| Status Board | `status-board` | Zeigt Kanban-Board aller offenen Tasks — wird von `project-lead` bei jeder Status-Änderung unverzüglich informiert |
+| Project Lead | `wp-dsgvo-form-project-lead` | Koordination, Task-Verteilung, Projektsteuerung, sammelt gesamten Projektfortschritt, hält team-lead auf dem Laufenden — kein Schreibrecht auf Code/Tests/Infra, **keine Analysen** |
+| Architekt | `wp-dsgvo-form-architect` | Alle Design-Entscheidungen (alleinige Gewalt) |
+| Security Expert | `wp-dsgvo-form-security-expert` | Technische DSGVO, Verschlüsselung, XSS/CSRF, ISO 27001-Controls |
+| Performance Expert | `wp-dsgvo-form-performance-expert` | DB-Optimierung, Caching, Lösch-Batch-Jobs |
+| UX Expert | `wp-dsgvo-form-ux-expert` | Admin-UI, Formular-Builder-UX, Privacy-by-Design in UI |
+| Quality Expert | `wp-dsgvo-form-quality-expert` | Coding-Standards, Code-Review, DSGVO-Checks in Reviews |
+| Legal Expert | `wp-dsgvo-form-legal-expert` | Rechtsgrundlagen, Einwilligungstexte, Betroffenenrechte, Haftung |
+| DPO | `wp-dsgvo-form-dpo` | DSGVO-Konformität, Privacy-by-Design, Verarbeitungsverzeichnis, CAPTCHA-Bewertung |
+| Developer 1–4 | `wp-dsgvo-form-developer-1` bis `wp-dsgvo-form-developer-4` | Implementierung (nur sie dürfen Produktivcode ändern) |
+| Tester 1–3 | `wp-dsgvo-form-tester-1` bis `wp-dsgvo-form-tester-3` | Tests (nur sie dürfen Tests bearbeiten); Aufteilung: tester-1 Admin-UI/Gutenberg, tester-2 Crypto/CAPTCHA, tester-3 Empfänger/Integration |
+| DevOps Engineer | `wp-dsgvo-form-devops-engineer` | Infrastruktur (nur er darf composer.json, package.json etc. bearbeiten) — **nur er darf Builds erzeugen** (`npm run build`, `composer install` etc.) — **darf Commits und Tags eigenständig pushen** |
+| Status Board | `wp-dsgvo-form-status-board` | Zeigt Kanban-Board aller offenen Tasks — wird von `project-lead` bei jeder Status-Änderung unverzüglich informiert |
+
+**Namens-Konvention:** Alle Agents außer `team-lead` tragen den Prefix `wp-dsgvo-form-` (kein Generationssuffix wie `-2`).
 
 **Schreibrechte:** Entwickler → Produktivcode · Tester → Tests · DevOps → Infrastruktur-Dateien
 

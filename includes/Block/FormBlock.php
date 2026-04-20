@@ -21,34 +21,6 @@ use WpDsgvoForm\Models\Field;
 class FormBlock {
 
 	/**
-	 * Text domain for i18n.
-	 */
-	private const TEXT_DOMAIN = 'wp-dsgvo-form';
-
-	/**
-	 * Default CAPTCHA service base URL (fallback if option not configured).
-	 */
-	private const DEFAULT_CAPTCHA_URL = 'https://captcha.repaircafe-bruchsal.de';
-
-	/**
-	 * Returns the configured CAPTCHA base URL.
-	 *
-	 * Reads from wp_options (configurable via SettingsPage).
-	 * Falls back to DEFAULT_CAPTCHA_URL if not set.
-	 *
-	 * @return string CAPTCHA base URL (always without trailing slash).
-	 */
-	private function get_captcha_url(): string {
-		$url = get_option( 'wpdsgvo_captcha_base_url', self::DEFAULT_CAPTCHA_URL );
-
-		if ( empty( $url ) || ! is_string( $url ) ) {
-			$url = self::DEFAULT_CAPTCHA_URL;
-		}
-
-		return esc_url( rtrim( $url, '/' ) );
-	}
-
-	/**
 	 * Registers the block type and shortcode with WordPress.
 	 */
 	public function register(): void {
@@ -154,7 +126,7 @@ class FormBlock {
 		$form_id = (int) ( $attributes['formId'] ?? 0 );
 
 		if ( $form_id < 1 ) {
-			return $this->admin_notice( __( 'Kein Formular ausgewaehlt.', self::TEXT_DOMAIN ) );
+			return $this->admin_notice( __( 'Kein Formular ausgewaehlt.', 'wp-dsgvo-form' ) );
 		}
 
 		$form = Form::find( $form_id );
@@ -163,9 +135,10 @@ class FormBlock {
 			return $this->admin_notice(
 				sprintf(
 					/* translators: %d: form ID */
-					__( 'Formular #%d nicht gefunden.', self::TEXT_DOMAIN ),
+					__( 'Formular #%d nicht gefunden.', 'wp-dsgvo-form' ),
 					$form_id
-				)
+				),
+				'error'
 			);
 		}
 
@@ -173,7 +146,7 @@ class FormBlock {
 			return $this->admin_notice(
 				sprintf(
 					/* translators: %s: form title */
-					__( 'Formular "%s" ist deaktiviert.', self::TEXT_DOMAIN ),
+					__( 'Formular "%s" ist deaktiviert.', 'wp-dsgvo-form' ),
 					$form->title
 				)
 			);
@@ -185,7 +158,7 @@ class FormBlock {
 			return $this->admin_notice(
 				sprintf(
 					/* translators: %s: form title */
-					__( 'Formular "%s" hat keine Felder. Bitte Felder im Admin-Bereich hinzufuegen.', self::TEXT_DOMAIN ),
+					__( 'Formular "%s" hat keine Felder. Bitte Felder im Admin-Bereich hinzufuegen.', 'wp-dsgvo-form' ),
 					$form->title
 				)
 			);
@@ -203,10 +176,11 @@ class FormBlock {
 				return $this->admin_notice(
 					sprintf(
 						/* translators: 1: form title, 2: locale string */
-						__( 'Formular "%1$s" kann nicht angezeigt werden: Kein Einwilligungstext fuer Sprache "%2$s" vorhanden. Bitte unter DSGVO Formulare → Einwilligungstexte anlegen.', self::TEXT_DOMAIN ),
+						__( 'Formular "%1$s" kann nicht angezeigt werden: Kein Einwilligungstext fuer Sprache "%2$s" vorhanden. Bitte unter DSGVO Formulare → Einwilligungstexte anlegen.', 'wp-dsgvo-form' ),
 						$form->title,
 						$locale
-					)
+					),
+					'error'
 				);
 			}
 		}
@@ -246,7 +220,7 @@ class FormBlock {
 		// Honeypot field — hidden via CSS, bots auto-fill it (SEC-BOT-01).
 		$html .= '<div class="dsgvo-form__hp" aria-hidden="true" style="position:absolute;left:-9999px;">';
 		$html .= '<label for="dsgvo-hp-' . esc_attr( (string) $form_id ) . '">'
-			. esc_html__( 'Website', self::TEXT_DOMAIN ) . '</label>';
+			. esc_html__( 'Website', 'wp-dsgvo-form' ) . '</label>';
 		$html .= '<input type="text" id="dsgvo-hp-' . esc_attr( (string) $form_id ) . '"'
 			. ' name="website_url" value="" tabindex="-1" autocomplete="off">';
 		$html .= '</div>';
@@ -263,11 +237,10 @@ class FormBlock {
 
 		// CAPTCHA widget (only when enabled for this form).
 		if ( $form->captcha_enabled ) {
-			$captcha_url = $this->get_captcha_url();
 			$html .= '<div class="dsgvo-form__captcha">';
 			$html .= '<captcha-widget '
 				. 'form-id="dsgvo-' . esc_attr( (string) $form_id ) . '" '
-				. 'server-url="' . esc_url( $captcha_url ) . '" '
+				. 'server-url="' . esc_url( WPDSGVO_CAPTCHA_URL ) . '" '
 				. 'lang="' . esc_attr( substr( $locale, 0, 2 ) ) . '" '
 				. 'theme="auto">'
 				. '</captcha-widget>';
@@ -277,7 +250,7 @@ class FormBlock {
 		// Submit button.
 		$html .= '<div class="dsgvo-form__submit">';
 		$html .= '<button type="submit" class="dsgvo-form__button">';
-		$html .= esc_html__( 'Absenden', self::TEXT_DOMAIN );
+		$html .= esc_html__( 'Absenden', 'wp-dsgvo-form' );
 		$html .= '</button>';
 		$html .= '</div>';
 
@@ -293,11 +266,12 @@ class FormBlock {
 	/**
 	 * Renders a single form field.
 	 *
+	 * Dispatches to per-type render methods (QUALITY-FINDING-08).
+	 *
 	 * @param Field $field The field definition.
 	 * @return string Field HTML.
 	 */
 	private function render_field( Field $field ): string {
-		// Static content fields render directly without input.
 		if ( $field->field_type === 'static' ) {
 			return '<div class="dsgvo-form__static ' . esc_attr( $field->css_class ) . '">'
 				. wp_kses_post( $field->static_content )
@@ -316,91 +290,97 @@ class FormBlock {
 		$html .= '<label for="' . $field_id . '" id="' . $field_id . '-label" class="dsgvo-form__label">'
 			. esc_html( $field->label ) . $required_mark . '</label>';
 
-		switch ( $field->field_type ) {
-			case 'textarea':
-				$html .= '<textarea id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
-					. ' class="dsgvo-form__input dsgvo-form__textarea"'
-					. ' placeholder="' . esc_attr( $field->placeholder ) . '"'
-					. $required_attr . ' rows="5"></textarea>';
-				break;
+		$html .= match ( $field->field_type ) {
+			'textarea' => $this->render_textarea( $field, $field_id, $required_attr ),
+			'select'   => $this->render_select( $field, $field_id, $required_attr ),
+			'radio'    => $this->render_radio( $field, $field_id, $required_attr ),
+			'checkbox' => $this->render_checkbox( $field, $field_id, $required_attr ),
+			'file'     => $this->render_file_input( $field, $field_id, $required_attr ),
+			default    => $this->render_text_input( $field, $field_id, $required_attr ),
+		};
 
-			case 'select':
-				$html .= '<select id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
-					. ' class="dsgvo-form__input dsgvo-form__select"' . $required_attr . '>';
-				$html .= '<option value="">' . esc_html__( 'Bitte waehlen', self::TEXT_DOMAIN ) . '</option>';
-				foreach ( $field->get_options() as $option ) {
-					$html .= '<option value="' . esc_attr( $option ) . '">' . esc_html( $option ) . '</option>';
-				}
-				$html .= '</select>';
-				break;
-
-			case 'radio':
-				$html .= '<div class="dsgvo-form__radio-group" role="radiogroup"'
-					. ' aria-labelledby="' . $field_id . '-label">';
-				foreach ( $field->get_options() as $index => $option ) {
-					$option_id = $field_id . '-' . $index;
-					$html     .= '<label class="dsgvo-form__radio-label">'
-						. '<input type="radio" id="' . $option_id . '" name="' . esc_attr( $field->name ) . '"'
-						. ' value="' . esc_attr( $option ) . '"' . $required_attr . '>'
-						. ' ' . esc_html( $option )
-						. '</label>';
-				}
-				$html .= '</div>';
-				break;
-
-			case 'checkbox':
-				$options = $field->get_options();
-				if ( ! empty( $options ) ) {
-					// Multi-option checkboxes — render each option individually.
-					$html .= '<div class="dsgvo-form__checkbox-group">';
-					foreach ( $options as $index => $option ) {
-						$option_id = $field_id . '-' . $index;
-						$html     .= '<label class="dsgvo-form__checkbox-label">'
-							. '<input type="checkbox" id="' . $option_id . '" name="' . esc_attr( $field->name ) . '[]"'
-							. ' value="' . esc_attr( $option ) . '" class="dsgvo-form__checkbox"' . $required_attr . '>'
-							. ' ' . esc_html( $option )
-							. '</label>';
-					}
-					$html .= '</div>';
-				} else {
-					// Single boolean checkbox (no options defined).
-					$html .= '<input type="checkbox" id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
-						. ' value="1" class="dsgvo-form__input dsgvo-form__checkbox"' . $required_attr . '>';
-				}
-				break;
-
-			case 'file':
-				$config = $field->get_file_config();
-				$accept = '';
-				if ( ! empty( $config['allowed_types'] ) ) {
-					$accept_values = array_map(
-						static fn( string $t ): string => '.' . ltrim( $t, '.' ),
-						(array) $config['allowed_types']
-					);
-					$accept = ' accept="' . esc_attr( implode( ',', $accept_values ) ) . '"';
-				}
-				$html .= '<input type="file" id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
-					. ' class="dsgvo-form__input dsgvo-form__file"' . $accept . $required_attr . '>';
-				break;
-
-			default:
-				// text, email, tel, date.
-				$type  = in_array( $field->field_type, [ 'text', 'email', 'tel', 'date' ], true )
-					? $field->field_type
-					: 'text';
-				$html .= '<input type="' . esc_attr( $type ) . '" id="' . $field_id . '"'
-					. ' name="' . esc_attr( $field->name ) . '"'
-					. ' class="dsgvo-form__input"'
-					. ' placeholder="' . esc_attr( $field->placeholder ) . '"'
-					. $required_attr . '>';
-				break;
-		}
-
-		// Validation error placeholder.
 		$html .= '<div class="dsgvo-form__error" role="alert"></div>';
 		$html .= '</div>';
 
 		return $html;
+	}
+
+	private function render_textarea( Field $field, string $field_id, string $required_attr ): string {
+		return '<textarea id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
+			. ' class="dsgvo-form__input dsgvo-form__textarea"'
+			. ' placeholder="' . esc_attr( $field->placeholder ) . '"'
+			. $required_attr . ' rows="5"></textarea>';
+	}
+
+	private function render_select( Field $field, string $field_id, string $required_attr ): string {
+		$html  = '<select id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
+			. ' class="dsgvo-form__input dsgvo-form__select"' . $required_attr . '>';
+		$html .= '<option value="">' . esc_html__( 'Bitte waehlen', 'wp-dsgvo-form' ) . '</option>';
+		foreach ( $field->get_options() as $option ) {
+			$html .= '<option value="' . esc_attr( $option ) . '">' . esc_html( $option ) . '</option>';
+		}
+		$html .= '</select>';
+		return $html;
+	}
+
+	private function render_radio( Field $field, string $field_id, string $required_attr ): string {
+		$html = '<div class="dsgvo-form__radio-group" role="radiogroup"'
+			. ' aria-labelledby="' . $field_id . '-label">';
+		foreach ( $field->get_options() as $index => $option ) {
+			$option_id = $field_id . '-' . $index;
+			$html     .= '<label class="dsgvo-form__radio-label">'
+				. '<input type="radio" id="' . $option_id . '" name="' . esc_attr( $field->name ) . '"'
+				. ' value="' . esc_attr( $option ) . '"' . $required_attr . '>'
+				. ' ' . esc_html( $option )
+				. '</label>';
+		}
+		$html .= '</div>';
+		return $html;
+	}
+
+	private function render_checkbox( Field $field, string $field_id, string $required_attr ): string {
+		$options = $field->get_options();
+		if ( ! empty( $options ) ) {
+			$html = '<div class="dsgvo-form__checkbox-group">';
+			foreach ( $options as $index => $option ) {
+				$option_id = $field_id . '-' . $index;
+				$html     .= '<label class="dsgvo-form__checkbox-label">'
+					. '<input type="checkbox" id="' . $option_id . '" name="' . esc_attr( $field->name ) . '[]"'
+					. ' value="' . esc_attr( $option ) . '" class="dsgvo-form__checkbox"' . $required_attr . '>'
+					. ' ' . esc_html( $option )
+					. '</label>';
+			}
+			$html .= '</div>';
+			return $html;
+		}
+
+		return '<input type="checkbox" id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
+			. ' value="1" class="dsgvo-form__input dsgvo-form__checkbox"' . $required_attr . '>';
+	}
+
+	private function render_file_input( Field $field, string $field_id, string $required_attr ): string {
+		$config = $field->get_file_config();
+		$accept = '';
+		if ( ! empty( $config['allowed_types'] ) ) {
+			$accept_values = array_map(
+				static fn( string $t ): string => '.' . ltrim( $t, '.' ),
+				(array) $config['allowed_types']
+			);
+			$accept = ' accept="' . esc_attr( implode( ',', $accept_values ) ) . '"';
+		}
+		return '<input type="file" id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
+			. ' class="dsgvo-form__input dsgvo-form__file"' . $accept . $required_attr . '>';
+	}
+
+	private function render_text_input( Field $field, string $field_id, string $required_attr ): string {
+		$type = in_array( $field->field_type, [ 'text', 'email', 'tel', 'date' ], true )
+			? $field->field_type
+			: 'text';
+		return '<input type="' . esc_attr( $type ) . '" id="' . $field_id . '"'
+			. ' name="' . esc_attr( $field->name ) . '"'
+			. ' class="dsgvo-form__input"'
+			. ' placeholder="' . esc_attr( $field->placeholder ) . '"'
+			. $required_attr . '>';
 	}
 
 	/**
@@ -434,33 +414,19 @@ class FormBlock {
 	/**
 	 * Enqueues the CAPTCHA Web Component script (defer, in footer).
 	 *
-	 * Uses the local bundled captcha.min.js by default (when the CAPTCHA
-	 * server URL matches the built-in default). Falls back to the external
-	 * URL when the admin has configured a custom CAPTCHA server.
-	 *
-	 * SRI integrity: For the local file, uses the build-generated constant
-	 * WPDSGVO_CAPTCHA_SRI. For external URLs, uses the admin-configured
-	 * wpdsgvo_captcha_sri_hash option.
+	 * Always uses the local bundled captcha.min.js (DSGVO: no external
+	 * script load). SRI integrity via build-generated WPDSGVO_CAPTCHA_SRI.
 	 */
 	private function enqueue_captcha_assets(): void {
 		if ( wp_script_is( 'dsgvo-captcha', 'enqueued' ) ) {
 			return;
 		}
 
-		$captcha_base_url = $this->get_captcha_url();
-		$use_local        = ( $captcha_base_url === self::DEFAULT_CAPTCHA_URL );
-
-		if ( $use_local ) {
-			$script_url = WPDSGVO_PLUGIN_URL . 'public/js/captcha.min.js';
-		} else {
-			$script_url = $captcha_base_url . '/captcha.js';
-		}
-
 		wp_enqueue_script(
 			'dsgvo-captcha',
-			esc_url_raw( $script_url ),
+			esc_url_raw( WPDSGVO_PLUGIN_URL . 'public/js/captcha.min.js' ),
 			[],
-			$use_local ? WPDSGVO_VERSION : null,
+			WPDSGVO_VERSION,
 			[
 				'in_footer' => true,
 				'strategy'  => 'defer',
@@ -468,16 +434,9 @@ class FormBlock {
 		);
 
 		// SRI integrity attribute (SEC-SRI-01).
-		// Local file: build-generated constant. External: admin-configured option.
-		$sri_hash = '';
-
-		if ( $use_local && defined( 'WPDSGVO_CAPTCHA_SRI' ) && WPDSGVO_CAPTCHA_SRI !== '' ) {
+		if ( defined( 'WPDSGVO_CAPTCHA_SRI' ) && WPDSGVO_CAPTCHA_SRI !== '' ) {
 			$sri_hash = WPDSGVO_CAPTCHA_SRI;
-		} elseif ( ! $use_local ) {
-			$sri_hash = get_option( 'wpdsgvo_captcha_sri_hash', '' );
-		}
 
-		if ( is_string( $sri_hash ) && $sri_hash !== '' ) {
 			add_filter( 'script_loader_tag', function ( string $tag, string $handle ) use ( $sri_hash ): string {
 				if ( 'dsgvo-captcha' !== $handle ) {
 					return $tag;
@@ -536,17 +495,17 @@ class FormBlock {
 			[
 				'restUrl' => esc_url_raw( rest_url( 'dsgvo-form/v1/submit' ) ),
 				'i18n'    => [
-					'required'         => __( 'Dieses Feld ist erforderlich.', self::TEXT_DOMAIN ),
-					'emailInvalid'     => __( 'Bitte geben Sie eine gueltige E-Mail-Adresse ein.', self::TEXT_DOMAIN ),
-					'telInvalid'       => __( 'Bitte geben Sie eine gueltige Telefonnummer ein.', self::TEXT_DOMAIN ),
-					'dateInvalid'      => __( 'Bitte geben Sie ein gueltiges Datum ein.', self::TEXT_DOMAIN ),
-					'consentRequired'  => __( 'Sie muessen der Datenverarbeitung zustimmen.', self::TEXT_DOMAIN ),
-					'captchaRequired'  => __( 'Bitte loesen Sie das CAPTCHA.', self::TEXT_DOMAIN ),
-					'fileTooLarge'     => __( 'Die Datei ist zu gross.', self::TEXT_DOMAIN ),
-					'fileTypeNotAllowed' => __( 'Dieser Dateityp ist nicht erlaubt.', self::TEXT_DOMAIN ),
-					'submitting'       => __( 'Wird gesendet...', self::TEXT_DOMAIN ),
-					'networkError'     => __( 'Netzwerkfehler. Bitte pruefen Sie Ihre Verbindung.', self::TEXT_DOMAIN ),
-					'genericError'     => __( 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.', self::TEXT_DOMAIN ),
+					'required'         => __( 'Dieses Feld ist erforderlich.', 'wp-dsgvo-form' ),
+					'emailInvalid'     => __( 'Bitte geben Sie eine gueltige E-Mail-Adresse ein.', 'wp-dsgvo-form' ),
+					'telInvalid'       => __( 'Bitte geben Sie eine gueltige Telefonnummer ein.', 'wp-dsgvo-form' ),
+					'dateInvalid'      => __( 'Bitte geben Sie ein gueltiges Datum ein.', 'wp-dsgvo-form' ),
+					'consentRequired'  => __( 'Sie muessen der Datenverarbeitung zustimmen.', 'wp-dsgvo-form' ),
+					'captchaRequired'  => __( 'Bitte loesen Sie das CAPTCHA.', 'wp-dsgvo-form' ),
+					'fileTooLarge'     => __( 'Die Datei ist zu gross.', 'wp-dsgvo-form' ),
+					'fileTypeNotAllowed' => __( 'Dieser Dateityp ist nicht erlaubt.', 'wp-dsgvo-form' ),
+					'submitting'       => __( 'Wird gesendet...', 'wp-dsgvo-form' ),
+					'networkError'     => __( 'Netzwerkfehler. Bitte pruefen Sie Ihre Verbindung.', 'wp-dsgvo-form' ),
+					'genericError'     => __( 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.', 'wp-dsgvo-form' ),
 				],
 			]
 		);
@@ -570,17 +529,24 @@ class FormBlock {
 	 * Regular visitors see nothing (DSGVO fail-closed compliant).
 	 *
 	 * @param string $message The notice message.
+	 * @param string $type    Notice type: 'warning' (yellow) or 'error' (red).
 	 * @return string HTML notice or empty string.
 	 */
-	private function admin_notice( string $message ): string {
+	private function admin_notice( string $message, string $type = 'warning' ): string {
 		if ( ! $this->is_form_admin() ) {
 			return '';
 		}
 
+		$styles = [
+			'warning' => 'background:#fff3cd;border:1px solid #ffc107;color:#856404;',
+			'error'   => 'background:#f8d7da;border:1px solid #dc3545;color:#721c24;',
+		];
+		$style = $styles[ $type ] ?? $styles['warning'];
+
 		return '<div class="wp-block-dsgvo-form-form dsgvo-form-admin-notice" style="'
-			. 'padding:1rem;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;color:#856404;margin:1rem 0;'
+			. 'padding:1rem;' . $style . 'border-radius:4px;margin:1rem 0;'
 			. '">'
-			. '<strong>' . esc_html__( 'DSGVO Formular:', self::TEXT_DOMAIN ) . '</strong> '
+			. '<strong>' . esc_html__( 'DSGVO Formular:', 'wp-dsgvo-form' ) . '</strong> '
 			. esc_html( $message )
 			. '</div>';
 	}

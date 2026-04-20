@@ -26,11 +26,6 @@ class NotificationService
 {
 
 	/**
-	 * Text domain for i18n.
-	 */
-	private const TEXT_DOMAIN = 'wp-dsgvo-form';
-
-	/**
 	 * Sends notification emails to all active recipients of a form.
 	 *
 	 * @param int    $form_id       The form ID.
@@ -121,7 +116,7 @@ class NotificationService
 
 		return sprintf(
 			/* translators: %s: form title */
-			__('Neue Einsendung: %s', self::TEXT_DOMAIN),
+			__('Neue Einsendung: %s', 'wp-dsgvo-form'),
 			$sanitized_title
 		);
 	}
@@ -144,20 +139,20 @@ class NotificationService
 		$body  = '<!DOCTYPE html><html><body>';
 		$body .= '<p>' . sprintf(
 			/* translators: %s: form title */
-			esc_html__('Eine neue Einsendung ist fuer das Formular "%s" eingegangen.', self::TEXT_DOMAIN),
+			esc_html__('Eine neue Einsendung ist fuer das Formular "%s" eingegangen.', 'wp-dsgvo-form'),
 			$sanitized_title
 		) . '</p>';
 		$body .= '<p>' . esc_html__(
 			'Bitte melden Sie sich an, um die Einsendung einzusehen:',
-			self::TEXT_DOMAIN
+			'wp-dsgvo-form'
 		) . '</p>';
 		$body .= '<p><a href="' . esc_url($login_url) . '">'
-			. esc_html__('Zum Login-Bereich', self::TEXT_DOMAIN)
+			. esc_html__('Zum Login-Bereich', 'wp-dsgvo-form')
 			. '</a></p>';
 		$body .= '<hr>';
 		$body .= '<p><small>' . esc_html__(
 			'Diese E-Mail enthaelt aus Datenschutzgruenden keine Formulardaten. Bitte melden Sie sich im geschuetzten Bereich an, um die Einsendung einzusehen.',
-			self::TEXT_DOMAIN
+			'wp-dsgvo-form'
 		) . '</small></p>';
 		$body .= '</body></html>';
 

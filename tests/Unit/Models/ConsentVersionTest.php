@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace WpDsgvoForm\Tests\Unit\Models;
 
 use WpDsgvoForm\Models\ConsentVersion;
+use WpDsgvoForm\Models\Form;
 use WpDsgvoForm\Tests\TestCase;
+use Brain\Monkey\Filters;
 use Brain\Monkey\Functions;
 use Mockery;
 
@@ -34,6 +36,28 @@ class ConsentVersionTest extends TestCase {
 		$this->wpdb->insert_id  = 0;
 		$this->wpdb->last_error = '';
 		$GLOBALS['wpdb']        = $this->wpdb;
+
+		// esc_html is used in exception messages (Task #242: ExceptionNotEscaped fix).
+		Functions\when( 'esc_html' )->returnArg();
+
+		// ARCH-v104-03: validate() now calls Form::find() to verify parent form
+		// has legal_basis = 'consent'. Mock get_transient to return a consent-form
+		// for any dsgvo_form_* cache key, so existing save tests continue to pass.
+		Functions\when( 'get_transient' )->alias( function ( $key ) {
+			if ( is_string( $key ) && strpos( $key, 'dsgvo_form_' ) === 0 ) {
+				$form_id = (int) substr( $key, strlen( 'dsgvo_form_' ) );
+				if ( $form_id > 0 ) {
+					$form              = new Form();
+					$form->id          = $form_id;
+					$form->title       = 'Test Form';
+					$form->legal_basis = 'consent';
+					$form->retention_days = 90;
+					return $form;
+				}
+			}
+			return false;
+		} );
+		Functions\when( 'set_transient' )->justReturn( true );
 	}
 
 	protected function tearDown(): void {
@@ -609,5 +633,135 @@ class ConsentVersionTest extends TestCase {
 		$this->wpdb->shouldReceive( 'get_results' )->once()->andReturn( [] );
 
 		ConsentVersion::find_all_by_form( 5 );
+	}
+
+	// ------------------------------------------------------------------
+	// ARCH-v104-03: validate — parent form must exist
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * @security ARCH-v104-03 — ConsentVersion cannot reference a non-existent form.
+	 */
+	public function test_validate_rejects_consent_version_for_nonexistent_form(): void {
+		// Override get_transient to NOT return a form (cache miss).
+		Functions\when( 'get_transient' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn( true );
+
+		// Form::find() falls through to wpdb — return null (form not in DB).
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( '' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( null );
+
+		$cv               = new ConsentVersion();
+		$cv->form_id      = 999;
+		$cv->locale       = 'de_DE';
+		$cv->consent_text = 'Text.';
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'ConsentVersion references a non-existent form.' );
+
+		$cv->save();
+	}
+
+	// ------------------------------------------------------------------
+	// ARCH-v104-03: validate — parent form must have legal_basis = 'consent'
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * @security ARCH-v104-03 — ConsentVersion cannot be created for non-consent forms.
+	 */
+	public function test_validate_rejects_consent_version_for_non_consent_legal_basis(): void {
+		// Return a form with legal_basis = 'contract' instead of 'consent'.
+		Functions\when( 'get_transient' )->alias( function ( $key ) {
+			if ( is_string( $key ) && strpos( $key, 'dsgvo_form_' ) === 0 ) {
+				$form              = new Form();
+				$form->id          = 5;
+				$form->title       = 'Contract Form';
+				$form->legal_basis = 'contract';
+				$form->retention_days = 90;
+				return $form;
+			}
+			return false;
+		} );
+
+		$cv               = new ConsentVersion();
+		$cv->form_id      = 5;
+		$cv->locale       = 'de_DE';
+		$cv->consent_text = 'Text.';
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'legal_basis is "contract", not "consent"' );
+
+		$cv->save();
+	}
+
+	// ------------------------------------------------------------------
+	// ARCH-v104-02 / Task #211: SUPPORTED_LOCALES structure
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * @security ARCH-v104-02 — SUPPORTED_LOCALES must be an associative array
+	 *           with locale codes as keys and display labels as values.
+	 */
+	public function test_supported_locales_is_associative_with_locale_keys_and_labels(): void {
+		$locales = ConsentVersion::SUPPORTED_LOCALES;
+
+		$this->assertNotEmpty( $locales );
+
+		foreach ( $locales as $locale => $label ) {
+			// Key must be a locale code (xx_XX format).
+			$this->assertMatchesRegularExpression(
+				'/^[a-z]{2}_[A-Z]{2}$/',
+				$locale,
+				"Locale key '{$locale}' must match xx_XX format."
+			);
+			// Value must be a non-empty display label string.
+			$this->assertIsString( $label );
+			$this->assertNotEmpty( $label, "Label for '{$locale}' must not be empty." );
+		}
+
+		// Verify the six expected locales are present.
+		$this->assertArrayHasKey( 'de_DE', $locales );
+		$this->assertArrayHasKey( 'en_US', $locales );
+		$this->assertArrayHasKey( 'fr_FR', $locales );
+		$this->assertArrayHasKey( 'es_ES', $locales );
+		$this->assertArrayHasKey( 'it_IT', $locales );
+		$this->assertArrayHasKey( 'sv_SE', $locales );
+	}
+
+	// ------------------------------------------------------------------
+	// ARCH-v104-02 / Task #211: Filter extensibility
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * @security ARCH-v104-02 — wpdsgvo_supported_locales filter allows extending locales.
+	 */
+	public function test_validate_accepts_locale_added_via_filter(): void {
+		// pt_BR has valid xx_XX format but is NOT in SUPPORTED_LOCALES.
+		// Adding it via filter should make it accepted.
+		Filters\expectApplied( 'wpdsgvo_supported_locales' )
+			->once()
+			->andReturnUsing( function ( array $locales ): array {
+				$locales['pt_BR'] = 'Português';
+				return $locales;
+			} );
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 12:00:00' );
+
+		$cv               = new ConsentVersion();
+		$cv->form_id      = 5;
+		$cv->locale       = 'pt_BR';
+		$cv->version      = 1;
+		$cv->consent_text = 'Texto de consentimento.';
+
+		$this->wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+		$this->wpdb->insert_id = 100;
+
+		$cv->save();
+
+		$this->assertSame( 100, $cv->id );
 	}
 }

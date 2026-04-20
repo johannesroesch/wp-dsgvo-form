@@ -77,6 +77,9 @@ class SubmissionListViewTest extends TestCase {
 				'_n'          => function ( string $single, string $plural, int $count, string $domain = '' ): string {
 					return $count === 1 ? $single : $plural;
 				},
+				'wp_unslash'  => function ( $value ) {
+					return $value;
+				},
 			]
 		);
 

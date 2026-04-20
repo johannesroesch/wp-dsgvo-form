@@ -61,7 +61,7 @@ class KeyManager
 	{
 		if (!$this->is_kek_available()) {
 			throw new \RuntimeException(
-				self::KEK_CONSTANT . ' is not defined in wp-config.php. '
+				esc_html( self::KEK_CONSTANT ) . ' is not defined in wp-config.php. '
 				. 'The encryption system is disabled. (SEC-ENC-04)'
 			);
 		}
@@ -71,7 +71,7 @@ class KeyManager
 
 		if ($kek === false || strlen($kek) !== self::KEY_LENGTH) {
 			throw new \RuntimeException(
-				self::KEK_CONSTANT . ' must be a valid base64-encoded 256-bit key '
+				esc_html( self::KEK_CONSTANT ) . ' must be a valid base64-encoded 256-bit key '
 				. '(32 bytes raw, 44 characters base64). (SEC-ENC-03)'
 			);
 		}
@@ -123,7 +123,7 @@ class KeyManager
 		);
 
 		if ($ciphertext === false) {
-			throw new \RuntimeException('DEK encryption failed: ' . openssl_error_string());
+			throw new \RuntimeException('DEK encryption failed: ' . esc_html( (string) openssl_error_string() ));
 		}
 
 		return [
@@ -153,7 +153,7 @@ class KeyManager
 
 		if (strlen($iv) !== self::IV_LENGTH) {
 			throw new \RuntimeException(
-				'Invalid IV length: expected ' . self::IV_LENGTH . ' bytes, '
+				'Invalid IV length: expected ' . (int) self::IV_LENGTH . ' bytes, '
 				. 'got ' . strlen($iv) . '.'
 			);
 		}

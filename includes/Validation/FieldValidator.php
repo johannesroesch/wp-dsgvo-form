@@ -375,11 +375,11 @@ class FieldValidator {
 
 		// SEC-VAL-10: Reduce backtrack limit for admin-configured patterns.
 		$prev_limit = ini_get( 'pcre.backtrack_limit' );
-		ini_set( 'pcre.backtrack_limit', '10000' ); // phpcs:ignore WordPress.PHP.IniSet.Risky
+		ini_set( 'pcre.backtrack_limit', '10000' ); // phpcs:ignore WordPress.PHP.IniSet.Risky -- SEC-VAL-10: ReDoS mitigation for admin-configured patterns; no WP API alternative exists. Restored immediately after preg_match.
 
 		$match = @preg_match( $pattern, $value );
 
-		ini_set( 'pcre.backtrack_limit', $prev_limit ); // phpcs:ignore WordPress.PHP.IniSet.Risky
+		ini_set( 'pcre.backtrack_limit', $prev_limit ); // phpcs:ignore WordPress.PHP.IniSet.Risky -- Restoring original value after SEC-VAL-10 pattern check.
 
 		// PREG_BACKTRACK_LIMIT_ERROR or other PCRE error — fail closed.
 		if ( $match === false ) {

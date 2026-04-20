@@ -76,3 +76,11 @@ if ( ! defined( 'WPDSGVO_PLUGIN_URL' ) ) {
 if ( ! defined( 'WPDSGVO_PLUGIN_BASENAME' ) ) {
 	define( 'WPDSGVO_PLUGIN_BASENAME', 'wp-dsgvo-form/wp-dsgvo-form.php' );
 }
+
+if ( ! defined( 'WPDSGVO_CAPTCHA_URL' ) ) {
+	define( 'WPDSGVO_CAPTCHA_URL', 'https://captcha.repaircafe-bruchsal.de' );
+}
+
+if ( ! defined( 'WPDSGVO_CAPTCHA_SRI' ) ) {
+	define( 'WPDSGVO_CAPTCHA_SRI', 'sha384-testSriHash123' );
+}

@@ -26,7 +26,7 @@ Oberste Koordinationsebene zwischen dem Auftraggeber (User) und dem Team. Hat **
 ---
 
 ### Project Lead
-**Agent:** `project-lead`
+**Agent:** `wp-dsgvo-form-project-lead`
 
 Koordiniert das gesamte Team, verteilt Aufgaben und ist verantwortlich für die **Projektsteuerung**. Sammelt den gesamten Projektfortschritt und hält `team-lead` stets auf dem Laufenden. Hat **keine Schreibrechte** auf Code, Tests oder Infrastruktur und führt **keine Analysen** durch.
 
@@ -41,7 +41,7 @@ Koordiniert das gesamte Team, verteilt Aufgaben und ist verantwortlich für die 
 ---
 
 ### Architekt
-**Agent:** `architect`
+**Agent:** `wp-dsgvo-form-architect`
 
 Hat die **alleinige Entscheidungsgewalt** über alle Design- und Architekturentscheidungen. Kein Code darf implementiert werden, bevor die Architektur freigegeben ist.
 
@@ -58,12 +58,12 @@ Experts beraten den Architekten und informieren den Project Lead über ihre Find
 
 | Agent | Fachbereich | Ergebnis-Dokument |
 |-------|-------------|------------------|
-| `security-expert` | Technische DSGVO-Maßnahmen, Verschlüsselung, XSS/CSRF, ISO 27001-Controls | `SECURITY_REQUIREMENTS.md` |
-| `performance-expert` | DB-Optimierung, Caching, Asset-Loading, Lösch-Batch-Jobs | `PERFORMANCE_REQUIREMENTS.md` |
-| `ux-expert` | Admin-UI, Formular-Builder-UX, Submissions-Viewer, Privacy-by-Design in UI | `UX_CONCEPT.md` |
-| `quality-expert` | Coding-Standards, Code-Review-Checkliste, DSGVO-Checks in Reviews | `QUALITY_STANDARDS.md` |
-| `legal-expert` | Rechtsgrundlagen (Art. 6 DSGVO), Einwilligungstexte, Betroffenenrechte, Haftung | `LEGAL_REQUIREMENTS.md` |
-| `dpo` | DSGVO-Konformität, Privacy-by-Design, Verarbeitungsverzeichnis, Speicherfristen, CAPTCHA-Bewertung | `DATA_PROTECTION.md` |
+| `wp-dsgvo-form-security-expert` | Technische DSGVO-Maßnahmen, Verschlüsselung, XSS/CSRF, ISO 27001-Controls | `SECURITY_REQUIREMENTS.md` |
+| `wp-dsgvo-form-performance-expert` | DB-Optimierung, Caching, Asset-Loading, Lösch-Batch-Jobs | `PERFORMANCE_REQUIREMENTS.md` |
+| `wp-dsgvo-form-ux-expert` | Admin-UI, Formular-Builder-UX, Submissions-Viewer, Privacy-by-Design in UI | `UX_CONCEPT.md` |
+| `wp-dsgvo-form-quality-expert` | Coding-Standards, Code-Review-Checkliste, DSGVO-Checks in Reviews | `QUALITY_STANDARDS.md` |
+| `wp-dsgvo-form-legal-expert` | Rechtsgrundlagen (Art. 6 DSGVO), Einwilligungstexte, Betroffenenrechte, Haftung | `LEGAL_REQUIREMENTS.md` |
+| `wp-dsgvo-form-dpo` | DSGVO-Konformität, Privacy-by-Design, Verarbeitungsverzeichnis, Speicherfristen, CAPTCHA-Bewertung | `DATA_PROTECTION.md` |
 
 **Hinweis:** `legal-expert` liefert rechtliche Einschätzungen als Best Practices — kein formales Rechtsberatungsmandat. Rechtlich verbindliche Texte sollten von einem echten Anwalt geprüft werden.
 
@@ -72,7 +72,7 @@ Experts beraten den Architekten und informieren den Project Lead über ihre Find
 ---
 
 ### Entwickler
-**Agents:** `developer-1`, `developer-2`, `developer-3`, `developer-4`
+**Agents:** `wp-dsgvo-form-developer-1`, `wp-dsgvo-form-developer-2`, `wp-dsgvo-form-developer-3`, `wp-dsgvo-form-developer-4`
 
 **Nur Entwickler dürfen Produktivcode (PHP, React/JSX) ändern.** Sie erhalten Arbeitsaufträge ausschließlich vom Project Lead und können Architekten sowie Experts bei Fragen konsultieren.
 
@@ -87,24 +87,24 @@ Experts beraten den Architekten und informieren den Project Lead über ihre Find
 ---
 
 ### Tester
-**Agents:** `tester-1`, `tester-2`, `tester-3`
+**Agents:** `wp-dsgvo-form-tester-1`, `wp-dsgvo-form-tester-2`, `wp-dsgvo-form-tester-3`
 
 **Nur Tester dürfen Tests und Test-Infrastruktur bearbeiten.** Sie werden von Entwicklern über Produktivcode-Änderungen informiert und erstellen die entsprechenden Tests.
 
 | Agent | Testbereich |
 |-------|------------|
-| `tester-1` | Admin-UI, Gutenberg Block, Test-Infrastruktur-Setup |
-| `tester-2` | Crypto/AES-256, CAPTCHA-Integration |
-| `tester-3` | Empfänger-Login, Rollen, Integrationstests |
+| `wp-dsgvo-form-tester-1` | Admin-UI, Gutenberg Block, Test-Infrastruktur-Setup |
+| `wp-dsgvo-form-tester-2` | Crypto/AES-256, CAPTCHA-Integration |
+| `wp-dsgvo-form-tester-3` | Empfänger-Login, Rollen, Integrationstests |
 
-- Koordinieren sich mit `dpo` und `legal-expert` bezüglich Compliance-Testszenarien
+- Koordinieren sich mit `wp-dsgvo-form-dpo` und `wp-dsgvo-form-legal-expert` bezüglich Compliance-Testszenarien
 - Melden Testlücken an den Project Lead
 - Keine Änderungen an Produktivcode
 
 ---
 
 ### DevOps Engineer
-**Agent:** `devops-engineer`
+**Agent:** `wp-dsgvo-form-devops-engineer`
 
 **Nur der DevOps Engineer darf allgemeine Projektinfrastruktur bearbeiten** und **Builds erzeugen** — dazu zählen `composer.json`, `package.json`, `webpack.config.js`, Build-Scripts, `.gitignore` und ähnliche Infrastruktur-Dateien. Kein anderer Agent darf `npm run build`, `composer install` oder vergleichbare Build-Befehle ausführen.
 
@@ -116,11 +116,11 @@ Experts beraten den Architekten und informieren den Project Lead über ihre Find
 - **Darf Git-Commits und Tags eigenständig pushen** — keine Einzelgenehmigung pro Push nötig
 
 ### Status Board
-**Agent:** `status-board`
+**Agent:** `wp-dsgvo-form-status-board`
 
 Zeigt ein grafisches Kanban-Board aller nicht erledigten Tasks (Open, Refinement, In Progress, In Review, Expert Review).
 
-- Wird von `project-lead` bei **jeder** Task-Status-Änderung unverzüglich informiert
+- Wird von `wp-dsgvo-form-project-lead` bei **jeder** Task-Status-Änderung unverzüglich informiert
 - Kein Schreibrecht auf Code, Tests oder Infrastruktur
 - Keine Analysen, keine Entscheidungen — reine Visualisierung
 
@@ -189,3 +189,5 @@ Datenschutzrelevanter Code (Encryption, Datenlöschung, Rollenprüfungen, Audit-
 - Alle sicherheits- oder datenschutzrelevanten Fragen werden an `security-expert` oder `dpo` eskaliert
 - Bei Konflikten zwischen Expert-Findings entscheidet der `architect`
 - **Agents spawnen:** Nur `team-lead` darf Agents spawnen — ausschließlich mit expliziter Zustimmung des Auftraggebers. `project-lead` darf keine Agents eigenständig spawnen.
+- **Agent-Namens-Konvention:** Alle Agents außer `team-lead` tragen den Prefix `wp-dsgvo-form-` (kein Generationssuffix wie `-2`).
+- **Agent-Respawn:** Vor jedem Respawn den Ghost-Eintrag aus `~/.claude/teams/wp-dsgvo-form/config.json` entfernen. Erst beauftragen wenn der Agent eine `idle_notification` mit `idleReason: "available"` gesendet hat — neu gespawnte Agents können gequeuete alte Shutdown-Nachrichten empfangen und sofort terminieren.

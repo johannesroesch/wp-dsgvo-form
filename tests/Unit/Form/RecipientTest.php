@@ -21,6 +21,12 @@ use Brain\Monkey\Functions;
  */
 class RecipientTest extends TestCase {
 
+	protected function setUp(): void {
+		parent::setUp();
+		// esc_html is used in exception messages (Task #242: ExceptionNotEscaped fix).
+		Functions\when( 'esc_html' )->returnArg();
+	}
+
 	/**
 	 * Creates a mock $wpdb and sets it as global.
 	 *

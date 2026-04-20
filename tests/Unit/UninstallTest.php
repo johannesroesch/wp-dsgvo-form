@@ -46,6 +46,18 @@ class UninstallTest extends TestCase {
 
 		$GLOBALS['wpdb'] = $wpdb;
 
+		// Mock WP_Filesystem initialization (#259 AlternativeFunctions fix).
+		Functions\when( 'WP_Filesystem' )->justReturn( true );
+
+		$fs = \Mockery::mock( 'WP_Filesystem_Base' );
+		$fs->shouldReceive( 'rmdir' )
+			->andReturnUsing(
+				function ( string $path ): bool {
+					return is_dir( $path ) ? rmdir( $path ) : false;
+				}
+			);
+		$GLOBALS['wp_filesystem'] = $fs;
+
 		$defaults = array(
 			'remove_role'              => null,
 			'get_role'                 => null,

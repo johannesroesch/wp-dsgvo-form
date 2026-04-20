@@ -28,7 +28,6 @@ use WpDsgvoForm\Auth\AccessControl;
  */
 class RecipientPage {
 
-	private const TEXT_DOMAIN   = 'wp-dsgvo-form';
 	private const ENDPOINT_BASE = 'dsgvo-empfaenger';
 	private const QUERY_VAR     = 'dsgvo_recipient_page';
 	private const ACTION_VAR    = 'dsgvo_recipient_action';
@@ -103,8 +102,8 @@ class RecipientPage {
 
 		if ( ! $this->access_control->has_plugin_role( $user_id ) && ! $this->access_control->is_admin( $user_id ) ) {
 			wp_die(
-				esc_html__( 'Sie haben keinen Zugriff auf den Einsendungs-Bereich.', self::TEXT_DOMAIN ),
-				esc_html__( 'Zugriff verweigert', self::TEXT_DOMAIN ),
+				esc_html__( 'Sie haben keinen Zugriff auf den Einsendungs-Bereich.', 'wp-dsgvo-form' ),
+				esc_html__( 'Zugriff verweigert', 'wp-dsgvo-form' ),
 				[ 'response' => 403 ]
 			);
 		}
@@ -149,7 +148,7 @@ class RecipientPage {
 	private function render_list_view( int $user_id ): void {
 		$list_view = new SubmissionListView( $this->access_control );
 		$this->render_page_template(
-			__( 'Einsendungen', self::TEXT_DOMAIN ),
+			__( 'Einsendungen', 'wp-dsgvo-form' ),
 			function () use ( $list_view, $user_id ): void {
 				$list_view->render( $user_id );
 			}
@@ -165,7 +164,7 @@ class RecipientPage {
 	private function render_detail_view( int $user_id, int $submission_id ): void {
 		$detail_view = new SubmissionDetailView( $this->access_control );
 		$this->render_page_template(
-			__( 'Einsendung anzeigen', self::TEXT_DOMAIN ),
+			__( 'Einsendung anzeigen', 'wp-dsgvo-form' ),
 			function () use ( $detail_view, $user_id, $submission_id ): void {
 				$detail_view->render( $user_id, $submission_id );
 			}
@@ -228,13 +227,13 @@ class RecipientPage {
 				<?php
 				printf(
 					/* translators: %s: user display name */
-					esc_html__( 'Hallo, %s', self::TEXT_DOMAIN ),
+					esc_html__( 'Hallo, %s', 'wp-dsgvo-form' ),
 					esc_html( wp_get_current_user()->display_name )
 				);
 				?>
 			</span>
 			<a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>" class="dsgvo-recipient__logout">
-				<?php esc_html_e( 'Abmelden', self::TEXT_DOMAIN ); ?>
+				<?php esc_html_e( 'Abmelden', 'wp-dsgvo-form' ); ?>
 			</a>
 		</div>
 

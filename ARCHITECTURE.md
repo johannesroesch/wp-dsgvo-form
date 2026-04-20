@@ -2,8 +2,8 @@
 
 > WordPress-Plugin für DSGVO-konforme Formulare mit AES-256-GCM-verschlüsselter Speicherung
 
-**Version:** 2.1.0
-**Stand:** 2026-04-17
+**Version:** 2.2.0
+**Stand:** 2026-04-20
 **Architekt:** architect
 **Status:** FREIGEGEBEN — Verbindlich für alle Entwickler
 
@@ -75,7 +75,8 @@ wp-dsgvo-form/
 │   │   ├── SubmissionListPage.php     # Einsendungs-Übersicht (Admin)
 │   │   ├── SubmissionViewPage.php     # Einzelne Einsendung (entschlüsselt)
 │   │   ├── RecipientListPage.php      # Empfänger-Verwaltung
-│   │   └── SettingsPage.php           # Plugin-Einstellungen
+│   │   ├── SettingsPage.php           # Plugin-Einstellungen
+│   │   └── AdminBarNotification.php   # Unread-Badge in WP Admin Bar
 │   │
 │   ├── Auth/                          # Authentifizierung & Autorisierung
 │   │   ├── RoleManager.php            # Rollen-Registrierung + Härtung
@@ -450,6 +451,7 @@ Mapping: WpDsgvoForm\ → includes/
 | `SubmissionViewPage` | `Admin` | Einzelne Einsendung (entschlüsselt) |
 | `RecipientListPage` | `Admin` | Empfänger-Zuordnungsverwaltung |
 | `SettingsPage` | `Admin` | Plugin-Einstellungen |
+| `AdminBarNotification` | `Admin` | Unread-Badge in WP Admin Bar |
 | `RoleManager` | `Auth` | Rollen + 6 Härtungsmaßnahmen |
 | `AccessControl` | `Auth` | Capability-Checks, Formular-Zuordnung, IDOR |
 | `LoginRedirect` | `Auth` | Redirect Reader/Supervisor nach Login |
@@ -789,6 +791,149 @@ apply_filters('wpdsgvo_max_file_size', $size, $field);
 apply_filters('wpdsgvo_email_subject', $subject, $form);
 apply_filters('wpdsgvo_retention_days_range', ['min' => 1, 'max' => 3650]);
 ```
+
+### 7.6 Admin Bar Notification (Unread-Badge)
+
+Zeigt eine Zählerblase ("Badge") in der WordPress Admin Bar mit der Anzahl ungelesener Einsendungen.
+
+**Klasse:** `WpDsgvoForm\Admin\AdminBarNotification`
+**Datei:** `includes/Admin/AdminBarNotification.php`
+**Constructor:** `__construct(AccessControl $access_control)`
+
+#### 7.6.1 Hook-Registrierung
+
+```php
+add_action('admin_bar_menu', [$this, 'add_notification_node'], 80);
+add_action('admin_head', [$this, 'render_badge_styles']);
+add_action('wp_head', [$this, 'render_badge_styles']);
+```
+
+- Priorität 80: nach Standard-Nodes, vor `LoginRedirect::restrict_admin_bar()` (999)
+- Styles inline (< 200 Bytes), kein separates Stylesheet
+
+#### 7.6.2 Sichtbarkeit
+
+Das Badge erscheint **nur** für eingeloggte User mit `dsgvo_form_view_submissions` Capability:
+
+| Rolle | Sichtbar | Kontext |
+|-------|:---:|---------|
+| Administrator | Ja | Admin-Bereich + Frontend (Admin Bar) |
+| Supervisor | Ja | Admin-Bereich (Admin Bar) |
+| Reader | Ja | Admin-Bereich (Admin Bar) |
+| Anonymer Besucher | Nein | — |
+
+**Hinweis:** Auf der Recipient-Seite (`/dsgvo-empfaenger/`) ist die Admin Bar ausgeblendet (`RecipientPage::maybe_hide_admin_bar`). Die Notification ist dort nicht sichtbar — die Recipient-Seite zeigt den Status inline in ihrer eigenen Liste an.
+
+#### 7.6.3 Rollenbasierter Count
+
+```
+Admin / Supervisor (dsgvo_form_view_all_submissions):
+  SELECT COUNT(*) FROM dsgvo_submissions
+  WHERE is_read = 0 AND is_restricted = 0
+
+Reader (nur zugewiesene Formulare):
+  Recipient::get_form_ids_for_user($user_id) → $form_ids
+  Submission::count_by_form_ids($form_ids, is_read: false, include_restricted: false)
+```
+
+- **Restricted Submissions** (Art. 18 DSGVO) werden beim Count ausgeschlossen
+- **Reader** nutzt die existierenden Methoden `Recipient::get_form_ids_for_user()` + `Submission::count_by_form_ids()`
+- **Admin/Supervisor** nutzt einen globalen COUNT (ohne form_id-Filter)
+- Existierender Index `idx_form_read (form_id, is_read)` deckt den Reader-Query optimal ab
+
+#### 7.6.4 Caching
+
+| Rolle | Cache-Key | TTL |
+|-------|-----------|-----|
+| Admin / Supervisor | `wpdsgvo_unread_count` | 2 min |
+| Reader | `wpdsgvo_unread_count_{user_id}` | 2 min |
+
+- WordPress Transient-API (`get_transient` / `set_transient`)
+- **Keine aktive Cache-Invalidierung** — 2 min TTL ist kurz genug (bereits bewährtes Muster, vgl. §15.2)
+- Per-User-Key für Reader nötig, da jeder Reader unterschiedliche Formulare sieht
+- `user_id` im Cache-Key ist eine interne WP-ID, kein personenbezogenes Datum
+
+#### 7.6.5 Admin Bar Node
+
+```php
+$wp_admin_bar->add_node([
+    'id'    => 'wpdsgvo-unread',
+    'title' => $this->build_badge_html($count),
+    'href'  => admin_url('admin.php?page=dsgvo-form-submissions'),
+    'meta'  => [
+        'class' => 'wpdsgvo-admin-bar-notification',
+        'title' => sprintf(
+            _n('%d ungelesene Einsendung', '%d ungelesene Einsendungen', $count, 'wp-dsgvo-form'),
+            $count
+        ),
+    ],
+]);
+```
+
+**Verhalten:**
+- **Count = 0:** Kein Node (Badge komplett unsichtbar)
+- **Count > 99:** Anzeige als "99+" (UX-Limit)
+- **Icon:** `dashicons-email-alt` (WordPress-Standard)
+- **Link:** `admin.php?page=dsgvo-form-submissions` (Admin-Einsendungsseite)
+- **Tooltip:** `title`-Attribut mit exaktem Count + Plural-Form
+- **Accessibility (WCAG 2.1 AA):** `build_badge_html()` enthält zusätzlich `<span class="screen-reader-text">` mit vollständigem Klartext (z.B. "5 ungelesene Einsendungen") — `title`-Attribut allein reicht nicht für Assistive Technologies. Singular/Plural via `_n()`.
+
+#### 7.6.6 Badge-Styling (Inline CSS)
+
+```css
+#wpadminbar .wpdsgvo-admin-bar-notification .ab-item {
+    display: flex;
+    align-items: center;
+}
+#wpadminbar .wpdsgvo-unread-count {
+    background: #d63638;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 9px;
+    font-weight: 600;
+    min-width: 17px;
+    height: 17px;
+    line-height: 17px;
+    text-align: center;
+    display: inline-block;
+    margin-left: 2px;
+    padding: 0 4px;
+    box-sizing: border-box;
+}
+```
+
+Visuell konsistent mit WordPress-eigenen Notification-Badges (Plugin-Updates, Kommentare).
+
+#### 7.6.7 Integration in Plugin-Bootstrap
+
+In `Plugin::register_hooks()`:
+
+```php
+// Admin Bar Notification (outside is_admin() — admin bar also on frontend)
+$notification = new Admin\AdminBarNotification($access_control);
+$notification->register_hooks();
+```
+
+Registrierung **außerhalb** von `is_admin()` — die Admin Bar erscheint auch auf dem Frontend für eingeloggte Admins.
+
+#### 7.6.8 DSGVO-Konformität
+
+- **Keine personenbezogenen Daten** — nur ein numerischer Count
+- **Kein User-Tracking** — kein zusätzliches Logging, keine neuen Cookies
+- **Restricted-Ausschluss** — Art. 18 wird beachtet (is_restricted = 0)
+- **Cache enthält keine PII** — nur Integer-Werte
+
+#### 7.6.9 Performance-Budget
+
+| Metrik | Budget |
+|--------|--------|
+| DB-Queries (uncached) | 1 COUNT + ggf. 1 form_ids-Query (Reader) |
+| DB-Queries (cached) | 0 |
+| Cache-TTL | 120 s |
+| CSS-Overhead | < 200 Bytes inline |
+| JS-Overhead | 0 KB (kein JavaScript) |
+
+Kein neuer DB-Index nötig. Globaler Admin/Supervisor-Count auf `is_read + is_restricted` ist bei typischer Plugin-Nutzung (< 50k Submissions) performant genug.
 
 ---
 
@@ -1150,6 +1295,7 @@ Vollständige Referenz: `PERFORMANCE_REQUIREMENTS.md`.
 |-------|:---:|-----|
 | Formular-Config | Ja | 1h (Transient) |
 | Submission-Count | Ja | 2 min |
+| Unread-Count (Admin Bar) | Ja | 2 min (Transient, pro User für Reader) |
 | Submissions | **Nein** | DSGVO! |
 | Entschlüsselte Daten | **Nein** | DSGVO! |
 
@@ -1201,6 +1347,10 @@ Server-seitig, Offset-basiert. 20 Submissions/Seite. Export > 50 als WP-Cron Bac
 | Audit-Log-Tabelle | Pragmatischer ISO 27001-Control, DSGVO-Rechenschaftspflicht | Security-Expert |
 | Vier-Augen-Prinzip (Code-Review) | Auftraggeber-Anforderung für alle Produktivcode-Änderungen | Auftraggeber |
 | Admin-Formular-Builder in PHP statt React | Alle Admin-Seiten sind PHP; kein React-spezifisches Feature nötig; kein Build-Schritt, konsistenter Stack | Architect-Entscheidung |
+| Admin Bar Badge: 2-min-Cache ohne aktive Invalidierung | Kurzer TTL reicht, erspart Hook-Komplexität; bewährtes Muster (vgl. Submission-Count-Cache) | Architect-Entscheidung |
+| Admin Bar Badge: Kein Node bei Count=0 | Sauberer als "0" anzuzeigen; reduziert Admin-Bar-Clutter | UX-Expert |
+| Admin Bar Badge: Count-Cap bei 99+ | Standard-UX-Pattern; verhindert Layout-Probleme bei hohen Zahlen | UX-Expert |
+| Admin Bar Badge: Kein neuer DB-Index | Globaler COUNT performant genug bei < 50k Submissions; Reader-Query nutzt existierenden idx_form_read | Performance-Expert |
 
 ---
 

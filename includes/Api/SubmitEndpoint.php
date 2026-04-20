@@ -43,7 +43,6 @@ class SubmitEndpoint {
 
 	private const NAMESPACE    = 'dsgvo-form/v1';
 	private const ROUTE        = '/submit';
-	private const TEXT_DOMAIN  = 'wp-dsgvo-form';
 
 	/**
 	 * Honeypot field name — hidden field that must remain empty.
@@ -95,7 +94,7 @@ class SubmitEndpoint {
 		if ( ! $this->encryption->is_available() ) {
 			return new \WP_Error(
 				'encryption_unavailable',
-				__( 'Das Formular ist derzeit nicht verfuegbar. Bitte kontaktieren Sie den Administrator.', self::TEXT_DOMAIN ),
+				__( 'Das Formular ist derzeit nicht verfuegbar. Bitte kontaktieren Sie den Administrator.', 'wp-dsgvo-form' ),
 				[ 'status' => 503 ]
 			);
 		}
@@ -114,7 +113,7 @@ class SubmitEndpoint {
 		if ( $form === null || ! $form->is_active ) {
 			return new \WP_Error(
 				'form_not_found',
-				__( 'Das Formular wurde nicht gefunden oder ist inaktiv.', self::TEXT_DOMAIN ),
+				__( 'Das Formular wurde nicht gefunden oder ist inaktiv.', 'wp-dsgvo-form' ),
 				[ 'status' => 404 ]
 			);
 		}
@@ -125,7 +124,7 @@ class SubmitEndpoint {
 		if ( ! wp_verify_nonce( $nonce, 'dsgvo_form_submit_' . $form_id ) ) {
 			return new \WP_Error(
 				'nonce_invalid',
-				__( 'Sicherheitspruefung fehlgeschlagen. Bitte laden Sie die Seite neu.', self::TEXT_DOMAIN ),
+				__( 'Sicherheitspruefung fehlgeschlagen. Bitte laden Sie die Seite neu.', 'wp-dsgvo-form' ),
 				[ 'status' => 403 ]
 			);
 		}
@@ -144,7 +143,7 @@ class SubmitEndpoint {
 			if ( ! $this->captcha->verify( $captcha_token ) ) {
 				return new \WP_Error(
 					'captcha_failed',
-					__( 'CAPTCHA-Verifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.', self::TEXT_DOMAIN ),
+					__( 'CAPTCHA-Verifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.', 'wp-dsgvo-form' ),
 					[ 'status' => 422 ]
 				);
 			}
@@ -158,7 +157,7 @@ class SubmitEndpoint {
 			// Return success to not reveal the honeypot mechanism.
 			return new \WP_REST_Response( [
 				'success' => true,
-				'message' => $form->success_message ?: __( 'Ihre Einsendung wurde erfolgreich uebermittelt.', self::TEXT_DOMAIN ),
+				'message' => $form->success_message ?: __( 'Ihre Einsendung wurde erfolgreich uebermittelt.', 'wp-dsgvo-form' ),
 			], 201 );
 		}
 
@@ -170,7 +169,7 @@ class SubmitEndpoint {
 		if ( ! empty( $validation['errors'] ) ) {
 			return new \WP_Error(
 				'validation_failed',
-				__( 'Bitte korrigieren Sie die markierten Felder.', self::TEXT_DOMAIN ),
+				__( 'Bitte korrigieren Sie die markierten Felder.', 'wp-dsgvo-form' ),
 				[
 					'status' => 422,
 					'errors' => $validation['errors'],
@@ -197,7 +196,7 @@ class SubmitEndpoint {
 		} catch ( \RuntimeException $e ) {
 			return new \WP_Error(
 				'encryption_failed',
-				__( 'Ein interner Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.', self::TEXT_DOMAIN ),
+				__( 'Ein interner Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.', 'wp-dsgvo-form' ),
 				[ 'status' => 500 ]
 			);
 		}
@@ -228,7 +227,7 @@ class SubmitEndpoint {
 
 			return new \WP_Error(
 				'save_failed',
-				__( 'Ein interner Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.', self::TEXT_DOMAIN ),
+				__( 'Ein interner Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.', 'wp-dsgvo-form' ),
 				[ 'status' => 500 ]
 			);
 		}
@@ -240,7 +239,7 @@ class SubmitEndpoint {
 		$success_message = $form->success_message;
 
 		if ( $success_message === '' ) {
-			$success_message = __( 'Ihre Einsendung wurde erfolgreich uebermittelt.', self::TEXT_DOMAIN );
+			$success_message = __( 'Ihre Einsendung wurde erfolgreich uebermittelt.', 'wp-dsgvo-form' );
 		}
 
 		return new \WP_REST_Response( [
@@ -269,6 +268,8 @@ class SubmitEndpoint {
 	 */
 	private function verify_consent( Form $form, array $params ) {
 		// SEC-DSGVO-14: Only require consent checkbox for legal_basis = 'consent'.
+		// ARCH-v104-03: Consent parameters (consent_version_id, consent_locale, consent_given)
+		// are explicitly ignored for non-consent legal bases. No consent data is stored.
 		if ( $form->legal_basis !== 'consent' ) {
 			return [
 				'consent_text_version' => null,
@@ -284,7 +285,7 @@ class SubmitEndpoint {
 			// SEC-DSGVO-04: Hard-block — no data stored, no external requests.
 			return new \WP_Error(
 				'consent_missing',
-				__( 'Sie muessen der Datenverarbeitung zustimmen, um das Formular absenden zu koennen.', self::TEXT_DOMAIN ),
+				__( 'Sie muessen der Datenverarbeitung zustimmen, um das Formular absenden zu koennen.', 'wp-dsgvo-form' ),
 				[ 'status' => 422 ]
 			);
 		}
@@ -295,7 +296,7 @@ class SubmitEndpoint {
 		if ( $consent_locale === '' ) {
 			return new \WP_Error(
 				'consent_locale_missing',
-				__( 'Die Sprache der Einwilligungserklaerung konnte nicht ermittelt werden.', self::TEXT_DOMAIN ),
+				__( 'Die Sprache der Einwilligungserklaerung konnte nicht ermittelt werden.', 'wp-dsgvo-form' ),
 				[ 'status' => 422 ]
 			);
 		}
@@ -304,7 +305,18 @@ class SubmitEndpoint {
 		if ( ! preg_match( '/^[a-z]{2}_[A-Z]{2}$/', $consent_locale ) ) {
 			return new \WP_Error(
 				'consent_locale_invalid',
-				__( 'Ungueltiges Locale-Format.', self::TEXT_DOMAIN ),
+				__( 'Ungueltiges Locale-Format.', 'wp-dsgvo-form' ),
+				[ 'status' => 422 ]
+			);
+		}
+
+		// ARCH-v104-02 / DECISION-LOCALE-01: Validate against supported locales whitelist.
+		$supported_locales = apply_filters( 'wpdsgvo_supported_locales', ConsentVersion::SUPPORTED_LOCALES );
+
+		if ( ! array_key_exists( $consent_locale, $supported_locales ) ) {
+			return new \WP_Error(
+				'consent_locale_unsupported',
+				__( 'Die angegebene Sprache wird nicht unterstuetzt.', 'wp-dsgvo-form' ),
 				[ 'status' => 422 ]
 			);
 		}
@@ -317,7 +329,7 @@ class SubmitEndpoint {
 			// Fail-closed: client did not send a consent version.
 			return new \WP_Error(
 				'consent_version_missing',
-				__( 'Die Einwilligungsversion konnte nicht ermittelt werden. Bitte laden Sie die Seite neu.', self::TEXT_DOMAIN ),
+				__( 'Die Einwilligungsversion konnte nicht ermittelt werden. Bitte laden Sie die Seite neu.', 'wp-dsgvo-form' ),
 				[ 'status' => 422 ]
 			);
 		}
@@ -328,7 +340,7 @@ class SubmitEndpoint {
 		if ( $consent_version === null ) {
 			return new \WP_Error(
 				'consent_version_invalid',
-				__( 'Die angegebene Einwilligungsversion existiert nicht. Bitte laden Sie die Seite neu.', self::TEXT_DOMAIN ),
+				__( 'Die angegebene Einwilligungsversion existiert nicht. Bitte laden Sie die Seite neu.', 'wp-dsgvo-form' ),
 				[ 'status' => 409 ]
 			);
 		}
@@ -336,7 +348,7 @@ class SubmitEndpoint {
 		if ( $consent_version->form_id !== $form->id ) {
 			return new \WP_Error(
 				'consent_version_invalid',
-				__( 'Die angegebene Einwilligungsversion gehoert nicht zu diesem Formular.', self::TEXT_DOMAIN ),
+				__( 'Die angegebene Einwilligungsversion gehoert nicht zu diesem Formular.', 'wp-dsgvo-form' ),
 				[ 'status' => 422 ]
 			);
 		}
@@ -345,7 +357,7 @@ class SubmitEndpoint {
 			// DPO-FINDING-15: Locale-spoofing mitigated — version implies locale.
 			return new \WP_Error(
 				'consent_locale_mismatch',
-				__( 'Die Sprache der Einwilligungserklaerung stimmt nicht mit der Version ueberein.', self::TEXT_DOMAIN ),
+				__( 'Die Sprache der Einwilligungserklaerung stimmt nicht mit der Version ueberein.', 'wp-dsgvo-form' ),
 				[ 'status' => 422 ]
 			);
 		}
@@ -381,7 +393,7 @@ class SubmitEndpoint {
 						'file_required',
 						sprintf(
 							/* translators: %s: field label */
-							__( 'Bitte laden Sie eine Datei fuer "%s" hoch.', self::TEXT_DOMAIN ),
+							__( 'Bitte laden Sie eine Datei fuer "%s" hoch.', 'wp-dsgvo-form' ),
 							$field->label
 						),
 						[ 'status' => 422 ]
@@ -412,7 +424,7 @@ class SubmitEndpoint {
 					'file_upload_failed',
 					sprintf(
 						/* translators: %s: field label */
-						__( 'Fehler beim Hochladen der Datei fuer "%s".', self::TEXT_DOMAIN ),
+						__( 'Fehler beim Hochladen der Datei fuer "%s".', 'wp-dsgvo-form' ),
 						$field->label
 					),
 					[ 'status' => 422 ]
@@ -483,10 +495,15 @@ class SubmitEndpoint {
 		$submission->is_restricted        = false;
 
 		// SEC-DSGVO-06: Consent data stored unencrypted for compliance proof (SEC-ENC-11).
-		$submission->consent_text_version = $consent_result['consent_text_version'];
-		$submission->consent_version_id   = $consent_result['consent_version_id'] ?? null;
-		$submission->consent_timestamp    = $consent_result['consent_timestamp'];
-		$submission->consent_locale       = $consent_result['consent_locale'];
+		// ARCH-v104-03: Defense-in-depth — only store consent metadata when legal_basis is 'consent'.
+		// verify_consent() already returns nulls for non-consent bases, but this guard ensures
+		// no consent data leaks into the DB even if the upstream return value changes.
+		if ( $form->legal_basis === 'consent' ) {
+			$submission->consent_text_version = $consent_result['consent_text_version'];
+			$submission->consent_version_id   = $consent_result['consent_version_id'] ?? null;
+			$submission->consent_timestamp    = $consent_result['consent_timestamp'];
+			$submission->consent_locale       = $consent_result['consent_locale'];
+		}
 
 		// SEC-DSGVO-08: Calculate expiry date from retention_days.
 		if ( $form->retention_days > 0 ) {
@@ -536,7 +553,7 @@ class SubmitEndpoint {
 
 			if ( false === $inserted ) {
 				throw new \RuntimeException(
-					sprintf( 'Failed to save file record for submission %d: %s', $submission_id, $wpdb->last_error )
+					sprintf( 'Failed to save file record for submission %d: %s', $submission_id, esc_html( $wpdb->last_error ) )
 				);
 			}
 		}
