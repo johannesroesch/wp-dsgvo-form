@@ -30,6 +30,7 @@ class Form {
 	public string $email_template = '';
 	public bool $is_active       = true;
 	public bool $captcha_enabled = true;
+	public ?string $locale_override = null;
 	public int $retention_days   = 90;
 	public string $encrypted_dek = '';
 	public string $dek_iv        = '';
@@ -245,6 +246,20 @@ class Form {
 				'Legal basis must be "consent" or "contract" (SEC-DSGVO-14).'
 			);
 		}
+
+		// LEGAL-I18N-04: Validate locale_override against supported locales.
+		if ( $this->locale_override !== null && $this->locale_override !== '' ) {
+			$supported = apply_filters( 'wpdsgvo_supported_locales', ConsentVersion::SUPPORTED_LOCALES );
+
+			if ( ! array_key_exists( $this->locale_override, $supported ) ) {
+				throw new \RuntimeException(
+					sprintf(
+						'Locale override "%s" is not in the supported locales list (LEGAL-I18N-04).',
+						esc_html( $this->locale_override )
+					)
+				);
+			}
+		}
 	}
 
 	/**
@@ -337,6 +352,7 @@ class Form {
 		$form->email_template  = (string) ( $row['email_template'] ?? '' );
 		$form->is_active       = (bool) ( $row['is_active'] ?? true );
 		$form->captcha_enabled = (bool) ( $row['captcha_enabled'] ?? true );
+		$form->locale_override = isset( $row['locale_override'] ) ? (string) $row['locale_override'] : null;
 		$form->retention_days  = (int) ( $row['retention_days'] ?? 90 );
 		$form->encrypted_dek   = (string) ( $row['encrypted_dek'] ?? '' );
 		$form->dek_iv          = (string) ( $row['dek_iv'] ?? '' );
@@ -356,7 +372,7 @@ class Form {
 	 * Excludes id, timestamps (managed by MySQL), and encrypted_dek/dek_iv (set on insert only).
 	 */
 	private function to_db_array(): array {
-		return [
+		$data = [
 			'title'           => $this->title,
 			'slug'            => $this->slug,
 			'description'     => $this->description,
@@ -371,6 +387,12 @@ class Form {
 			'consent_text'    => $this->consent_text,
 			'consent_version' => $this->consent_version,
 		];
+
+		if ( $this->locale_override !== null ) {
+			$data['locale_override'] = $this->locale_override;
+		}
+
+		return $data;
 	}
 
 	/**

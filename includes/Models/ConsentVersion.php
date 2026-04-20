@@ -18,6 +18,11 @@ defined('ABSPATH') || exit;
 class ConsentVersion {
 
 	/**
+	 * WordPress Object Cache group.
+	 */
+	private const CACHE_GROUP = 'wpdsgvo';
+
+	/**
 	 * Supported locales for consent versioning (LEGAL-I18N-04).
 	 *
 	 * Single source of truth for locale codes and their display labels.
@@ -81,6 +86,13 @@ class ConsentVersion {
 	 * @return self|null The latest version, or null if none exists.
 	 */
 	public static function get_current_version( int $form_id, string $locale ): ?self {
+		$cache_key = "consent_current_{$form_id}_{$locale}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return $cached instanceof self ? $cached : null;
+		}
+
 		global $wpdb;
 		$table = self::get_table_name();
 
@@ -93,11 +105,12 @@ class ConsentVersion {
 			ARRAY_A
 		);
 
-		if ( $row === null ) {
-			return null;
-		}
+		$result = $row !== null ? self::from_row( $row ) : null;
 
-		return self::from_row( $row );
+		// Cache null as 'not_found' sentinel to avoid repeated DB hits.
+		wp_cache_set( $cache_key, $result ?? 'not_found', self::CACHE_GROUP );
+
+		return $result;
 	}
 
 	/**
@@ -141,6 +154,13 @@ class ConsentVersion {
 	 * @return self[]
 	 */
 	public static function find_all_by_form( int $form_id ): array {
+		$cache_key = "consent_all_{$form_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return is_array( $cached ) ? $cached : [];
+		}
+
 		global $wpdb;
 		$table = self::get_table_name();
 
@@ -152,7 +172,11 @@ class ConsentVersion {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		$result = array_map( [ self::class, 'from_row' ], $rows ?: [] );
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP );
+
+		return $result;
 	}
 
 	/**
@@ -198,6 +222,10 @@ class ConsentVersion {
 		}
 
 		$this->id = (int) $wpdb->insert_id;
+
+		// Invalidate caches for this form + locale.
+		wp_cache_delete( "consent_current_{$this->form_id}_{$this->locale}", self::CACHE_GROUP );
+		wp_cache_delete( "consent_all_{$this->form_id}", self::CACHE_GROUP );
 
 		return $this->id;
 	}

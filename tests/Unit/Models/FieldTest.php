@@ -59,6 +59,7 @@ class FieldTest extends TestCase {
 				'static_content'   => '',
 				'file_config'      => null,
 				'css_class'        => 'col-6',
+				'width'            => 'full',
 				'sort_order'       => '0',
 				'created_at'       => '2026-01-01 00:00:00',
 			],
@@ -516,6 +517,152 @@ class FieldTest extends TestCase {
 		$this->assertSame( '', $field->static_content );
 		$this->assertNull( $field->file_config );
 		$this->assertSame( '', $field->css_class );
+		$this->assertSame( 'full', $field->width );
 		$this->assertSame( 0, $field->sort_order );
+	}
+
+	// ------------------------------------------------------------------
+	// ALLOWED_WIDTHS constant (FEP-01)
+	// ------------------------------------------------------------------
+
+	public function test_allowed_widths_contains_expected_values(): void {
+		$expected = [ 'full', 'half', 'third' ];
+
+		$this->assertSame( $expected, Field::ALLOWED_WIDTHS );
+	}
+
+	public function test_allowed_widths_has_exactly_three_entries(): void {
+		$this->assertCount( 3, Field::ALLOWED_WIDTHS );
+	}
+
+	// ------------------------------------------------------------------
+	// width — default value
+	// ------------------------------------------------------------------
+
+	public function test_new_field_has_full_width_by_default(): void {
+		$field = new Field();
+
+		$this->assertSame( 'full', $field->width );
+	}
+
+	// ------------------------------------------------------------------
+	// from_row — width mapping
+	// ------------------------------------------------------------------
+
+	public function test_from_row_maps_width_from_row(): void {
+		$row = $this->make_row( [ 'width' => 'half' ] );
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( $row );
+
+		$field = Field::find( 1 );
+
+		$this->assertSame( 'half', $field->width );
+	}
+
+	public function test_from_row_maps_third_width(): void {
+		$row = $this->make_row( [ 'width' => 'third' ] );
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( $row );
+
+		$field = Field::find( 1 );
+
+		$this->assertSame( 'third', $field->width );
+	}
+
+	public function test_from_row_defaults_width_to_full_when_missing(): void {
+		$row = $this->make_row();
+		unset( $row['width'] );
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( $row );
+
+		$field = Field::find( 1 );
+
+		$this->assertSame( 'full', $field->width );
+	}
+
+	// ------------------------------------------------------------------
+	// to_db_array — width included
+	// ------------------------------------------------------------------
+
+	public function test_save_includes_width_in_db_data(): void {
+		$field             = new Field();
+		$field->form_id    = 10;
+		$field->field_type = 'text';
+		$field->label      = 'Feld';
+		$field->name       = 'feld';
+		$field->width      = 'half';
+
+		$inserted_data = null;
+		$this->wpdb->shouldReceive( 'insert' )
+			->once()
+			->andReturnUsing(
+				function ( string $table, array $data ) use ( &$inserted_data ): int {
+					$inserted_data = $data;
+					return 1;
+				}
+			);
+		$this->wpdb->insert_id = 1;
+
+		Functions\when( 'delete_transient' )->justReturn( true );
+
+		$field->save();
+
+		$this->assertArrayHasKey( 'width', $inserted_data );
+		$this->assertSame( 'half', $inserted_data['width'] );
+	}
+
+	// ------------------------------------------------------------------
+	// validate — width must be in ALLOWED_WIDTHS
+	// ------------------------------------------------------------------
+
+	public function test_validate_rejects_invalid_width(): void {
+		$field             = new Field();
+		$field->form_id    = 1;
+		$field->field_type = 'text';
+		$field->label      = 'Name';
+		$field->name       = 'name';
+		$field->width      = 'quarter';
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'Invalid field width "quarter"' );
+
+		$field->save();
+	}
+
+	public function test_validate_rejects_empty_width(): void {
+		$field             = new Field();
+		$field->form_id    = 1;
+		$field->field_type = 'text';
+		$field->label      = 'Name';
+		$field->name       = 'name';
+		$field->width      = '';
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'Invalid field width' );
+
+		$field->save();
+	}
+
+	public function test_validate_accepts_all_allowed_widths(): void {
+		foreach ( Field::ALLOWED_WIDTHS as $width ) {
+			$field             = new Field();
+			$field->form_id    = 10;
+			$field->field_type = 'text';
+			$field->label      = 'Feld';
+			$field->name       = 'feld';
+			$field->width      = $width;
+
+			$this->wpdb->shouldReceive( 'insert' )->andReturn( 1 );
+			$this->wpdb->insert_id = 1;
+
+			Functions\when( 'delete_transient' )->justReturn( true );
+
+			$id = $field->save();
+
+			$this->assertSame( 1, $id, "Width '{$width}' should be accepted by validate()." );
+		}
 	}
 }

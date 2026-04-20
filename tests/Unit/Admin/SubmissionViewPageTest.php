@@ -731,4 +731,108 @@ class SubmissionViewPageTest extends TestCase {
 
 		return $submission;
 	}
+
+	// ==================================================================
+	// sanitize_csv_value() — CSV Formula Injection Protection
+	// ==================================================================
+
+	/**
+	 * Invokes the private static sanitize_csv_value() method via Reflection.
+	 *
+	 * @param string $value The cell value to sanitize.
+	 * @return string Sanitized value.
+	 */
+	private function invoke_sanitize_csv_value( string $value ): string {
+		$method = new \ReflectionMethod( SubmissionViewPage::class, 'sanitize_csv_value' );
+		$method->setAccessible( true );
+		return $method->invoke( null, $value );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant OWASP CSV Injection — empty string stays empty
+	 */
+	public function test_sanitize_csv_value_returns_empty_string_unchanged(): void {
+		$this->assertSame( '', $this->invoke_sanitize_csv_value( '' ) );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant OWASP CSV Injection — = prefix triggers formula
+	 */
+	public function test_sanitize_csv_value_prefixes_equals_sign(): void {
+		$result = $this->invoke_sanitize_csv_value( '=CMD("calc")' );
+
+		$this->assertSame( "'=CMD(\"calc\")", $result );
+		$this->assertStringStartsWith( "'", $result );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant OWASP CSV Injection — + prefix triggers formula
+	 */
+	public function test_sanitize_csv_value_prefixes_plus_sign(): void {
+		$result = $this->invoke_sanitize_csv_value( '+1234' );
+
+		$this->assertSame( "'+1234", $result );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant OWASP CSV Injection — - prefix triggers formula
+	 */
+	public function test_sanitize_csv_value_prefixes_minus_sign(): void {
+		$result = $this->invoke_sanitize_csv_value( '-5' );
+
+		$this->assertSame( "'-5", $result );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant OWASP CSV Injection — @ prefix triggers formula
+	 */
+	public function test_sanitize_csv_value_prefixes_at_sign(): void {
+		$result = $this->invoke_sanitize_csv_value( '@SUM(A1:A10)' );
+
+		$this->assertSame( "'@SUM(A1:A10)", $result );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant OWASP CSV Injection — tab prefix triggers formula
+	 */
+	public function test_sanitize_csv_value_prefixes_tab_character(): void {
+		$result = $this->invoke_sanitize_csv_value( "\t=CMD()" );
+
+		$this->assertSame( "'\t=CMD()", $result );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant OWASP CSV Injection — CR prefix triggers formula
+	 */
+	public function test_sanitize_csv_value_prefixes_carriage_return(): void {
+		$result = $this->invoke_sanitize_csv_value( "\r=CMD()" );
+
+		$this->assertSame( "'\r=CMD()", $result );
+	}
+
+	/**
+	 * @test
+	 * Normal text without dangerous prefix passes through unchanged.
+	 */
+	public function test_sanitize_csv_value_passes_normal_text_unchanged(): void {
+		$this->assertSame( 'Max Mustermann', $this->invoke_sanitize_csv_value( 'Max Mustermann' ) );
+		$this->assertSame( 'test@example.com', $this->invoke_sanitize_csv_value( 'test@example.com' ) );
+		$this->assertSame( '2026-01-01 12:00:00', $this->invoke_sanitize_csv_value( '2026-01-01 12:00:00' ) );
+	}
+
+	/**
+	 * @test
+	 * Numeric values without dangerous prefix pass through unchanged.
+	 */
+	public function test_sanitize_csv_value_passes_plain_numbers_unchanged(): void {
+		$this->assertSame( '42', $this->invoke_sanitize_csv_value( '42' ) );
+		$this->assertSame( '3.14', $this->invoke_sanitize_csv_value( '3.14' ) );
+	}
 }

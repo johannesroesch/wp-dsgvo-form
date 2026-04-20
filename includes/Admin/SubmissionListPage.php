@@ -65,6 +65,12 @@ class SubmissionListPage {
 				<?php esc_html_e( 'Einsendungen', 'wp-dsgvo-form' ); ?>
 			</h1>
 
+			<?php if ( current_user_can( 'dsgvo_form_manage' ) ) : ?>
+				<a href="<?php echo esc_url( DataSubjectSearchPage::get_url() ); ?>" class="page-title-action">
+					<?php esc_html_e( 'Betroffenen-Suche', 'wp-dsgvo-form' ); ?>
+				</a>
+			<?php endif; ?>
+
 			<hr class="wp-header-end">
 
 			<?php settings_errors( 'dsgvo_submission_messages' ); ?>

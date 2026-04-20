@@ -637,4 +637,189 @@ class FormTest extends TestCase {
 		$this->assertSame( 'Ich stimme zu.', $form->consent_text );
 		$this->assertSame( '2026-01-01 00:00:00', $form->created_at );
 	}
+
+	// ------------------------------------------------------------------
+	// locale_override — from_row mapping (LEGAL-I18N-04)
+	// ------------------------------------------------------------------
+
+	public function test_find_maps_locale_override_from_db_row(): void {
+		Functions\expect( 'get_transient' )->once()->andReturn( false );
+
+		$row = $this->make_row( [ 'locale_override' => 'fr_FR' ] );
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( $row );
+
+		Functions\when( 'set_transient' )->justReturn( true );
+
+		$form = Form::find( 1 );
+
+		$this->assertSame( 'fr_FR', $form->locale_override );
+	}
+
+	public function test_find_maps_null_locale_override_from_db_row(): void {
+		Functions\expect( 'get_transient' )->once()->andReturn( false );
+
+		$row = $this->make_row( [ 'locale_override' => null ] );
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( $row );
+
+		Functions\when( 'set_transient' )->justReturn( true );
+
+		$form = Form::find( 1 );
+
+		$this->assertNull( $form->locale_override );
+	}
+
+	public function test_locale_override_defaults_to_null_when_missing_from_row(): void {
+		Functions\expect( 'get_transient' )->once()->andReturn( false );
+
+		// Row without locale_override key — from_row handles with default null.
+		$row = $this->make_row();
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( $row );
+
+		Functions\when( 'set_transient' )->justReturn( true );
+
+		$form = Form::find( 1 );
+
+		$this->assertNull( $form->locale_override );
+	}
+
+	// ------------------------------------------------------------------
+	// validate — locale_override (LEGAL-I18N-04)
+	// ------------------------------------------------------------------
+
+	public function test_validate_accepts_null_locale_override(): void {
+		$form                  = new Form();
+		$form->title           = 'No Override';
+		$form->locale_override = null;
+
+		Functions\when( 'sanitize_title' )->returnArg();
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_var' )->andReturn( null );
+
+		// Should pass locale_override validation but fail at KeyManager check.
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'KeyManager is required' );
+
+		$form->save();
+	}
+
+	public function test_validate_accepts_valid_locale_override(): void {
+		$form                  = new Form();
+		$form->title           = 'French Override';
+		$form->locale_override = 'fr_FR';
+
+		Functions\when( 'sanitize_title' )->returnArg();
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_var' )->andReturn( null );
+
+		// Should pass locale_override validation but fail at KeyManager check.
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'KeyManager is required' );
+
+		$form->save();
+	}
+
+	public function test_validate_rejects_unsupported_locale_override(): void {
+		$form                  = new Form();
+		$form->title           = 'Bad Override';
+		$form->locale_override = 'nl_NL';
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'Locale override "nl_NL" is not in the supported locales list' );
+
+		$form->save();
+	}
+
+	public function test_validate_accepts_empty_string_locale_override_as_no_override(): void {
+		$form                  = new Form();
+		$form->title           = 'Empty Override';
+		$form->locale_override = '';
+
+		Functions\when( 'sanitize_title' )->returnArg();
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_var' )->andReturn( null );
+
+		// Empty string is treated same as null — no locale validation.
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'KeyManager is required' );
+
+		$form->save();
+	}
+
+	// ------------------------------------------------------------------
+	// save — locale_override included in insert data
+	// ------------------------------------------------------------------
+
+	public function test_insert_includes_locale_override_in_data(): void {
+		$form                  = new Form();
+		$form->title           = 'With Override';
+		$form->locale_override = 'es_ES';
+
+		Functions\when( 'sanitize_title' )->returnArg();
+
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_var' )->andReturn( null );
+
+		$key_manager = Mockery::mock( KeyManager::class );
+		$key_manager->shouldReceive( 'generate_dek' )->andReturn( 'dek' );
+		$key_manager->shouldReceive( 'encrypt_dek' )->andReturn( [
+			'encrypted_dek' => 'x',
+			'dek_iv'        => 'y',
+		] );
+
+		$inserted_data = null;
+		$this->wpdb->shouldReceive( 'insert' )
+			->once()
+			->andReturnUsing(
+				function ( string $table, array $data ) use ( &$inserted_data ): int {
+					$inserted_data = $data;
+					return 1;
+				}
+			);
+		$this->wpdb->insert_id = 8;
+
+		$form->save( $key_manager );
+
+		$this->assertArrayHasKey( 'locale_override', $inserted_data );
+		$this->assertSame( 'es_ES', $inserted_data['locale_override'] );
+	}
+
+	public function test_insert_excludes_locale_override_when_null(): void {
+		$form                  = new Form();
+		$form->title           = 'No Override';
+		$form->locale_override = null;
+
+		Functions\when( 'sanitize_title' )->returnArg();
+
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_var' )->andReturn( null );
+
+		$key_manager = Mockery::mock( KeyManager::class );
+		$key_manager->shouldReceive( 'generate_dek' )->andReturn( 'dek' );
+		$key_manager->shouldReceive( 'encrypt_dek' )->andReturn( [
+			'encrypted_dek' => 'x',
+			'dek_iv'        => 'y',
+		] );
+
+		$inserted_data = null;
+		$this->wpdb->shouldReceive( 'insert' )
+			->once()
+			->andReturnUsing(
+				function ( string $table, array $data ) use ( &$inserted_data ): int {
+					$inserted_data = $data;
+					return 1;
+				}
+			);
+		$this->wpdb->insert_id = 9;
+
+		$form->save( $key_manager );
+
+		// locale_override is excluded from INSERT when null (MySQL NULL handling).
+		$this->assertArrayNotHasKey( 'locale_override', $inserted_data );
+	}
 }

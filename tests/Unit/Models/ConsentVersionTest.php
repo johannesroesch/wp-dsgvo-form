@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Tests\Unit\Models;
 
+use WpDsgvoForm\Models\ConsentTemplateHelper;
 use WpDsgvoForm\Models\ConsentVersion;
 use WpDsgvoForm\Models\Form;
 use WpDsgvoForm\Tests\TestCase;
@@ -58,6 +59,12 @@ class ConsentVersionTest extends TestCase {
 			return false;
 		} );
 		Functions\when( 'set_transient' )->justReturn( true );
+
+		// ConsentVersion uses WP Object Cache for get_current_version() and find_all_by_form().
+		// Default: cache miss (return false) so existing tests hit the DB as before.
+		Functions\when( 'wp_cache_get' )->justReturn( false );
+		Functions\when( 'wp_cache_set' )->justReturn( true );
+		Functions\when( 'wp_cache_delete' )->justReturn( true );
 	}
 
 	protected function tearDown(): void {
@@ -636,6 +643,216 @@ class ConsentVersionTest extends TestCase {
 	}
 
 	// ------------------------------------------------------------------
+	// Object Cache — get_current_version() cache hit / miss / sentinel
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * Cache HIT: get_current_version() returns cached ConsentVersion without DB query.
+	 */
+	public function test_get_current_version_returns_cached_instance_on_cache_hit(): void {
+		$cached_cv           = new ConsentVersion();
+		$cached_cv->id       = 42;
+		$cached_cv->form_id  = 5;
+		$cached_cv->locale   = 'de_DE';
+		$cached_cv->version  = 3;
+
+		Functions\when( 'wp_cache_get' )->alias( function ( string $key, string $group ) use ( $cached_cv ) {
+			if ( $key === 'consent_current_5_de_DE' && $group === 'wpdsgvo' ) {
+				return $cached_cv;
+			}
+			return false;
+		} );
+
+		// wpdb should NOT be called — cache serves the result.
+		$this->wpdb->shouldNotReceive( 'get_row' );
+
+		$result = ConsentVersion::get_current_version( 5, 'de_DE' );
+
+		$this->assertInstanceOf( ConsentVersion::class, $result );
+		$this->assertSame( 42, $result->id );
+		$this->assertSame( 3, $result->version );
+	}
+
+	/**
+	 * @test
+	 * Cache HIT with 'not_found' sentinel: returns null without DB query.
+	 */
+	public function test_get_current_version_returns_null_on_not_found_sentinel(): void {
+		Functions\when( 'wp_cache_get' )->alias( function ( string $key, string $group ) {
+			if ( $key === 'consent_current_5_fr_FR' && $group === 'wpdsgvo' ) {
+				return 'not_found';
+			}
+			return false;
+		} );
+
+		// wpdb should NOT be called.
+		$this->wpdb->shouldNotReceive( 'get_row' );
+
+		$result = ConsentVersion::get_current_version( 5, 'fr_FR' );
+
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * @test
+	 * Cache MISS: get_current_version() queries DB and stores result in cache.
+	 */
+	public function test_get_current_version_stores_result_in_cache_on_miss(): void {
+		$row = $this->make_row( [ 'version' => '2' ] );
+
+		// Cache miss.
+		Functions\when( 'wp_cache_get' )->justReturn( false );
+
+		$cached_key   = '';
+		$cached_value = null;
+		$cached_group = '';
+
+		Functions\when( 'wp_cache_set' )->alias(
+			function ( string $key, $value, string $group ) use ( &$cached_key, &$cached_value, &$cached_group ): bool {
+				$cached_key   = $key;
+				$cached_value = $value;
+				$cached_group = $group;
+				return true;
+			}
+		);
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( $row );
+
+		$result = ConsentVersion::get_current_version( 5, 'de_DE' );
+
+		$this->assertInstanceOf( ConsentVersion::class, $result );
+		$this->assertSame( 'consent_current_5_de_DE', $cached_key );
+		$this->assertSame( 'wpdsgvo', $cached_group );
+		$this->assertInstanceOf( ConsentVersion::class, $cached_value );
+	}
+
+	/**
+	 * @test
+	 * Cache MISS with null result: stores 'not_found' sentinel.
+	 */
+	public function test_get_current_version_stores_not_found_sentinel_on_null_result(): void {
+		Functions\when( 'wp_cache_get' )->justReturn( false );
+
+		$cached_value = null;
+
+		Functions\when( 'wp_cache_set' )->alias(
+			function ( string $key, $value, string $group ) use ( &$cached_value ): bool {
+				$cached_value = $value;
+				return true;
+			}
+		);
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_row' )->once()->andReturn( null );
+
+		$result = ConsentVersion::get_current_version( 999, 'en_US' );
+
+		$this->assertNull( $result );
+		$this->assertSame( 'not_found', $cached_value );
+	}
+
+	// ------------------------------------------------------------------
+	// Object Cache — find_all_by_form() cache hit / miss
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * Cache HIT: find_all_by_form() returns cached array without DB query.
+	 */
+	public function test_find_all_by_form_returns_cached_array_on_cache_hit(): void {
+		$cv1           = new ConsentVersion();
+		$cv1->id       = 1;
+		$cv1->form_id  = 5;
+		$cv2           = new ConsentVersion();
+		$cv2->id       = 2;
+		$cv2->form_id  = 5;
+
+		Functions\when( 'wp_cache_get' )->alias( function ( string $key, string $group ) use ( $cv1, $cv2 ) {
+			if ( $key === 'consent_all_5' && $group === 'wpdsgvo' ) {
+				return [ $cv1, $cv2 ];
+			}
+			return false;
+		} );
+
+		// wpdb should NOT be called.
+		$this->wpdb->shouldNotReceive( 'get_results' );
+
+		$results = ConsentVersion::find_all_by_form( 5 );
+
+		$this->assertCount( 2, $results );
+		$this->assertSame( 1, $results[0]->id );
+	}
+
+	/**
+	 * @test
+	 * Cache MISS: find_all_by_form() queries DB and stores result in cache.
+	 */
+	public function test_find_all_by_form_stores_result_in_cache_on_miss(): void {
+		$rows = [
+			$this->make_row( [ 'id' => '1', 'locale' => 'de_DE', 'version' => '1' ] ),
+		];
+
+		Functions\when( 'wp_cache_get' )->justReturn( false );
+
+		$cached_key   = '';
+		$cached_group = '';
+
+		Functions\when( 'wp_cache_set' )->alias(
+			function ( string $key, $value, string $group ) use ( &$cached_key, &$cached_group ): bool {
+				$cached_key   = $key;
+				$cached_group = $group;
+				return true;
+			}
+		);
+
+		$this->wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_results' )->once()->andReturn( $rows );
+
+		ConsentVersion::find_all_by_form( 5 );
+
+		$this->assertSame( 'consent_all_5', $cached_key );
+		$this->assertSame( 'wpdsgvo', $cached_group );
+	}
+
+	// ------------------------------------------------------------------
+	// Object Cache — save() invalidation
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * save() invalidates both cache keys for the form + locale.
+	 */
+	public function test_save_invalidates_cache_for_form_and_locale(): void {
+		$cv               = new ConsentVersion();
+		$cv->form_id      = 5;
+		$cv->locale       = 'de_DE';
+		$cv->version      = 1;
+		$cv->consent_text = 'Neuer Einwilligungstext.';
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 12:00:00' );
+
+		$this->wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+		$this->wpdb->insert_id = 50;
+
+		$deleted_keys = [];
+
+		Functions\when( 'wp_cache_delete' )->alias(
+			function ( string $key, string $group ) use ( &$deleted_keys ): bool {
+				$deleted_keys[] = $key;
+				return true;
+			}
+		);
+
+		$cv->save();
+
+		$this->assertContains( 'consent_current_5_de_DE', $deleted_keys );
+		$this->assertContains( 'consent_all_5', $deleted_keys );
+		$this->assertCount( 2, $deleted_keys );
+	}
+
+	// ------------------------------------------------------------------
 	// ARCH-v104-03: validate — parent form must exist
 	// ------------------------------------------------------------------
 
@@ -763,5 +980,33 @@ class ConsentVersionTest extends TestCase {
 		$cv->save();
 
 		$this->assertSame( 100, $cv->id );
+	}
+
+	// ------------------------------------------------------------------
+	// LEGAL-I18N-04: SUPPORTED_LOCALES consistency with ConsentTemplateHelper
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * LEGAL-I18N-04: Every SUPPORTED_LOCALE must have a matching template.
+	 */
+	public function test_supported_locales_match_template_helper_locales(): void {
+		$supported = ConsentVersion::SUPPORTED_LOCALES;
+
+		foreach ( array_keys( $supported ) as $locale ) {
+			$template = ConsentTemplateHelper::get_template( $locale );
+			$this->assertNotEmpty(
+				$template,
+				"SUPPORTED_LOCALES has '{$locale}' but ConsentTemplateHelper has no template for it."
+			);
+		}
+	}
+
+	/**
+	 * @test
+	 * LEGAL-I18N-04: Exactly 6 locales are supported.
+	 */
+	public function test_supported_locales_count_is_six(): void {
+		$this->assertCount( 6, ConsentVersion::SUPPORTED_LOCALES );
 	}
 }

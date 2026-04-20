@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Tests\Unit\Recipient;
 
+use WpDsgvoForm\Audit\AuditLogger;
 use WpDsgvoForm\Auth\AccessControl;
 use WpDsgvoForm\Recipient\RecipientPage;
 use WpDsgvoForm\Tests\TestCase;
@@ -19,18 +20,20 @@ use Mockery;
 
 /**
  * Tests for RecipientPage: hook registration, query vars, admin bar hiding,
- * handle_request auth flow, and static URL helpers.
+ * handle_request auth flow, static URL helpers, and A11Y skip-link output.
  */
 class RecipientPageTest extends TestCase {
 
 	private AccessControl $access_control;
+	private AuditLogger $audit_logger;
 	private RecipientPage $page;
 
 	protected function setUp(): void {
 		parent::setUp();
 
 		$this->access_control = Mockery::mock( AccessControl::class );
-		$this->page           = new RecipientPage( $this->access_control );
+		$this->audit_logger   = Mockery::mock( AuditLogger::class );
+		$this->page           = new RecipientPage( $this->access_control, $this->audit_logger );
 	}
 
 	// ------------------------------------------------------------------
@@ -310,5 +313,83 @@ class RecipientPageTest extends TestCase {
 			'https://example.com/dsgvo-empfaenger/view/0/',
 			RecipientPage::get_view_url( 0 )
 		);
+	}
+
+	// ------------------------------------------------------------------
+	// render_page_template — A11Y-01 Skip-Link (UX-A11Y-01, #286)
+	// ------------------------------------------------------------------
+
+	/**
+	 * Stubs all WP functions needed by render_page_template() and captures its output.
+	 *
+	 * @param string $title Page title.
+	 * @return string Captured HTML output.
+	 */
+	private function capture_rendered_template( string $title = 'Test Page' ): string {
+		Functions\when( 'status_header' )->justReturn( null );
+		Functions\when( 'nocache_headers' )->justReturn( null );
+		Functions\when( 'language_attributes' )->justReturn( null );
+		Functions\when( 'bloginfo' )->alias(
+			function ( string $show ): void {
+				if ( 'charset' === $show ) {
+					echo 'UTF-8';
+				}
+			}
+		);
+		Functions\when( 'get_bloginfo' )->justReturn( 'Test Blog' );
+		Functions\when( 'wp_head' )->justReturn( null );
+		Functions\when( 'wp_footer' )->justReturn( null );
+		Functions\when( 'home_url' )->justReturn( 'https://example.com' );
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html_e' )->alias(
+			function ( string $text ): void {
+				echo $text;
+			}
+		);
+		Functions\when( 'wp_logout_url' )->justReturn( 'https://example.com/wp-login.php?action=logout' );
+
+		$user               = Mockery::mock( 'WP_User' );
+		$user->display_name = 'Test User';
+		Functions\when( 'wp_get_current_user' )->justReturn( $user );
+
+		$method = new \ReflectionMethod( RecipientPage::class, 'render_page_template' );
+		$method->setAccessible( true );
+
+		ob_start();
+		$method->invoke(
+			$this->page,
+			$title,
+			function (): void {
+				echo '<p>Test content</p>';
+			}
+		);
+		return ob_get_clean();
+	}
+
+	public function test_render_template_contains_skip_link_with_correct_attributes(): void {
+		$html = $this->capture_rendered_template();
+
+		$this->assertStringContainsString( '<a class="skip-link screen-reader-text" href="#main-content">', $html );
+		$this->assertStringContainsString( 'Zum Inhalt springen', $html );
+	}
+
+	public function test_render_template_contains_main_content_target_id(): void {
+		$html = $this->capture_rendered_template();
+
+		$this->assertMatchesRegularExpression( '/id=["\']main-content["\']/', $html );
+	}
+
+	public function test_render_template_contains_screen_reader_text_css_with_focus_state(): void {
+		$html = $this->capture_rendered_template();
+
+		// Hidden state: .skip-link.screen-reader-text with clip: rect.
+		$this->assertStringContainsString( '.skip-link.screen-reader-text', $html );
+		$this->assertStringContainsString( 'clip: rect(1px, 1px, 1px, 1px)', $html );
+		$this->assertStringContainsString( 'position: absolute', $html );
+
+		// Focus state: visible on focus (WCAG 2.1 AA).
+		$this->assertStringContainsString( '.skip-link.screen-reader-text:focus', $html );
+		$this->assertStringContainsString( 'clip: auto', $html );
 	}
 }

@@ -158,7 +158,7 @@ class AdminMenuTest extends TestCase {
 	/**
 	 * @test
 	 */
-	public function test_register_menus_creates_four_submenus(): void {
+	public function test_register_menus_creates_five_submenus(): void {
 		$this->stub_admin_functions( array( 'add_menu_page', 'add_submenu_page' ) );
 
 		Functions\expect( 'add_menu_page' )
@@ -168,7 +168,7 @@ class AdminMenuTest extends TestCase {
 		$submenu_slugs = array();
 
 		Functions\expect( 'add_submenu_page' )
-			->times( 4 )
+			->times( 5 )
 			->andReturnUsing(
 				function () use ( &$submenu_slugs ): string {
 					$args            = func_get_args();
@@ -184,6 +184,7 @@ class AdminMenuTest extends TestCase {
 		$this->assertContains( 'dsgvo-form-submissions', $submenu_slugs );
 		$this->assertContains( 'dsgvo-form-recipients', $submenu_slugs );
 		$this->assertContains( 'dsgvo-form-settings', $submenu_slugs );
+		$this->assertContains( 'dsgvo-form-subject-search', $submenu_slugs );
 	}
 
 	/**

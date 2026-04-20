@@ -12,6 +12,7 @@ namespace WpDsgvoForm\Recipient;
 defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Auth\AccessControl;
+use WpDsgvoForm\Audit\AuditLogger;
 
 /**
  * Registers the recipient-facing submissions viewer.
@@ -34,9 +35,11 @@ class RecipientPage {
 	private const ID_VAR        = 'dsgvo_submission_id';
 
 	private AccessControl $access_control;
+	private AuditLogger $audit_logger;
 
-	public function __construct( AccessControl $access_control ) {
+	public function __construct( AccessControl $access_control, AuditLogger $audit_logger ) {
 		$this->access_control = $access_control;
+		$this->audit_logger   = $audit_logger;
 	}
 
 	/**
@@ -106,6 +109,22 @@ class RecipientPage {
 				esc_html__( 'Zugriff verweigert', 'wp-dsgvo-form' ),
 				[ 'response' => 403 ]
 			);
+		}
+
+		// UX-REC-02: First-Login privacy notice guard (Art. 13 DSGVO).
+		if ( \WpDsgvoForm\Admin\FirstLoginNotice::needs_acknowledgment( $user_id ) ) {
+			$notice = new \WpDsgvoForm\Admin\FirstLoginNotice(
+				$this->access_control,
+				$this->audit_logger
+			);
+			$this->render_page_template(
+				__( 'Datenschutzhinweis', 'wp-dsgvo-form' ),
+				function () use ( $notice ): void {
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_notice_frontend returns pre-escaped HTML.
+					echo $notice->render_notice_frontend();
+				}
+			);
+			exit;
 		}
 
 		$action = sanitize_text_field( get_query_var( self::ACTION_VAR, 'list' ) );
@@ -218,10 +237,40 @@ class RecipientPage {
 		.dsgvo-recipient__logout:hover {
 			text-decoration: underline;
 		}
+		/* WCAG 2.1 AA: Skip-link visible on focus (UX-A11Y-01). */
+		.skip-link.screen-reader-text {
+			clip: rect(1px, 1px, 1px, 1px);
+			position: absolute;
+			height: 1px;
+			width: 1px;
+			overflow: hidden;
+			word-wrap: normal;
+		}
+		.skip-link.screen-reader-text:focus {
+			clip: auto;
+			display: block;
+			position: absolute;
+			top: 5px;
+			left: 5px;
+			z-index: 100000;
+			width: auto;
+			height: auto;
+			padding: 15px 23px 14px;
+			background: #f1f1f1;
+			color: #21759b;
+			font-size: 14px;
+			font-weight: 600;
+			line-height: normal;
+			text-decoration: none;
+			box-shadow: 0 0 2px 2px rgba(0, 0, 0, 0.6);
+		}
 	</style>
 </head>
 <body class="dsgvo-recipient-page">
-	<div class="dsgvo-recipient">
+	<a class="skip-link screen-reader-text" href="#main-content">
+		<?php esc_html_e( 'Zum Inhalt springen', 'wp-dsgvo-form' ); ?>
+	</a>
+	<div class="dsgvo-recipient" id="main-content">
 		<div class="dsgvo-recipient__header">
 			<span class="dsgvo-recipient__greeting">
 				<?php

@@ -110,8 +110,15 @@ final class Plugin {
 		$login_redirect = new Auth\LoginRedirect( $access_control );
 		$login_redirect->register_hooks();
 
+		// SOLL-ARCH-03: Single shared AuditLogger instance.
+		$audit_logger = new Audit\AuditLogger();
+
+		// UX-REC-02: First-Login privacy notice (Art. 13 DSGVO).
+		$first_login_notice = new Admin\FirstLoginNotice( $access_control, $audit_logger );
+		$first_login_notice->register();
+
 		// Recipient area: /dsgvo-empfaenger/ (Task #33).
-		$recipient_page = new Recipient\RecipientPage( $access_control );
+		$recipient_page = new Recipient\RecipientPage( $access_control, $audit_logger );
 		$recipient_page->register();
 
 		// Admin Bar Notification (outside is_admin() — admin bar also on frontend).
@@ -124,7 +131,6 @@ final class Plugin {
 		$encryption      = new Encryption\EncryptionService( $key_manager );
 		$file_handler    = new Upload\FileHandler( $encryption );
 		$deleter         = new Api\SubmissionDeleter( $file_handler );
-		$audit_logger    = new Audit\AuditLogger();
 		$privacy_handler = new Privacy\PrivacyHandler( $encryption, $deleter, $audit_logger );
 		$privacy_handler->register();
 	}
@@ -144,6 +150,10 @@ final class Plugin {
 		// LEGAL-F02: Suggested privacy policy content (Art. 13 DSGVO).
 		$privacy_policy = new Privacy\PrivacyPolicy();
 		$privacy_policy->register();
+
+		// LEGAL-F04: DSFA notice when thresholds exceeded (Art. 35 DSGVO).
+		$dsfa_notice = new Admin\DsfaNotice();
+		$dsfa_notice->register();
 	}
 
 	/**

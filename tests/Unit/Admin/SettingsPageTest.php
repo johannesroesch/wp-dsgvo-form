@@ -67,9 +67,9 @@ class SettingsPageTest extends TestCase {
 
 	/**
 	 * @test
-	 * Task #278: Only 2 settings remain (captcha_secret + retention_days).
+	 * 4 settings: captcha_secret, retention_days, controller_name, controller_email.
 	 */
-	public function test_register_settings_registers_two_settings_and_sections(): void {
+	public function test_register_settings_registers_four_settings_and_two_sections(): void {
 		$this->stub_settings_functions(
 			array( 'register_setting', 'add_settings_section', 'add_settings_field' )
 		);
@@ -77,7 +77,7 @@ class SettingsPageTest extends TestCase {
 		$registered_options = array();
 
 		Functions\expect( 'register_setting' )
-			->times( 2 )
+			->times( 4 )
 			->andReturnUsing(
 				function () use ( &$registered_options ): void {
 					$args                 = func_get_args();
@@ -97,13 +97,15 @@ class SettingsPageTest extends TestCase {
 			);
 
 		Functions\expect( 'add_settings_field' )
-			->times( 2 );
+			->times( 4 );
 
 		$page = new SettingsPage();
 		$page->register_settings();
 
 		$this->assertContains( 'wpdsgvo_captcha_secret', $registered_options );
 		$this->assertContains( 'wpdsgvo_default_retention_days', $registered_options );
+		$this->assertContains( 'wpdsgvo_controller_name', $registered_options );
+		$this->assertContains( 'wpdsgvo_controller_email', $registered_options );
 		$this->assertContains( 'dsgvo_form_captcha_section', $section_ids );
 		$this->assertContains( 'dsgvo_form_general_section', $section_ids );
 	}
@@ -262,6 +264,24 @@ class SettingsPageTest extends TestCase {
 		$this->assertSame( 3650, $page->sanitize_retention_days( 9999 ) );
 		$this->assertSame( 3650, $page->sanitize_retention_days( 3650 ) );
 		$this->assertSame( 90, $page->sanitize_retention_days( 90 ) );
+	}
+
+	/**
+	 * @test
+	 * LEGAL-F06: render_captcha_section shows AVV/Art. 28 DSGVO hint.
+	 */
+	public function test_render_captcha_section_displays_avv_hint(): void {
+		$this->stub_settings_functions();
+
+		$page = new SettingsPage();
+
+		ob_start();
+		$page->render_captcha_section();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Auftragsverarbeitungsvertrag', $output );
+		$this->assertStringContainsString( 'Art. 28 DSGVO', $output );
+		$this->assertStringContainsString( 'Datenschutzbeauftragten', $output );
 	}
 
 	/**

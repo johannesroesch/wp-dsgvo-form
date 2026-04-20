@@ -448,14 +448,16 @@ class PrivacyHandlerTest extends TestCase {
 
 		$this->audit_logger->shouldReceive( 'log' )
 			->once()
-			->with( 1, 'delete', 42, 10, 'Privacy erasure request (Art. 17 DSGVO)' )
+			->with( 1, 'delete', 42, 10, 'Privacy erasure request initiated (Art. 17 DSGVO)' )
 			->andReturn( true );
 
 		$result = $this->handler->erase_personal_data( 'test@example.com', 1 );
 
 		$this->assertSame( 1, $result['items_removed'] );
 		$this->assertFalse( $result['items_retained'] );
-		$this->assertTrue( $result['done'] );
+		// Batch was non-empty and items were removed → done=false.
+		// WP calls again; next fetch (offset=0) returns empty → done=true.
+		$this->assertFalse( $result['done'] );
 	}
 
 	/**
@@ -531,8 +533,10 @@ class PrivacyHandlerTest extends TestCase {
 			->with( 42 )
 			->andReturn( false );
 
-		// Audit log should NOT be called on failed deletion.
-		$this->audit_logger->shouldNotReceive( 'log' );
+		// DPO-SOLL-F01: Audit log is written BEFORE deletion — even if delete fails.
+		$this->audit_logger->shouldReceive( 'log' )
+			->once()
+			->andReturn( true );
 
 		$result = $this->handler->erase_personal_data( 'test@example.com', 1 );
 
@@ -544,11 +548,11 @@ class PrivacyHandlerTest extends TestCase {
 
 	/**
 	 * @test
-	 * Batch pagination: done=false when more submissions remain.
+	 * Eraser pagination: done=false when batch is non-empty (more remain after deletion).
 	 */
 	public function test_erase_pagination_not_done(): void {
 		$rows = [];
-		for ( $i = 1; $i <= 25; $i++ ) {
+		for ( $i = 1; $i <= 20; $i++ ) {
 			$rows[] = $this->make_submission_row( $i, 10, '2026-04-20 10:00:00' );
 		}
 
@@ -565,6 +569,7 @@ class PrivacyHandlerTest extends TestCase {
 		$result = $this->handler->erase_personal_data( 'test@example.com', 1 );
 
 		$this->assertSame( 20, $result['items_removed'] );
+		// Batch had items so done=false (WP will call again; next call will get empty batch).
 		$this->assertFalse( $result['done'] );
 	}
 
@@ -608,10 +613,100 @@ class PrivacyHandlerTest extends TestCase {
 			->with( 1, 'delete', 42, 10, \Mockery::type( 'string' ) )
 			->andReturn( true );
 
+		// These destructive audit methods should NEVER be called by the eraser.
 		$this->audit_logger->shouldNotReceive( 'cleanup_old_entries' );
 		$this->audit_logger->shouldNotReceive( 'cleanup_ip_addresses' );
 
 		$this->handler->erase_personal_data( 'test@example.com', 1 );
+	}
+
+	/**
+	 * @test
+	 * Art. 15: File attachment metadata is included in export.
+	 */
+	public function test_export_includes_file_attachment_metadata(): void {
+		$this->encryption->shouldReceive( 'calculate_email_lookup_hash' )
+			->andReturn( 'hash_abc' );
+
+		$this->mock_submission_query_with_files(
+			'hash_abc',
+			[ $this->make_submission_row( 1, 10, '2026-04-20 10:00:00' ) ],
+			[
+				1 => [
+					(object) [
+						'original_name' => 'contract.pdf',
+						'mime_type'     => 'application/pdf',
+						'file_size'     => '204800',
+					],
+				],
+			]
+		);
+
+		$this->mock_form_query( 10, $this->make_form_row( 10, 'Kontaktformular' ) );
+
+		$this->encryption->shouldReceive( 'decrypt_submission' )
+			->andReturn( [ 'name' => 'Test' ] );
+
+		Functions\when( 'size_format' )->alias(
+			function ( int $bytes ): string {
+				return round( $bytes / 1024 ) . ' KB';
+			}
+		);
+
+		$result = $this->handler->export_personal_data( 'test@example.com', 1 );
+
+		$field_names = array_column( $result['data'][0]['data'], 'name' );
+		$this->assertContains( 'Dateianhang #1', $field_names );
+
+		$field_values = array_column( $result['data'][0]['data'], 'value', 'name' );
+		$this->assertStringContainsString( 'contract.pdf', $field_values['Dateianhang #1'] );
+		$this->assertStringContainsString( 'application/pdf', $field_values['Dateianhang #1'] );
+	}
+
+	/**
+	 * @test
+	 * Eraser always uses offset=0 (pagination drift bug fix).
+	 */
+	public function test_erase_always_uses_offset_zero(): void {
+		$this->encryption->shouldReceive( 'calculate_email_lookup_hash' )
+			->andReturn( 'hash_abc' );
+
+		// Mock paginated query — verify offset=0 is passed regardless of page number.
+		$this->wpdb->shouldReceive( 'prepare' )
+			->with(
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'COUNT(*)' ) && str_contains( $sql, 'email_lookup_hash' ) ),
+				'hash_abc'
+			)
+			->andReturn( 'COUNT_QUERY' );
+
+		$this->wpdb->shouldReceive( 'get_var' )
+			->with( 'COUNT_QUERY' )
+			->andReturn( '0' );
+
+		$captured_offset = null;
+		$this->wpdb->shouldReceive( 'prepare' )
+			->with(
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'LIMIT' ) && str_contains( $sql, 'email_lookup_hash' ) ),
+				'hash_abc',
+				\Mockery::type( 'int' ),
+				\Mockery::type( 'int' )
+			)
+			->andReturnUsing(
+				function ( string $sql, string $hash, int $limit, int $offset ) use ( &$captured_offset ): string {
+					$captured_offset = $offset;
+					return 'PAGINATED_QUERY';
+				}
+			);
+
+		$this->wpdb->shouldReceive( 'get_results' )
+			->with( 'PAGINATED_QUERY', 'ARRAY_A' )
+			->andReturn( null );
+
+		// Call with page=5 — offset should still be 0.
+		$result = $this->handler->erase_personal_data( 'test@example.com', 5 );
+
+		$this->assertSame( 0, $captured_offset, 'Eraser must always use offset=0 (pagination drift fix).' );
+		$this->assertTrue( $result['done'] );
 	}
 
 	// ──────────────────────────────────────────────
@@ -667,29 +762,146 @@ class PrivacyHandlerTest extends TestCase {
 	}
 
 	/**
-	 * Mocks $wpdb to return submission rows for find_by_email_lookup_hash().
+	 * Mocks $wpdb for Submission::find_by_email_lookup_hash_paginated() and
+	 * Submission::count_by_email_lookup_hash().
 	 *
 	 * @param string  $expected_hash The expected HMAC hash.
-	 * @param array[] $rows          Submission row arrays to return.
+	 * @param array[] $rows          All submission row arrays (pagination is simulated in-memory).
 	 */
 	private function mock_submission_query( string $expected_hash, array $rows ): void {
+		// count_by_email_lookup_hash: prepare(SQL, hash) → get_var.
 		$this->wpdb->shouldReceive( 'prepare' )
 			->with(
-				\Mockery::on( fn( $sql ) => str_contains( $sql, 'email_lookup_hash' ) ),
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'COUNT(*)' ) && str_contains( $sql, 'email_lookup_hash' ) ),
 				$expected_hash
 			)
-			->andReturn( "SELECT * FROM wp_dsgvo_submissions WHERE email_lookup_hash = '{$expected_hash}'" );
+			->andReturn( "SELECT COUNT(*) FROM wp_dsgvo_submissions WHERE email_lookup_hash = '{$expected_hash}'" );
+
+		$this->wpdb->shouldReceive( 'get_var' )
+			->with( \Mockery::on( fn( $sql ) => str_contains( $sql, 'COUNT(*)' ) && str_contains( $sql, 'email_lookup_hash' ) ) )
+			->andReturn( (string) count( $rows ) );
+
+		// find_by_email_lookup_hash_paginated: prepare(SQL, hash, limit, offset) → get_results.
+		$this->wpdb->shouldReceive( 'prepare' )
+			->with(
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'LIMIT' ) && str_contains( $sql, 'email_lookup_hash' ) ),
+				$expected_hash,
+				\Mockery::type( 'int' ),
+				\Mockery::type( 'int' )
+			)
+			->andReturnUsing(
+				function ( string $sql, string $hash, int $limit, int $offset ) use ( $expected_hash ): string {
+					return "SELECT * FROM wp_dsgvo_submissions WHERE email_lookup_hash = '{$expected_hash}' LIMIT {$limit} OFFSET {$offset}";
+				}
+			);
 
 		$this->wpdb->shouldReceive( 'get_results' )
 			->with(
 				\Mockery::on( fn( $sql ) => str_contains( $sql, 'email_lookup_hash' ) ),
 				'ARRAY_A'
 			)
-			->andReturn( $rows ?: null );
+			->andReturnUsing(
+				function ( string $sql ) use ( $rows ) {
+					// Parse LIMIT and OFFSET from the prepared query.
+					preg_match( '/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)/', $sql, $m );
+					$limit  = isset( $m[1] ) ? (int) $m[1] : 20;
+					$offset = isset( $m[2] ) ? (int) $m[2] : 0;
+					$slice  = array_slice( $rows, $offset, $limit );
+					return $slice ?: null;
+				}
+			);
+
+		// get_file_metadata: prepare(SQL, submission_id) → get_results.
+		$this->wpdb->shouldReceive( 'prepare' )
+			->with(
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'dsgvo_submission_files' ) ),
+				\Mockery::type( 'int' )
+			)
+			->andReturnUsing(
+				function ( string $sql, int $id ): string {
+					return "SELECT original_name, mime_type, file_size FROM wp_dsgvo_submission_files WHERE submission_id = {$id}";
+				}
+			);
+
+		$this->wpdb->shouldReceive( 'get_results' )
+			->with( \Mockery::on( fn( $sql ) => str_contains( $sql, 'dsgvo_submission_files' ) ) )
+			->andReturn( [] );
 	}
 
 	/**
-	 * Mocks $wpdb to return a form row for Form::find().
+	 * Mocks $wpdb for submission queries with custom file metadata per submission.
+	 *
+	 * @param string    $expected_hash The expected HMAC hash.
+	 * @param array[]   $rows          Submission row arrays.
+	 * @param array[]   $files_by_id   Map of submission_id → file metadata objects.
+	 */
+	private function mock_submission_query_with_files( string $expected_hash, array $rows, array $files_by_id = [] ): void {
+		// count_by_email_lookup_hash.
+		$this->wpdb->shouldReceive( 'prepare' )
+			->with(
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'COUNT(*)' ) && str_contains( $sql, 'email_lookup_hash' ) ),
+				$expected_hash
+			)
+			->andReturn( "SELECT COUNT(*) FROM wp_dsgvo_submissions WHERE email_lookup_hash = '{$expected_hash}'" );
+
+		$this->wpdb->shouldReceive( 'get_var' )
+			->with( \Mockery::on( fn( $sql ) => str_contains( $sql, 'COUNT(*)' ) && str_contains( $sql, 'email_lookup_hash' ) ) )
+			->andReturn( (string) count( $rows ) );
+
+		// find_by_email_lookup_hash_paginated.
+		$this->wpdb->shouldReceive( 'prepare' )
+			->with(
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'LIMIT' ) && str_contains( $sql, 'email_lookup_hash' ) ),
+				$expected_hash,
+				\Mockery::type( 'int' ),
+				\Mockery::type( 'int' )
+			)
+			->andReturnUsing(
+				function ( string $sql, string $hash, int $limit, int $offset ) use ( $expected_hash ): string {
+					return "SELECT * FROM wp_dsgvo_submissions WHERE email_lookup_hash = '{$expected_hash}' LIMIT {$limit} OFFSET {$offset}";
+				}
+			);
+
+		$this->wpdb->shouldReceive( 'get_results' )
+			->with(
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'email_lookup_hash' ) ),
+				'ARRAY_A'
+			)
+			->andReturnUsing(
+				function ( string $sql ) use ( $rows ) {
+					preg_match( '/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)/', $sql, $m );
+					$limit  = isset( $m[1] ) ? (int) $m[1] : 20;
+					$offset = isset( $m[2] ) ? (int) $m[2] : 0;
+					$slice  = array_slice( $rows, $offset, $limit );
+					return $slice ?: null;
+				}
+			);
+
+		// get_file_metadata — return per-submission file metadata.
+		$this->wpdb->shouldReceive( 'prepare' )
+			->with(
+				\Mockery::on( fn( $sql ) => str_contains( $sql, 'dsgvo_submission_files' ) ),
+				\Mockery::type( 'int' )
+			)
+			->andReturnUsing(
+				function ( string $sql, int $id ): string {
+					return "SELECT original_name, mime_type, file_size FROM wp_dsgvo_submission_files WHERE submission_id = {$id}";
+				}
+			);
+
+		$this->wpdb->shouldReceive( 'get_results' )
+			->with( \Mockery::on( fn( $sql ) => str_contains( $sql, 'dsgvo_submission_files' ) ) )
+			->andReturnUsing(
+				function ( string $sql ) use ( $files_by_id ) {
+					preg_match( '/submission_id\s*=\s*(\d+)/', $sql, $m );
+					$id = isset( $m[1] ) ? (int) $m[1] : 0;
+					return $files_by_id[ $id ] ?? [];
+				}
+			);
+	}
+
+	/**
+	 * Mocks $wpdb for Form::find() query.
 	 *
 	 * @param int        $form_id  The expected form ID.
 	 * @param array|null $form_row Form row array or null for not found.

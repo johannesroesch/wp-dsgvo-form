@@ -71,6 +71,7 @@ class FormListTable extends \WP_List_Table {
 		return array(
 			'cb'             => '<input type="checkbox" />',
 			'title'          => __( 'Titel', 'wp-dsgvo-form' ),
+			'legal_basis'    => __( 'Rechtsgrundlage', 'wp-dsgvo-form' ),
 			'slug'           => __( 'Slug', 'wp-dsgvo-form' ),
 			'is_active'      => __( 'Status', 'wp-dsgvo-form' ),
 			'fields_count'   => __( 'Felder', 'wp-dsgvo-form' ),
@@ -132,14 +133,6 @@ class FormListTable extends \WP_List_Table {
 			)
 		);
 
-		$consent_url = admin_url(
-			sprintf(
-				'admin.php?page=%s&action=consent&form_id=%d',
-				AdminMenu::MENU_SLUG,
-				$item->id
-			)
-		);
-
 		$delete_url = wp_nonce_url(
 			admin_url(
 				sprintf(
@@ -163,11 +156,6 @@ class FormListTable extends \WP_List_Table {
 				esc_url( $edit_url ),
 				esc_html__( 'Bearbeiten', 'wp-dsgvo-form' )
 			),
-			'consent' => sprintf(
-				'<a href="%s">%s</a>',
-				esc_url( $consent_url ),
-				esc_html__( 'Einwilligungstexte', 'wp-dsgvo-form' )
-			),
 			'delete'  => sprintf(
 				'<a href="%s" class="submitdelete" onclick="return confirm(\'%s\');">%s</a>',
 				esc_url( $delete_url ),
@@ -175,6 +163,28 @@ class FormListTable extends \WP_List_Table {
 				esc_html__( 'Loeschen', 'wp-dsgvo-form' )
 			),
 		);
+
+		// UX-FLT-01: Consent link only for forms with consent legal basis.
+		if ( $item->legal_basis === 'consent' ) {
+			$consent_url = admin_url(
+				sprintf(
+					'admin.php?page=%s&action=consent&form_id=%d',
+					AdminMenu::MENU_SLUG,
+					$item->id
+				)
+			);
+
+			// Insert before 'delete' for consistent ordering.
+			$actions = array_slice( $actions, 0, 1, true )
+				+ array(
+					'consent' => sprintf(
+						'<a href="%s">%s</a>',
+						esc_url( $consent_url ),
+						esc_html__( 'Einwilligungstexte', 'wp-dsgvo-form' )
+					),
+				)
+				+ array_slice( $actions, 1, null, true );
+		}
 
 		return $title . $this->row_actions( $actions );
 	}
@@ -195,6 +205,23 @@ class FormListTable extends \WP_List_Table {
 		return '<span class="dashicons dashicons-marker" style="color:#dc3232;" title="'
 			. esc_attr__( 'Inaktiv', 'wp-dsgvo-form' ) . '"></span> '
 			. esc_html__( 'Inaktiv', 'wp-dsgvo-form' );
+	}
+
+	/**
+	 * Legal basis column.
+	 *
+	 * Displays the DSGVO legal basis for data processing
+	 * (Art. 6 Abs. 1 lit. a or lit. b DSGVO).
+	 *
+	 * @param Form $item The form object.
+	 * @return string Column HTML.
+	 */
+	protected function column_legal_basis( $item ): string {
+		if ( $item->legal_basis === 'contract' ) {
+			return esc_html__( 'Vertrag (Art. 6 Abs. 1 lit. b)', 'wp-dsgvo-form' );
+		}
+
+		return esc_html__( 'Einwilligung (Art. 6 Abs. 1 lit. a)', 'wp-dsgvo-form' );
 	}
 
 	/**
@@ -362,7 +389,7 @@ class FormListTable extends \WP_List_Table {
 		$subs_table   = Submission::get_table_name();
 
 		// Batch: field counts per form.
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from get_table_name() (trusted); IN() placeholders generated per ID count.
 		$field_rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT form_id, COUNT(*) AS cnt FROM `{$fields_table}` WHERE form_id IN ({$placeholders}) GROUP BY form_id",
@@ -375,7 +402,7 @@ class FormListTable extends \WP_List_Table {
 		}
 
 		// Batch: total submission counts per form.
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from get_table_name() (trusted); IN() placeholders generated per ID count.
 		$total_rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT form_id, COUNT(*) AS cnt FROM `{$subs_table}` WHERE form_id IN ({$placeholders}) GROUP BY form_id",
@@ -388,7 +415,7 @@ class FormListTable extends \WP_List_Table {
 		}
 
 		// Batch: unread submission counts per form.
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from get_table_name() (trusted); IN() placeholders generated per ID count.
 		$unread_rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT form_id, COUNT(*) AS cnt FROM `{$subs_table}` WHERE form_id IN ({$placeholders}) AND is_read = 0 GROUP BY form_id",

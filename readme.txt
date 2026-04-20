@@ -4,7 +4,7 @@ Tags: dsgvo, gdpr, contact form, encryption, privacy
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.0.7
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,6 +72,10 @@ Das Plugin unterstuetzt die Rechtsgrundlagen "Einwilligung" (Art. 6 Abs. 1 lit. 
 
 Nein. Das Plugin nutzt einen selbstgehosteten CAPTCHA-Service. Das Widget-Script wird lokal gebundelt — kein externer Script-Load, keine IP-Uebertragung beim Seitenaufruf.
 
+= Muss ich Seiten mit Formularen vom Caching ausschliessen? =
+
+Ja. Seiten mit DSGVO-Formularen sollten vom Seiten-Cache (z.B. WP Super Cache, W3 Total Cache, LiteSpeed Cache) ausgeschlossen werden. Gecachte Seiten koennen abgelaufene CAPTCHA-Tokens und WordPress-Nonces enthalten, was zu fehlgeschlagenen Formular-Einsendungen fuehrt.
+
 == Changelog ==
 
 = 1.0.7 =
@@ -93,6 +97,12 @@ Nein. Das Plugin nutzt einen selbstgehosteten CAPTCHA-Service. Das Widget-Script
 * Erste vollstaendige Release
 * DSGVO-konforme Formulare mit AES-256-Verschluesselung
 * Formular-Builder, Gutenberg-Block, Empfaenger-Login
+
+== Haftungsausschluss ==
+
+Dieses Plugin stellt technische Massnahmen zur Unterstuetzung der DSGVO-Konformitaet bereit (Verschluesselung, Einwilligungsverwaltung, automatische Loeschung, Audit-Logging). Es ersetzt jedoch keine Rechtsberatung.
+
+Der Betreiber der Website ist fuer die korrekte Konfiguration des Plugins, die rechtliche Pruefung der Einwilligungstexte, die Einhaltung der Aufbewahrungsfristen sowie die Erstellung eines vollstaendigen Verarbeitungsverzeichnisses selbst verantwortlich. Bei Fragen zur datenschutzrechtlichen Konformitaet wenden Sie sich bitte an Ihren Datenschutzbeauftragten oder einen spezialisierten Rechtsanwalt.
 
 == Upgrade Notice ==
 

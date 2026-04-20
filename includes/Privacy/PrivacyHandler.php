@@ -122,11 +122,11 @@ class PrivacyHandler {
 	 */
 	public function export_personal_data( string $email_address, int $page = 1 ): array {
 		$lookup_hash = $this->encryption->calculate_email_lookup_hash( $email_address );
-		$submissions = Submission::find_by_email_lookup_hash( $lookup_hash );
 
-		$total = count( $submissions );
+		// PERF-SOLL-03: Paginated query instead of loading all into memory.
+		$total  = Submission::count_by_email_lookup_hash( $lookup_hash );
 		$offset = ( $page - 1 ) * self::BATCH_SIZE;
-		$batch  = array_slice( $submissions, $offset, self::BATCH_SIZE );
+		$batch  = Submission::find_by_email_lookup_hash_paginated( $lookup_hash, self::BATCH_SIZE, $offset );
 
 		$export_items = [];
 
@@ -163,6 +163,43 @@ class PrivacyHandler {
 					'name'  => __( 'Einwilligung erteilt am', 'wp-dsgvo-form' ),
 					'value' => $submission->consent_timestamp,
 				];
+			}
+
+			// DPO-SOLL-F02: Include consent version and locale in export.
+			if ( $submission->consent_text_version !== null ) {
+				$export_data[] = [
+					'name'  => __( 'Einwilligungstext-Version', 'wp-dsgvo-form' ),
+					'value' => $submission->consent_text_version,
+				];
+			}
+
+			if ( $submission->consent_locale !== null ) {
+				$export_data[] = [
+					'name'  => __( 'Einwilligungs-Sprache', 'wp-dsgvo-form' ),
+					'value' => $submission->consent_locale,
+				];
+			}
+
+			// Art. 15 DSGVO: Include file attachment metadata in export.
+			$files = Submission::get_file_metadata( $submission->id );
+
+			if ( ! empty( $files ) ) {
+				foreach ( $files as $index => $file ) {
+					$export_data[] = [
+						'name'  => sprintf(
+							/* translators: %d: file number */
+							__( 'Dateianhang #%d', 'wp-dsgvo-form' ),
+							$index + 1
+						),
+						'value' => sprintf(
+							/* translators: 1: file name, 2: MIME type, 3: file size */
+							__( '%1$s (%2$s, %3$s)', 'wp-dsgvo-form' ),
+							$file->original_name,
+							$file->mime_type,
+							size_format( (int) $file->file_size )
+						),
+					];
+				}
 			}
 
 			$export_items[] = [
@@ -202,11 +239,11 @@ class PrivacyHandler {
 	 */
 	public function erase_personal_data( string $email_address, int $page = 1 ): array {
 		$lookup_hash = $this->encryption->calculate_email_lookup_hash( $email_address );
-		$submissions = Submission::find_by_email_lookup_hash( $lookup_hash );
 
-		$total  = count( $submissions );
-		$offset = ( $page - 1 ) * self::BATCH_SIZE;
-		$batch  = array_slice( $submissions, $offset, self::BATCH_SIZE );
+		// FIX: Always offset=0 — deleted rows shift the window, so incrementing
+		// offset would skip submissions. WordPress increments $page automatically;
+		// we fetch the next batch from position 0 each time until none remain.
+		$batch = Submission::find_by_email_lookup_hash_paginated( $lookup_hash, self::BATCH_SIZE, 0 );
 
 		$items_removed  = 0;
 		$items_retained = false;
@@ -224,19 +261,19 @@ class PrivacyHandler {
 				continue;
 			}
 
+			// DPO-SOLL-F01: Audit log BEFORE deletion — ensures trail survives crash/timeout.
+			$this->audit_logger->log(
+				get_current_user_id(),
+				'delete',
+				$submission->id,
+				$submission->form_id,
+				'Privacy erasure request initiated (Art. 17 DSGVO)'
+			);
+
 			$deleted = $this->deleter->delete( $submission->id );
 
 			if ( $deleted ) {
 				++$items_removed;
-
-				// SEC-AUDIT-01: Log the erasure action.
-				$this->audit_logger->log(
-					get_current_user_id(),
-					'delete',
-					$submission->id,
-					$submission->form_id,
-					'Privacy erasure request (Art. 17 DSGVO)'
-				);
 			} else {
 				$items_retained = true;
 				$messages[] = sprintf(
@@ -247,13 +284,13 @@ class PrivacyHandler {
 			}
 		}
 
-		$done = ( $offset + self::BATCH_SIZE ) >= $total;
-
+		// Done when: no submissions left OR nothing was deleted this batch
+		// (all restricted/failed — re-fetching offset=0 would loop forever).
 		return [
 			'items_removed'  => $items_removed,
 			'items_retained' => $items_retained,
 			'messages'       => $messages,
-			'done'           => $done,
+			'done'           => empty( $batch ) || $items_removed === 0,
 		];
 	}
 

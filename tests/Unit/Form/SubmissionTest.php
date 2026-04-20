@@ -562,6 +562,210 @@ class SubmissionTest extends TestCase {
 	}
 
 	// ──────────────────────────────────────────────────
+	// find_by_email_lookup_hash_paginated — PERF-SOLL-03
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * @privacy-relevant Art. 15 DSGVO — Paginated Auskunftsrecht via Blind Index (PERF-SOLL-03)
+	 */
+	public function test_find_by_email_lookup_hash_paginated_returns_limited_results(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$hash = hash_hmac( 'sha256', 'test@example.com', 'secret-key' );
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->withArgs( function ( string $sql ) use ( $hash ) {
+				return str_contains( $sql, 'email_lookup_hash' )
+					&& str_contains( $sql, 'LIMIT' )
+					&& str_contains( $sql, 'OFFSET' );
+			} )
+			->andReturn( [
+				[
+					'id'                => 10,
+					'form_id'           => 1,
+					'encrypted_data'    => 'enc',
+					'iv'                => 'iv',
+					'auth_tag'          => 'tag',
+					'email_lookup_hash' => $hash,
+					'submitted_at'      => '2026-04-17',
+					'is_read'           => 0,
+					'is_restricted'     => 0,
+				],
+				[
+					'id'                => 11,
+					'form_id'           => 2,
+					'encrypted_data'    => 'enc2',
+					'iv'                => 'iv2',
+					'auth_tag'          => 'tag2',
+					'email_lookup_hash' => $hash,
+					'submitted_at'      => '2026-04-16',
+					'is_read'           => 1,
+					'is_restricted'     => 0,
+				],
+			] );
+
+		$results = Submission::find_by_email_lookup_hash_paginated( $hash, 10, 0 );
+
+		$this->assertCount( 2, $results );
+		$this->assertInstanceOf( Submission::class, $results[0] );
+		$this->assertSame( 10, $results[0]->id );
+		$this->assertSame( $hash, $results[0]->email_lookup_hash );
+		$this->assertSame( 11, $results[1]->id );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_find_by_email_lookup_hash_paginated_returns_empty_for_no_match(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->andReturn( [] );
+
+		$results = Submission::find_by_email_lookup_hash_paginated( 'nonexistent-hash', 10, 0 );
+
+		$this->assertSame( [], $results );
+	}
+
+	/**
+	 * @test
+	 * PERF-SOLL-03: Offset-based pagination passes correct offset to SQL.
+	 */
+	public function test_find_by_email_lookup_hash_paginated_uses_offset(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				// Verify that OFFSET 20 is present in the prepared SQL.
+				return str_contains( $sql, 'OFFSET' )
+					&& str_contains( $sql, '20' );
+			} )
+			->andReturn( [] );
+
+		Submission::find_by_email_lookup_hash_paginated( 'some-hash', 10, 20 );
+	}
+
+	// ──────────────────────────────────────────────────
+	// count_by_email_lookup_hash — PERF-SOLL-03
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * @privacy-relevant Art. 15/17 DSGVO — Batch completion check
+	 */
+	public function test_count_by_email_lookup_hash_returns_integer_count(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$hash = hash_hmac( 'sha256', 'test@example.com', 'secret-key' );
+
+		$wpdb->shouldReceive( 'get_var' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				return str_contains( $sql, 'COUNT(*)' )
+					&& str_contains( $sql, 'email_lookup_hash' );
+			} )
+			->andReturn( '5' );
+
+		$count = Submission::count_by_email_lookup_hash( $hash );
+
+		$this->assertSame( 5, $count );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_count_by_email_lookup_hash_returns_zero_for_no_match(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_var' )
+			->once()
+			->andReturn( '0' );
+
+		$count = Submission::count_by_email_lookup_hash( 'nonexistent-hash' );
+
+		$this->assertSame( 0, $count );
+	}
+
+	// ──────────────────────────────────────────────────
+	// get_file_metadata — Art. 15 DSGVO export
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * @privacy-relevant Art. 15 DSGVO — File metadata for privacy export
+	 */
+	public function test_get_file_metadata_returns_file_objects(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$file1            = new \stdClass();
+		$file1->original_name = 'document.pdf';
+		$file1->mime_type     = 'application/pdf';
+		$file1->file_size     = 12345;
+
+		$file2            = new \stdClass();
+		$file2->original_name = 'photo.jpg';
+		$file2->mime_type     = 'image/jpeg';
+		$file2->file_size     = 67890;
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				return str_contains( $sql, 'original_name' )
+					&& str_contains( $sql, 'mime_type' )
+					&& str_contains( $sql, 'file_size' )
+					&& str_contains( $sql, 'dsgvo_submission_files' );
+			} )
+			->andReturn( [ $file1, $file2 ] );
+
+		$files = Submission::get_file_metadata( 42 );
+
+		$this->assertCount( 2, $files );
+		$this->assertSame( 'document.pdf', $files[0]->original_name );
+		$this->assertSame( 'application/pdf', $files[0]->mime_type );
+		$this->assertSame( 12345, $files[0]->file_size );
+		$this->assertSame( 'photo.jpg', $files[1]->original_name );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_get_file_metadata_returns_empty_for_no_files(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->andReturn( [] );
+
+		$files = Submission::get_file_metadata( 999 );
+
+		$this->assertSame( [], $files );
+	}
+
+	/**
+	 * @test
+	 * Security: get_file_metadata only selects metadata columns, not file content.
+	 */
+	public function test_get_file_metadata_does_not_select_file_content(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->withArgs( function ( string $sql ) {
+				// Must NOT select file_path or encrypted content columns.
+				return ! str_contains( $sql, 'SELECT *' )
+					&& ! str_contains( $sql, 'file_path' )
+					&& ! str_contains( $sql, 'encrypted_content' );
+			} )
+			->andReturn( [] );
+
+		Submission::get_file_metadata( 1 );
+	}
+
+	// ──────────────────────────────────────────────────
 	// mark_as_read
 	// ──────────────────────────────────────────────────
 

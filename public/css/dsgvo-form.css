@@ -21,10 +21,45 @@
 
 /* === Form Container === */
 .dsgvo-form {
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
 	gap: var(--dsgvo-form-field-gap);
 	max-width: 640px;
+}
+
+/* === Field Width (FEP-02) === */
+.dsgvo-form__field--width-full {
+	grid-column: span 6;
+}
+
+.dsgvo-form__field--width-half {
+	grid-column: span 3;
+}
+
+.dsgvo-form__field--width-third {
+	grid-column: span 2;
+}
+
+/* Non-field elements always span full width. */
+.dsgvo-form__hp,
+.dsgvo-form__field--consent,
+.dsgvo-form__captcha,
+.dsgvo-form__submit,
+.dsgvo-form__status {
+	grid-column: span 6;
+}
+
+/* Static content respects width. */
+.dsgvo-form__static.dsgvo-form__field--width-full {
+	grid-column: span 6;
+}
+
+.dsgvo-form__static.dsgvo-form__field--width-half {
+	grid-column: span 3;
+}
+
+.dsgvo-form__static.dsgvo-form__field--width-third {
+	grid-column: span 2;
 }
 
 /* === Field Wrapper === */
@@ -216,7 +251,15 @@
 }
 
 /* === Responsive === */
-@media (max-width: 480px) {
+@media (max-width: 600px) {
+	/* FEP-02: All fields full-width on mobile. */
+	.dsgvo-form__field--width-half,
+	.dsgvo-form__field--width-third,
+	.dsgvo-form__static.dsgvo-form__field--width-half,
+	.dsgvo-form__static.dsgvo-form__field--width-third {
+		grid-column: span 6;
+	}
+
 	.dsgvo-form__button {
 		width: 100%;
 	}

@@ -29,6 +29,15 @@ class Field {
 		'static',
 	];
 
+	/**
+	 * Allowed field width values for grid layout (FEP-01).
+	 */
+	public const ALLOWED_WIDTHS = [
+		'full',
+		'half',
+		'third',
+	];
+
 	public int $id               = 0;
 	public int $form_id          = 0;
 	public string $field_type    = 'text';
@@ -41,6 +50,7 @@ class Field {
 	public string $static_content = '';
 	public ?array $file_config   = null;
 	public string $css_class     = '';
+	public string $width         = 'full';
 	public int $sort_order       = 0;
 	public string $created_at    = '';
 
@@ -245,6 +255,13 @@ class Field {
 		if ( trim( $this->name ) === '' ) {
 			throw new \RuntimeException( 'Field name must not be empty.' );
 		}
+
+		if ( ! in_array( $this->width, self::ALLOWED_WIDTHS, true ) ) {
+			throw new \RuntimeException(
+				'Invalid field width "' . esc_html( $this->width ) . '". Allowed: '
+				. implode( ', ', self::ALLOWED_WIDTHS ) . '.'
+			);
+		}
 	}
 
 	/**
@@ -264,6 +281,7 @@ class Field {
 		$field->static_content   = (string) ( $row['static_content'] ?? '' );
 		$field->file_config      = self::decode_json( $row['file_config'] ?? null );
 		$field->css_class        = (string) ( $row['css_class'] ?? '' );
+		$field->width            = (string) ( $row['width'] ?? 'full' );
 		$field->sort_order       = (int) ( $row['sort_order'] ?? 0 );
 		$field->created_at       = (string) ( $row['created_at'] ?? '' );
 
@@ -286,6 +304,7 @@ class Field {
 			'static_content'   => $this->static_content,
 			'file_config'      => self::encode_json( $this->file_config ),
 			'css_class'        => $this->css_class,
+			'width'            => $this->width,
 			'sort_order'       => $this->sort_order,
 		];
 	}

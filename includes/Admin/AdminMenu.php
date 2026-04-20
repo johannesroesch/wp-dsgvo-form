@@ -118,6 +118,16 @@ class AdminMenu {
 			self::MENU_SLUG . '-settings',
 			array( $this, 'render_settings_page' )
 		);
+
+		// Hidden submenu: Betroffenen-Suche (Art. 15/17 DSGVO) — no menu entry.
+		add_submenu_page(
+			null,
+			__( 'Betroffenen-Suche', 'wp-dsgvo-form' ),
+			'',
+			'dsgvo_form_manage',
+			DataSubjectSearchPage::PAGE_SLUG,
+			array( $this, 'render_subject_search_page' )
+		);
 	}
 
 	/**
@@ -231,5 +241,18 @@ class AdminMenu {
 	 */
 	public function render_settings_page(): void {
 		( new SettingsPage() )->render();
+	}
+
+	/**
+	 * Render the data subject search page (Art. 15/17 DSGVO).
+	 *
+	 * @return void
+	 */
+	public function render_subject_search_page(): void {
+		$key_manager  = new KeyManager();
+		$encryption   = new EncryptionService( $key_manager );
+		$audit_logger = new AuditLogger();
+
+		( new DataSubjectSearchPage( $encryption, $audit_logger ) )->render();
 	}
 }

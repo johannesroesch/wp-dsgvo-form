@@ -15,6 +15,7 @@ namespace WpDsgvoForm\Admin;
 defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Encryption\KeyManager;
+use WpDsgvoForm\Models\ConsentVersion;
 use WpDsgvoForm\Models\Field;
 use WpDsgvoForm\Models\Form;
 
@@ -148,6 +149,17 @@ class FormEditPage {
 		$form->is_active       = isset( $_POST['is_active'] );
 		$form->captcha_enabled = isset( $_POST['captcha_enabled'] );
 		$form->retention_days  = min( max( (int) wp_unslash( $_POST['retention_days'] ?? 90 ), 1 ), 3650 );
+
+		// FEP-03: locale_override — null = automatic (WP locale), string = fixed locale.
+		$locale_mode = sanitize_key( wp_unslash( $_POST['locale_mode'] ?? 'auto' ) );
+		if ( 'fixed' === $locale_mode ) {
+			$form->locale_override = sanitize_text_field( wp_unslash( $_POST['locale_override'] ?? '' ) );
+			if ( $form->locale_override === '' ) {
+				$form->locale_override = null;
+			}
+		} else {
+			$form->locale_override = null;
+		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		return $form;
@@ -209,6 +221,7 @@ class FormEditPage {
 			'placeholders' => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_placeholder'] ?? [] ) ) ),
 			'required'     => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_required'] ?? [] ) ) ),
 			'css_classes'  => array_values( array_map( 'sanitize_html_class', (array) wp_unslash( $_POST['field_css_class'] ?? [] ) ) ),
+			'widths'       => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_width'] ?? [] ) ) ),
 			'options'      => array_values( (array) wp_unslash( $_POST['field_options'] ?? [] ) ),
 			'static'       => array_values( array_map( 'wp_kses_post', (array) wp_unslash( $_POST['field_static_content'] ?? [] ) ) ),
 			'file_config'  => [
@@ -247,6 +260,8 @@ class FormEditPage {
 		$field->placeholder    = $post_data['placeholders'][ $i ] ?? '';
 		$field->is_required    = in_array( (string) $i, $post_data['required'], true );
 		$field->css_class      = $post_data['css_classes'][ $i ] ?? '';
+		$width                 = $post_data['widths'][ $i ] ?? 'full';
+		$field->width          = in_array( $width, Field::ALLOWED_WIDTHS, true ) ? $width : 'full';
 		$field->sort_order     = $i;
 		$field->static_content = $post_data['static'][ $i ] ?? '';
 
@@ -444,6 +459,36 @@ class FormEditPage {
 							</label>
 						</td>
 					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Sprache (Locale)', 'wp-dsgvo-form' ); ?></th>
+						<td>
+							<?php
+							$locale_mode    = ( $form->locale_override !== null && $form->locale_override !== '' ) ? 'fixed' : 'auto';
+							$supported      = apply_filters( 'wpdsgvo_supported_locales', ConsentVersion::SUPPORTED_LOCALES );
+							?>
+							<fieldset>
+								<label style="display:block;margin-bottom:6px;">
+									<input type="radio" name="locale_mode" value="auto" <?php checked( $locale_mode, 'auto' ); ?> class="dsgvo-locale-mode">
+									<?php esc_html_e( 'Automatisch (WP-Locale)', 'wp-dsgvo-form' ); ?>
+								</label>
+								<label style="display:block;margin-bottom:6px;">
+									<input type="radio" name="locale_mode" value="fixed" <?php checked( $locale_mode, 'fixed' ); ?> class="dsgvo-locale-mode">
+									<?php esc_html_e( 'Feste Sprache', 'wp-dsgvo-form' ); ?>
+								</label>
+								<select id="dsgvo-locale-override" name="locale_override" <?php echo 'auto' === $locale_mode ? 'disabled' : ''; ?>
+									style="margin-left:24px;">
+									<?php foreach ( $supported as $code => $label ) : ?>
+										<option value="<?php echo esc_attr( $code ); ?>" <?php selected( $form->locale_override, $code ); ?>>
+											<?php echo esc_html( $label . ' (' . $code . ')' ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+								<p class="description" style="margin-left:24px;">
+									<?php esc_html_e( 'Automatisch: Einwilligungstext wird in der WP-Sprache angezeigt. Fest: immer die gewaehlte Sprache.', 'wp-dsgvo-form' ); ?>
+								</p>
+							</fieldset>
+						</td>
+					</tr>
 				</table>
 		<?php
 	}
@@ -532,6 +577,7 @@ class FormEditPage {
 		$placeholder = $field ? $field->placeholder : '';
 		$required    = $field ? $field->is_required : false;
 		$css_class   = $field ? $field->css_class : '';
+		$width       = $field ? $field->width : 'full';
 		$options_str = $field ? implode( "\n", $field->get_options() ) : '';
 		$static_html = $field ? $field->static_content : '';
 		$file_config = $field ? $field->get_file_config() : [ 'allowed_types' => [], 'max_size_mb' => 5 ];
@@ -539,7 +585,7 @@ class FormEditPage {
 		$idx = esc_attr( (string) $index );
 
 		$this->render_field_row_header( $idx, $id );
-		$this->render_field_row_grid( $idx, $type, $label, $name, $placeholder, $required, $css_class );
+		$this->render_field_row_grid( $idx, $type, $label, $name, $placeholder, $required, $css_class, $width );
 		$this->render_field_row_extras( $idx, $type, $options_str, $static_html, $file_config );
 	}
 
@@ -566,7 +612,7 @@ class FormEditPage {
 	/**
 	 * Renders the field grid with type, label, name, placeholder, css, required.
 	 */
-	private function render_field_row_grid( string $idx, string $type, string $label, string $name, string $placeholder, bool $required, string $css_class ): void {
+	private function render_field_row_grid( string $idx, string $type, string $label, string $name, string $placeholder, bool $required, string $css_class, string $width = 'full' ): void {
 		?>
 			<div class="dsgvo-field-grid">
 				<div>
@@ -605,6 +651,21 @@ class FormEditPage {
 						<input type="checkbox" name="field_required[]" value="<?php echo esc_attr( $idx ); ?>"
 							<?php checked( $required ); ?>>
 						<?php esc_html_e( 'Pflichtfeld', 'wp-dsgvo-form' ); ?>
+					</label>
+				</div>
+				<div class="dsgvo-width-row" style="grid-column: span 2;">
+					<label style="display:block;font-weight:600;margin-bottom:3px;font-size:12px;"><?php esc_html_e( 'Feldbreite', 'wp-dsgvo-form' ); ?></label>
+					<label style="margin-right:12px;">
+						<input type="radio" name="field_width[<?php echo esc_attr( $idx ); ?>]" value="full" <?php checked( $width, 'full' ); ?>>
+						<?php esc_html_e( 'Voll', 'wp-dsgvo-form' ); ?>
+					</label>
+					<label style="margin-right:12px;">
+						<input type="radio" name="field_width[<?php echo esc_attr( $idx ); ?>]" value="half" <?php checked( $width, 'half' ); ?>>
+						<?php esc_html_e( 'Halb', 'wp-dsgvo-form' ); ?>
+					</label>
+					<label>
+						<input type="radio" name="field_width[<?php echo esc_attr( $idx ); ?>]" value="third" <?php checked( $width, 'third' ); ?>>
+						<?php esc_html_e( 'Drittel', 'wp-dsgvo-form' ); ?>
 					</label>
 				</div>
 			</div>
@@ -691,6 +752,18 @@ class FormEditPage {
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted JS from internal methods
 			echo $this->render_script_init();
 			?>
+		})();
+
+		// FEP-03: Locale override toggle — enable/disable dropdown based on radio selection.
+		(function() {
+			var radios   = document.querySelectorAll('.dsgvo-locale-mode');
+			var dropdown = document.getElementById('dsgvo-locale-override');
+			if (!dropdown || !radios.length) { return; }
+			radios.forEach(function(radio) {
+				radio.addEventListener('change', function() {
+					dropdown.disabled = (this.value === 'auto');
+				});
+			});
 		})();
 		</script>
 		<?php

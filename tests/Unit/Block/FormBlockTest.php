@@ -43,6 +43,10 @@ class FormBlockTest extends TestCase {
 		Functions\when( 'wp_kses_post' )->returnArg( 1 );
 		Functions\when( 'rest_url' )->justReturn( 'https://example.com/wp-json/dsgvo-form/v1/submit' );
 
+		// ConsentVersion uses WP Object Cache — stub to avoid undefined function errors.
+		Functions\when( 'wp_cache_get' )->justReturn( false );
+		Functions\when( 'wp_cache_set' )->justReturn( true );
+
 		// Mock wpdb for Form/Field model queries.
 		$wpdb         = Mockery::mock( 'wpdb' );
 		$wpdb->prefix = 'wp_';
@@ -88,6 +92,7 @@ class FormBlockTest extends TestCase {
 		$field->is_required = $props['is_required'] ?? false;
 		$field->options     = $props['options'] ?? null;
 		$field->css_class   = $props['css_class'] ?? '';
+		$field->width       = $props['width'] ?? 'full';
 		$field->static_content = $props['static_content'] ?? '';
 		$field->file_config = $props['file_config'] ?? null;
 		return $field;
@@ -122,6 +127,7 @@ class FormBlockTest extends TestCase {
 					'validation_rules' => null,
 					'static_content'  => $f->static_content,
 					'css_class'       => $f->css_class,
+					'width'           => $f->width,
 					'file_config'     => $f->file_config ? json_encode( $f->file_config ) : null,
 					'sort_order'      => 0,
 					'created_at'      => '2026-04-17',
@@ -1151,5 +1157,209 @@ class FormBlockTest extends TestCase {
 		// No fields → default 'warning' type → yellow.
 		$this->assertStringContainsString( '#fff3cd', $html );
 		$this->assertStringContainsString( '#856404', $html );
+	}
+
+	// ──────────────────────────────────────────────────
+	// render_field() — Width CSS classes (FEP-02, Task #347)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 */
+	public function test_render_field_includes_width_full_css_class(): void {
+		$fields = [
+			$this->make_field( [
+				'name'  => 'vorname',
+				'label' => 'Vorname',
+				'width' => 'full',
+			] ),
+		];
+		$this->setup_render_mocks( [ 'legal_basis' => 'contract' ], $fields );
+
+		$html = $this->block->render( [ 'formId' => 1 ] );
+
+		$this->assertStringContainsString( 'dsgvo-form__field--width-full', $html );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_render_field_includes_width_half_css_class(): void {
+		$fields = [
+			$this->make_field( [
+				'name'  => 'vorname',
+				'label' => 'Vorname',
+				'width' => 'half',
+			] ),
+		];
+		$this->setup_render_mocks( [ 'legal_basis' => 'contract' ], $fields );
+
+		$html = $this->block->render( [ 'formId' => 1 ] );
+
+		$this->assertStringContainsString( 'dsgvo-form__field--width-half', $html );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_render_field_includes_width_third_css_class(): void {
+		$fields = [
+			$this->make_field( [
+				'name'  => 'vorname',
+				'label' => 'Vorname',
+				'width' => 'third',
+			] ),
+		];
+		$this->setup_render_mocks( [ 'legal_basis' => 'contract' ], $fields );
+
+		$html = $this->block->render( [ 'formId' => 1 ] );
+
+		$this->assertStringContainsString( 'dsgvo-form__field--width-third', $html );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_render_static_field_includes_width_css_class(): void {
+		$fields = [
+			$this->make_field( [
+				'field_type'     => 'static',
+				'name'           => 'info',
+				'label'          => 'Info',
+				'width'          => 'half',
+				'static_content' => '<p>Info</p>',
+			] ),
+		];
+		$this->setup_render_mocks( [ 'legal_basis' => 'contract' ], $fields );
+
+		$html = $this->block->render( [ 'formId' => 1 ] );
+
+		$this->assertStringContainsString( 'dsgvo-form__static', $html );
+		$this->assertStringContainsString( 'dsgvo-form__field--width-half', $html );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_render_default_width_is_full(): void {
+		$fields = [
+			$this->make_field( [
+				'name'  => 'feld',
+				'label' => 'Feld',
+				// width not explicitly set — defaults to 'full'.
+			] ),
+		];
+		$this->setup_render_mocks( [ 'legal_basis' => 'contract' ], $fields );
+
+		$html = $this->block->render( [ 'formId' => 1 ] );
+
+		$this->assertStringContainsString( 'dsgvo-form__field--width-full', $html );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_render_multiple_fields_with_different_widths(): void {
+		$fields = [
+			$this->make_field( [
+				'id'    => 1,
+				'name'  => 'vorname',
+				'label' => 'Vorname',
+				'width' => 'half',
+			] ),
+			$this->make_field( [
+				'id'    => 2,
+				'name'  => 'nachname',
+				'label' => 'Nachname',
+				'width' => 'half',
+			] ),
+			$this->make_field( [
+				'id'    => 3,
+				'name'  => 'nachricht',
+				'label' => 'Nachricht',
+				'field_type' => 'textarea',
+				'width' => 'full',
+			] ),
+		];
+		$this->setup_render_mocks( [ 'legal_basis' => 'contract' ], $fields );
+
+		$html = $this->block->render( [ 'formId' => 1 ] );
+
+		// Both half-width and full-width classes present.
+		$this->assertSame( 2, substr_count( $html, 'dsgvo-form__field--width-half' ) );
+		$this->assertStringContainsString( 'dsgvo-form__field--width-full', $html );
+	}
+
+	// ──────────────────────────────────────────────────
+	// get_current_locale() — locale_override (FEP-03, Task #347)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 */
+	public function test_locale_override_takes_precedence_over_wp_locale(): void {
+		$form = $this->make_form( [ 'legal_basis' => 'contract' ] );
+		$form->locale_override = 'en_US';
+
+		Functions\when( 'get_transient' )->justReturn( $form );
+
+		$fields = [ $this->make_field( [ 'name' => 'f', 'label' => 'F' ] ) ];
+		$GLOBALS['wpdb']->shouldReceive( 'get_results' )->andReturn( [
+			[
+				'id' => 1, 'form_id' => 1, 'field_type' => 'text',
+				'label' => 'F', 'name' => 'f', 'placeholder' => '',
+				'is_required' => 0, 'options' => null, 'validation_rules' => null,
+				'static_content' => '', 'css_class' => '', 'width' => 'full',
+				'file_config' => null, 'sort_order' => 0, 'created_at' => '2026-04-17',
+			],
+		] );
+
+		Functions\when( 'determine_locale' )->justReturn( 'de_DE' );
+		Functions\when( 'wp_nonce_field' )->justReturn( '<input type="hidden">' );
+		Functions\when( 'get_option' )->justReturn( 'https://captcha.repaircafe-bruchsal.de' );
+		Functions\when( 'wp_script_is' )->justReturn( false );
+		Functions\when( 'wp_enqueue_script' )->justReturn( null );
+		Functions\when( 'wp_localize_script' )->justReturn( true );
+		Functions\when( 'wp_style_is' )->justReturn( false );
+		Functions\when( 'wp_enqueue_style' )->justReturn( null );
+
+		$html = $this->block->render( [ 'formId' => 1 ] );
+
+		// locale_override 'en_US' overrides WP's 'de_DE'.
+		$this->assertStringContainsString( 'data-locale="en_US"', $html );
+		$this->assertStringContainsString( 'lang="en"', $html );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_null_locale_override_uses_wp_locale(): void {
+		$form = $this->make_form( [ 'legal_basis' => 'contract' ] );
+		$form->locale_override = null;
+
+		Functions\when( 'get_transient' )->justReturn( $form );
+
+		$GLOBALS['wpdb']->shouldReceive( 'get_results' )->andReturn( [
+			[
+				'id' => 1, 'form_id' => 1, 'field_type' => 'text',
+				'label' => 'F', 'name' => 'f', 'placeholder' => '',
+				'is_required' => 0, 'options' => null, 'validation_rules' => null,
+				'static_content' => '', 'css_class' => '', 'width' => 'full',
+				'file_config' => null, 'sort_order' => 0, 'created_at' => '2026-04-17',
+			],
+		] );
+
+		Functions\when( 'determine_locale' )->justReturn( 'fr_FR' );
+		Functions\when( 'wp_nonce_field' )->justReturn( '<input type="hidden">' );
+		Functions\when( 'get_option' )->justReturn( 'https://captcha.repaircafe-bruchsal.de' );
+		Functions\when( 'wp_script_is' )->justReturn( false );
+		Functions\when( 'wp_enqueue_script' )->justReturn( null );
+		Functions\when( 'wp_localize_script' )->justReturn( true );
+		Functions\when( 'wp_style_is' )->justReturn( false );
+		Functions\when( 'wp_enqueue_style' )->justReturn( null );
+
+		$html = $this->block->render( [ 'formId' => 1 ] );
+
+		$this->assertStringContainsString( 'data-locale="fr_FR"', $html );
 	}
 }

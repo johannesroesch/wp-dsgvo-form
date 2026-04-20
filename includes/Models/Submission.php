@@ -306,6 +306,76 @@ class Submission {
 	}
 
 	/**
+	 * Finds submissions by HMAC-SHA256 email lookup hash with pagination (PERF-SOLL-03).
+	 *
+	 * @param string $email_lookup_hash The HMAC-SHA256 hash.
+	 * @param int    $limit             Maximum number of results.
+	 * @param int    $offset            Number of results to skip.
+	 * @return self[]
+	 *
+	 * @privacy-relevant Art. 15 DSGVO — Auskunftsrecht via Blind Index (LEGAL-RIGHTS-02)
+	 */
+	public static function find_by_email_lookup_hash_paginated( string $email_lookup_hash, int $limit, int $offset ): array {
+		global $wpdb;
+		$table = self::get_table_name();
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM `{$table}` WHERE email_lookup_hash = %s ORDER BY submitted_at DESC LIMIT %d OFFSET %d",
+				$email_lookup_hash,
+				$limit,
+				$offset
+			),
+			ARRAY_A
+		);
+
+		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+	}
+
+	/**
+	 * Counts submissions by HMAC-SHA256 email lookup hash (PERF-SOLL-03).
+	 *
+	 * @param string $email_lookup_hash The HMAC-SHA256 hash.
+	 * @return int Total number of matching submissions.
+	 *
+	 * @privacy-relevant Art. 15/17 DSGVO — Batch completion check
+	 */
+	public static function count_by_email_lookup_hash( string $email_lookup_hash ): int {
+		global $wpdb;
+		$table = self::get_table_name();
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$table}` WHERE email_lookup_hash = %s",
+				$email_lookup_hash
+			)
+		);
+	}
+
+	/**
+	 * Returns file metadata for a submission (Art. 15 DSGVO export).
+	 *
+	 * Only metadata (original_name, mime_type, file_size) is returned —
+	 * encrypted file contents are NOT included in the WP privacy export.
+	 *
+	 * @param int $submission_id The submission ID.
+	 * @return object[] Array of objects with original_name, mime_type, file_size.
+	 */
+	public static function get_file_metadata( int $submission_id ): array {
+		global $wpdb;
+		$table = self::get_files_table_name();
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT original_name, mime_type, file_size FROM `{$table}` WHERE submission_id = %d ORDER BY id ASC",
+				$submission_id
+			)
+		);
+
+		return is_array( $rows ) ? $rows : [];
+	}
+
+	/**
 	 * Saves the submission (insert or update).
 	 *
 	 * @return int The submission ID.

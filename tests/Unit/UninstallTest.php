@@ -62,6 +62,7 @@ class UninstallTest extends TestCase {
 			'remove_role'              => null,
 			'get_role'                 => null,
 			'delete_option'            => true,
+			'delete_metadata'          => true,
 			'wp_upload_dir'            => array( 'basedir' => '/tmp/wp-uploads' ),
 			'wp_delete_file'           => null,
 			'wp_clear_scheduled_hook'  => 0,
@@ -227,8 +228,18 @@ class UninstallTest extends TestCase {
 
 		require self::UNINSTALL_FILE;
 
-		$this->assertContains( 'wpdsgvo_version', $deleted_options );
-		$this->assertContains( 'wpdsgvo_db_version', $deleted_options );
+		$expected_options = array(
+			'wpdsgvo_version',
+			'wpdsgvo_db_version',
+			'wpdsgvo_captcha_secret',
+			'wpdsgvo_default_retention_days',
+			'wpdsgvo_controller_name',
+			'wpdsgvo_controller_email',
+		);
+
+		foreach ( $expected_options as $option ) {
+			$this->assertContains( $option, $deleted_options, "Option {$option} was not deleted." );
+		}
 	}
 
 	/**
@@ -362,5 +373,52 @@ class UninstallTest extends TestCase {
 		Functions\expect( 'wp_delete_file' )->never();
 
 		require self::UNINSTALL_FILE;
+	}
+
+	/**
+	 * @test
+	 */
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_uninstall_deletes_privacy_notice_user_meta(): void {
+		$wpdb = $this->stub_uninstall_deps( array( 'delete_metadata' ) );
+
+		$wpdb->shouldReceive( 'query' )->andReturn( 1 );
+		$wpdb->shouldReceive( 'prepare' )->andReturn( '' );
+		$wpdb->shouldReceive( 'esc_like' )->andReturnUsing(
+			function ( string $text ): string {
+				return $text;
+			}
+		);
+
+		$metadata_calls = array();
+
+		Functions\expect( 'delete_metadata' )
+			->andReturnUsing(
+				function ( string $type, int $object_id, string $meta_key, $meta_value, bool $delete_all ) use ( &$metadata_calls ): bool {
+					$metadata_calls[] = array(
+						'type'       => $type,
+						'object_id'  => $object_id,
+						'meta_key'   => $meta_key,
+						'delete_all' => $delete_all,
+					);
+					return true;
+				}
+			);
+
+		require self::UNINSTALL_FILE;
+
+		$this->assertCount( 2, $metadata_calls, 'delete_metadata should be called twice.' );
+
+		// Privacy notice acknowledgment (UX-REC-02).
+		$this->assertSame( 'user', $metadata_calls[0]['type'] );
+		$this->assertSame( 0, $metadata_calls[0]['object_id'] );
+		$this->assertSame( 'wpdsgvo_privacy_notice_ack', $metadata_calls[0]['meta_key'] );
+		$this->assertTrue( $metadata_calls[0]['delete_all'], 'delete_all must be true to remove for all users.' );
+
+		// DSFA notice dismissed.
+		$this->assertSame( 'user', $metadata_calls[1]['type'] );
+		$this->assertSame( 'wpdsgvo_dsfa_notice_dismissed', $metadata_calls[1]['meta_key'] );
+		$this->assertTrue( $metadata_calls[1]['delete_all'] );
 	}
 }

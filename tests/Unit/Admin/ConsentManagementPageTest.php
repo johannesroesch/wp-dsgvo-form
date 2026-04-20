@@ -90,6 +90,9 @@ class ConsentManagementPageTest extends TestCase {
 		Functions\when( 'get_current_user_id' )->justReturn( 1 );
 		Functions\when( 'get_transient' )->justReturn( false );
 		Functions\when( 'delete_transient' )->justReturn( true );
+		Functions\when( 'wp_cache_get' )->justReturn( false );
+		Functions\when( 'wp_cache_set' )->justReturn( true );
+		Functions\when( 'wp_cache_delete' )->justReturn( true );
 		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
 	}
 

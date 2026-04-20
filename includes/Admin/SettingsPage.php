@@ -52,6 +52,26 @@ class SettingsPage {
 			)
 		);
 
+		register_setting(
+			self::OPTION_GROUP,
+			'wpdsgvo_controller_name',
+			array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+			)
+		);
+
+		register_setting(
+			self::OPTION_GROUP,
+			'wpdsgvo_controller_email',
+			array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_email',
+			)
+		);
+
 		add_settings_section(
 			'dsgvo_form_captcha_section',
 			__( 'CAPTCHA-Konfiguration', 'wp-dsgvo-form' ),
@@ -78,6 +98,22 @@ class SettingsPage {
 			'wpdsgvo_default_retention_days',
 			__( 'Standard-Aufbewahrungsfrist (Tage)', 'wp-dsgvo-form' ),
 			array( $this, 'render_retention_field' ),
+			self::OPTION_GROUP,
+			'dsgvo_form_general_section'
+		);
+
+		add_settings_field(
+			'wpdsgvo_controller_name',
+			__( 'Verantwortlicher (Name)', 'wp-dsgvo-form' ),
+			array( $this, 'render_controller_name_field' ),
+			self::OPTION_GROUP,
+			'dsgvo_form_general_section'
+		);
+
+		add_settings_field(
+			'wpdsgvo_controller_email',
+			__( 'Verantwortlicher (E-Mail)', 'wp-dsgvo-form' ),
+			array( $this, 'render_controller_email_field' ),
 			self::OPTION_GROUP,
 			'dsgvo_form_general_section'
 		);
@@ -161,6 +197,9 @@ class SettingsPage {
 			'<code>' . esc_html( WPDSGVO_CAPTCHA_URL ) . '</code>'
 		);
 		echo '</p>';
+		echo '<p class="description">';
+		esc_html_e( 'Hinweis: Bei der Server-zu-Server-Validierung (POST /api/validate) wird die IP-Adresse des Webservers an den CAPTCHA-Service uebermittelt. Sofern der CAPTCHA-Service von einem externen Anbieter betrieben wird, kann ein Auftragsverarbeitungsvertrag (AVV) nach Art. 28 DSGVO erforderlich sein. Bitte pruefen Sie dies mit Ihrem Datenschutzbeauftragten.', 'wp-dsgvo-form' );
+		echo '</p>';
 	}
 
 	/**
@@ -208,6 +247,50 @@ class SettingsPage {
 			class="small-text">
 		<p class="description">
 			<?php esc_html_e( 'Standard-Aufbewahrungsfrist in Tagen (1–3650). Einsendungen werden nach Ablauf automatisch geloescht.', 'wp-dsgvo-form' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the controller name field.
+	 *
+	 * @return void
+	 */
+	public function render_controller_name_field(): void {
+		$value = get_option( 'wpdsgvo_controller_name', '' );
+		if ( '' === $value ) {
+			$value = get_option( 'blogname' );
+		}
+		?>
+		<input type="text"
+			name="wpdsgvo_controller_name"
+			id="wpdsgvo_controller_name"
+			value="<?php echo esc_attr( $value ); ?>"
+			class="regular-text">
+		<p class="description">
+			<?php esc_html_e( 'Name des Verantwortlichen (Art. 13 Abs. 1 lit. a DSGVO). Standard: Website-Titel.', 'wp-dsgvo-form' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the controller email field.
+	 *
+	 * @return void
+	 */
+	public function render_controller_email_field(): void {
+		$value = get_option( 'wpdsgvo_controller_email', '' );
+		if ( '' === $value ) {
+			$value = get_option( 'admin_email' );
+		}
+		?>
+		<input type="email"
+			name="wpdsgvo_controller_email"
+			id="wpdsgvo_controller_email"
+			value="<?php echo esc_attr( $value ); ?>"
+			class="regular-text">
+		<p class="description">
+			<?php esc_html_e( 'Kontakt-E-Mail des Verantwortlichen (Art. 13 Abs. 1 lit. a DSGVO). Standard: Administrator-E-Mail.', 'wp-dsgvo-form' ); ?>
 		</p>
 		<?php
 	}

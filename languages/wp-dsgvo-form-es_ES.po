@@ -4,10 +4,11 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: WP DSGVO Form 1.0.0\n"
-"Report-Msgid-Bugs-To: https://github.com/johannesroesch/wp-dsgvo-form/issues\n"
-"POT-Creation-Date: 2026-04-17T00:00:00+00:00\n"
-"PO-Revision-Date: 2026-04-17T00:00:00+00:00\n"
-"Last-Translator: \n"
+"Report-Msgid-Bugs-To: https://github.com/johannesroesch/wp-dsgvo-form/"
+"issues\n"
+"POT-Creation-Date: 2026-04-20 19:41+0200\n"
+"PO-Revision-Date: 2026-04-20T18:42:27+00:00\n"
+"Last-Translator: Automatically generated\n"
 "Language-Team: Spanish\n"
 "Language: es_ES\n"
 "MIME-Version: 1.0\n"
@@ -16,3 +17,1663 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: wp-dsgvo-form build\n"
 "X-Domain: wp-dsgvo-form\n"
+
+#: includes/Validation/FieldValidator.php:363
+#, php-format
+msgid "\"%1$s\" darf maximal %2$d Zeichen fuer die Formatpruefung enthalten."
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:166
+#: includes/Validation/FieldValidator.php:236
+#, php-format
+msgid "\"%1$s\" darf maximal %2$d Zeichen lang sein."
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:224
+msgid "#"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:196
+#, php-format
+msgid "%1$s (%2$s, %3$s)"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:313
+#, php-format
+msgid "%d Einsendung"
+msgid_plural "%d Einsendungen"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Admin/DataSubjectSearchPage.php:150
+#, php-format
+msgid "%d Einsendung gefunden"
+msgid_plural "%d Einsendungen gefunden"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Admin/FormListTable.php:291
+#, php-format
+msgid "%d Tag"
+msgid_plural "%d Tage"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Admin/AdminBarNotification.php:90
+#: includes/Admin/AdminBarNotification.php:231
+#, php-format
+msgid "%d ungelesene Einsendung"
+msgid_plural "%d ungelesene Einsendungen"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Admin/RecipientListPage.php:457
+#, php-format
+msgid "%s wurde als Empfaenger hinzugefuegt."
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:171
+msgid "(Formular geloescht)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:542
+msgid "+ Feld hinzufuegen"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:287
+msgid "-- Benutzer waehlen --"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:431
+msgid "1–3650 Tage (DPO-FINDING-01)"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:326
+#: includes/Admin/SubmissionListTable.php:125
+#: includes/Admin/SubmissionViewPage.php:244
+msgid "Ablaufdatum"
+msgstr ""
+
+#: includes/Recipient/RecipientPage.php:285
+msgid "Abmelden"
+msgstr ""
+
+#: includes/Block/FormBlock.php:258
+msgid "Absenden"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:236
+msgid "Aktion"
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:163
+#: includes/Admin/RecipientListPage.php:148
+msgid "Aktionen"
+msgstr ""
+
+#: includes/Admin/FormListTable.php:201 includes/Admin/FormListTable.php:202
+#: includes/Admin/RecipientListPage.php:182
+#: includes/Admin/RecipientListPage.php:183
+msgid "Aktiv"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:415
+#, php-format
+msgid "Aktuelle Version: %1$d (gueltig seit %2$s)"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:169
+#: includes/Admin/SubmissionListTable.php:326
+msgid "Alle Formulare"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:180
+#: includes/Admin/SubmissionListTable.php:336
+msgid "Alle Status"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:276
+msgid "Alle berechtigten Benutzer sind bereits als Empfaenger zugewiesen."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:91
+msgid ""
+"Alle ueber Kontaktformulare uebermittelten Daten werden unmittelbar nach dem "
+"Empfang mit AES-256-Verschluesselung (Authenticated Encryption) "
+"verschluesselt gespeichert. Die Verschluesselung erfolgt serverseitig, bevor "
+"die Daten in die Datenbank geschrieben werden. Hochgeladene Dateien werden "
+"ebenfalls verschluesselt abgelegt."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:92 includes/Admin/FormEditPage.php:394
+msgid "Allgemeine Einstellungen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:228
+msgid ""
+"Allgemeine Plugin-Einstellungen fuer DSGVO-konforme Formularverarbeitung."
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:303
+msgid ""
+"Als Empfaenger von Formulareinsendungen verarbeiten Sie personenbezogene "
+"Daten, die ueber dieses Plugin uebermittelt wurden. Gemaess Art. 13 DSGVO "
+"informieren wir Sie ueber die Verarbeitung Ihrer eigenen Daten:"
+msgstr ""
+
+#: includes/Admin/SubmissionListTable.php:148
+msgid "Als gelesen markieren"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:271
+#: includes/Admin/DataSubjectSearchPage.php:195
+#: includes/Admin/SubmissionListTable.php:196
+msgid "Anzeigen"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:102
+msgid ""
+"Art. 6 Abs. 1 lit. a DSGVO (Einwilligung) — wenn das Formular eine "
+"ausdrueckliche Einwilligung erfordert"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:103
+msgid ""
+"Art. 6 Abs. 1 lit. b DSGVO (Vertragsdurchfuehrung) — wenn die "
+"Datenverarbeitung zur Erfuellung eines Vertrags erforderlich ist"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:308
+msgid ""
+"Audit-Log-Eintraege werden 1 Jahr aufbewahrt. IP-Adressen werden nach 90 "
+"Tagen anonymisiert."
+msgstr ""
+
+#: includes/Admin/FormListTable.php:79
+msgid "Aufbewahrung"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:427
+msgid "Aufbewahrungsdauer (Tage)"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:109
+msgid "Auskunft ueber Ihre gespeicherten Daten (Art. 15 DSGVO)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:472
+msgid "Automatisch (WP-Locale)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:487
+msgid ""
+"Automatisch: Einwilligungstext wird in der WP-Sprache angezeigt. Fest: immer "
+"die gewaehlte Sprache."
+msgstr ""
+
+#: includes/Admin/FormListTable.php:157
+msgid "Bearbeiten"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:319
+msgid ""
+"Bei Verdacht auf eine Datenschutzverletzung informieren Sie umgehend den "
+"Verantwortlichen."
+msgstr ""
+
+#: includes/Api/SubmissionDeleteEndpoint.php:129
+msgid "Beim Loeschen ist ein Fehler aufgetreten."
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:244
+msgid "Benachrichtigung aktivieren"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:243
+msgid "Benachrichtigung deaktivieren"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:143
+msgid "Benutzer"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:285
+msgid "Benutzer:"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:110
+msgid "Berichtigung unrichtiger Daten (Art. 16 DSGVO)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:402
+msgid "Beschreibung"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:150
+#: includes/Admin/FirstLoginNotice.php:184
+msgid "Bestaetigen"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:504
+msgid "Betreff"
+msgstr ""
+
+#: includes/Admin/AdminMenu.php:125 includes/Admin/SubmissionListPage.php:70
+msgid "Betroffenen-Suche"
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:106
+msgid "Betroffenen-Suche (Art. 15/17 DSGVO)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:629
+msgid "Bezeichnung"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:230
+msgid "Bitte bestaetigen Sie den Datenschutzhinweis."
+msgstr ""
+
+#: includes/Plugin.php:83
+msgid "Bitte definieren Sie DSGVO_FORM_ENCRYPTION_KEY in Ihrer wp-config.php:"
+msgstr ""
+
+#: includes/Block/FormBlock.php:508
+msgid "Bitte geben Sie ein gueltiges Datum ein."
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:321
+#, php-format
+msgid "Bitte geben Sie ein gueltiges Datum fuer \"%1$s\" ein (Format: %2$s)."
+msgstr ""
+
+#: includes/Block/FormBlock.php:506
+msgid "Bitte geben Sie eine gueltige E-Mail-Adresse ein."
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:194
+#, php-format
+msgid "Bitte geben Sie eine gueltige E-Mail-Adresse fuer \"%s\" ein."
+msgstr ""
+
+#: includes/Block/FormBlock.php:507
+msgid "Bitte geben Sie eine gueltige Telefonnummer ein."
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:214
+#, php-format
+msgid "Bitte geben Sie eine gueltige Telefonnummer fuer \"%s\" ein."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:172
+msgid "Bitte korrigieren Sie die markierten Felder."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:396
+#, php-format
+msgid "Bitte laden Sie eine Datei fuer \"%s\" hoch."
+msgstr ""
+
+#: includes/Block/FormBlock.php:510
+msgid "Bitte loesen Sie das CAPTCHA."
+msgstr ""
+
+#: includes/Notification/NotificationService.php:146
+msgid "Bitte melden Sie sich an, um die Einsendung einzusehen:"
+msgstr ""
+
+#: includes/Block/FormBlock.php:325
+msgid "Bitte waehlen"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:411
+msgid "Bitte waehlen Sie einen Benutzer aus."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:454
+msgid "CAPTCHA"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:458
+msgid "CAPTCHA aktivieren"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:77
+msgid "CAPTCHA-Konfiguration"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:196
+#, php-format
+msgid ""
+"CAPTCHA-Service: %s (konfiguriert als WPDSGVO_CAPTCHA_URL-Konstante in wp-"
+"dsgvo-form.php). Hier wird nur der Secret Key fuer die Server-zu-Server-"
+"Validierung hinterlegt."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:119
+msgid "CAPTCHA-Verifizierung"
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:146
+msgid "CAPTCHA-Verifizierung fehlgeschlagen. Bitte versuchen Sie es erneut."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:645
+msgid "CSS-Klasse"
+msgstr ""
+
+#: includes/Admin/DsfaNotice.php:81
+msgid "DSFA-Empfehlung (Art. 35 DSGVO):"
+msgstr ""
+
+#: includes/Block/FormBlock.php:564
+msgid "DSGVO Formular:"
+msgstr ""
+
+#: includes/Admin/AdminMenu.php:67 includes/Admin/AdminMenu.php:68
+msgid "DSGVO Formulare"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:429
+#: includes/Admin/SubmissionViewPage.php:336
+msgid "DSGVO-Aktionen"
+msgstr ""
+
+#: includes/Activator.php:254
+msgid "DSGVO-Formular Empfaenger"
+msgstr ""
+
+#: includes/Activator.php:264
+msgid "DSGVO-Formular Supervisor"
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:80
+#, php-format
+msgid "Das Feld \"%s\" ist ein Pflichtfeld."
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:67
+#, php-format
+msgid ""
+"Das Formular \"%s\" verwendet nicht die Rechtsgrundlage \"Einwilligung\". "
+"Einwilligungstexte koennen nur fuer Formulare mit Rechtsgrundlage "
+"\"Einwilligung\" verwaltet werden."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:97
+msgid ""
+"Das Formular ist derzeit nicht verfuegbar. Bitte kontaktieren Sie den "
+"Administrator."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:116
+msgid "Das Formular wurde nicht gefunden oder ist inaktiv."
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:191
+#, php-format
+msgid "Dateianhang #%d"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:552
+msgid "Datenschutz-URL"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:392
+#: includes/Admin/SubmissionViewPage.php:305
+msgid "Datenschutzerklaerung"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:500
+msgid "Datenschutzerklaerung-URL"
+msgstr ""
+
+#: includes/Recipient/RecipientPage.php:121
+#: includes/Admin/FirstLoginNotice.php:87
+#: includes/Admin/FirstLoginNotice.php:132
+#: includes/Admin/FirstLoginNotice.php:167
+msgid "Datenschutzhinweis"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:113
+msgid "Datenuebertragbarkeit (Art. 20 DSGVO)"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:186
+#: includes/Admin/RecipientListPage.php:187
+msgid "Deaktiviert"
+msgstr ""
+
+#: includes/Admin/DsfaNotice.php:82
+msgid ""
+"Der Umfang der Datenverarbeitung ueber dieses Plugin (Anzahl Formulare oder "
+"Einsendungen) deutet darauf hin, dass eine Datenschutz-Folgenabschaetzung "
+"(DSFA) nach Art. 35 DSGVO empfohlen wird. Bitte wenden Sie sich an Ihren "
+"Datenschutzbeauftragten."
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:397
+#, php-format
+msgid "Der Wert fuer \"%s\" hat ein ungueltiges Format."
+msgstr ""
+
+#: includes/Block/FormBlock.php:511
+msgid "Die Datei ist zu gross."
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:314
+msgid ""
+"Die Daten dieser Einsendung konnten nicht entschluesselt werden. Bitte "
+"wenden Sie sich an den Website-Administrator."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:332
+msgid ""
+"Die Einwilligungsversion konnte nicht ermittelt werden. Bitte laden Sie die "
+"Seite neu."
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:388
+#, php-format
+msgid "Die Formatpruefung fuer \"%s\" konnte nicht ausgefuehrt werden."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:94
+msgid ""
+"Die Speicherdauer Ihrer Formulardaten richtet sich nach der fuer das "
+"jeweilige Formular konfigurierten Aufbewahrungsfrist. Nach Ablauf dieser "
+"Frist werden Ihre Daten automatisch und unwiderruflich geloescht. Die "
+"konkrete Speicherdauer wird Ihnen im jeweiligen Formular mitgeteilt."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:299
+msgid "Die Sprache der Einwilligungserklaerung konnte nicht ermittelt werden."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:360
+msgid ""
+"Die Sprache der Einwilligungserklaerung stimmt nicht mit der Version "
+"ueberein."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:100
+msgid ""
+"Die Verarbeitung Ihrer Formulardaten erfolgt je nach Formular auf Grundlage "
+"von:"
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:343
+msgid ""
+"Die angegebene Einwilligungsversion existiert nicht. Bitte laden Sie die "
+"Seite neu."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:351
+msgid "Die angegebene Einwilligungsversion gehoert nicht zu diesem Formular."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:319
+msgid "Die angegebene Sprache wird nicht unterstuetzt."
+msgstr ""
+
+#: includes/Notification/NotificationService.php:154
+msgid ""
+"Diese E-Mail enthaelt aus Datenschutzgruenden keine Formulardaten. Bitte "
+"melden Sie sich im geschuetzten Bereich an, um die Einsendung einzusehen."
+msgstr ""
+
+#: includes/Api/SubmissionDeleteEndpoint.php:115
+msgid ""
+"Diese Einsendung ist gesperrt (Art. 18 DSGVO) und kann nicht geloescht "
+"werden."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:217
+#: includes/Admin/SubmissionViewPage.php:108
+msgid "Diese Einsendung ist gesperrt (Art. 18 DSGVO)."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:485
+msgid ""
+"Diese Einsendung ist gesperrt (Art. 18 DSGVO). Die Formulardaten koennen "
+"nicht angezeigt werden."
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:137
+msgid "Diesem Formular sind noch keine Empfaenger zugewiesen."
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:421
+msgid ""
+"Dieser Benutzer ist bereits als Empfaenger fuer dieses Formular zugewiesen."
+msgstr ""
+
+#: includes/Block/FormBlock.php:512
+msgid "Dieser Dateityp ist nicht erlaubt."
+msgstr ""
+
+#: includes/Block/FormBlock.php:505
+msgid "Dieses Feld ist erforderlich."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:668
+msgid "Drittel"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:144
+msgid "E-Mail"
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:119
+msgid "E-Mail-Adresse"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:501 includes/Admin/RecipientListPage.php:145
+msgid "E-Mail-Benachrichtigung"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:518
+msgid "E-Mail-Benachrichtigung aktiviert."
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:307
+msgid "E-Mail-Benachrichtigung bei neuen Einsendungen"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:519
+msgid "E-Mail-Benachrichtigung deaktiviert."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:509
+msgid "E-Mail-Vorlage"
+msgstr ""
+
+#: includes/Block/FormBlock.php:515
+msgid "Ein Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:199 includes/Api/SubmitEndpoint.php:230
+msgid ""
+"Ein interner Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut."
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:318
+msgid "Eine Weitergabe an unbefugte Dritte ist untersagt."
+msgstr ""
+
+#: includes/Notification/NotificationService.php:142
+#, php-format
+msgid "Eine neue Einsendung ist fuer das Formular \"%s\" eingegangen."
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:230
+#: includes/Recipient/SubmissionDetailView.php:310
+#: includes/Admin/SubmissionListTable.php:124
+#: includes/Admin/SubmissionViewPage.php:230
+msgid "Eingegangen"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:157
+#: includes/Admin/DataSubjectSearchPage.php:161
+msgid "Eingereicht am"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:112
+msgid "Einschraenkung der Verarbeitung (Art. 18 DSGVO)"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:237
+#: includes/Recipient/SubmissionDetailView.php:475
+#: includes/Admin/SubmissionViewPage.php:89
+#, php-format
+msgid "Einsendung #%d"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:258
+#, php-format
+msgid ""
+"Einsendung #%d ist eingeschraenkt (Art. 18 DSGVO) und wurde nicht geloescht."
+msgstr ""
+
+#: includes/Admin/SubmissionListPage.php:124
+#, php-format
+msgid ""
+"Einsendung #%d ist gesperrt (Art. 18 DSGVO) und kann nicht geloescht werden."
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:281
+#, php-format
+msgid "Einsendung #%d konnte nicht geloescht werden."
+msgstr ""
+
+#: includes/Admin/SubmissionListPage.php:142
+#, php-format
+msgid "Einsendung #%d wurde geloescht."
+msgstr ""
+
+#: includes/Recipient/RecipientPage.php:186
+msgid "Einsendung anzeigen"
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:380
+msgid "Einsendung loeschen (Art. 17)"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:73
+#: includes/Admin/SubmissionViewPage.php:46
+#: includes/Admin/SubmissionViewPage.php:504
+#: includes/Api/SubmissionDeleteEndpoint.php:106
+msgid "Einsendung nicht gefunden."
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:379
+msgid "Einsendung wirklich loeschen?"
+msgstr ""
+
+#: includes/Admin/SubmissionListTable.php:215
+msgid ""
+"Einsendung wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht "
+"werden."
+msgstr ""
+
+#: includes/Recipient/RecipientPage.php:170 includes/Admin/FormListTable.php:78
+#: includes/Admin/AdminMenu.php:92 includes/Admin/AdminMenu.php:93
+#: includes/Admin/SubmissionListPage.php:65
+msgid "Einsendungen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:130 includes/Admin/AdminMenu.php:115
+#: includes/Admin/AdminMenu.php:116
+msgid "Einstellungen"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:343
+#: includes/Admin/SubmissionViewPage.php:259
+msgid "Einwilligung"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:412
+msgid "Einwilligung (Art. 6 Abs. 1 lit. a DSGVO)"
+msgstr ""
+
+#: includes/Admin/FormListTable.php:224
+msgid "Einwilligung (Art. 6 Abs. 1 lit. a)"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:163
+msgid "Einwilligung erteilt am"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:178
+msgid "Einwilligungs-Sprache"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:380
+#: includes/Admin/ConsentManagementPage.php:481
+#: includes/Admin/ConsentManagementPage.php:551
+#: includes/Admin/SubmissionViewPage.php:294
+msgid "Einwilligungstext"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:490
+msgid "Einwilligungstext eingeben..."
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:171
+msgid "Einwilligungstext-Version"
+msgstr ""
+
+#: includes/Admin/FormListTable.php:183
+#: includes/Admin/ConsentManagementPage.php:57
+msgid "Einwilligungstexte"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:298
+#, php-format
+msgid "Einwilligungstexte — %s"
+msgstr ""
+
+#: includes/Admin/AdminMenu.php:105 includes/Admin/AdminMenu.php:106
+#: includes/Admin/RecipientListPage.php:59
+msgid "Empfaenger"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:96
+msgid "Empfaenger Ihrer Daten"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:272
+#: includes/Admin/RecipientListPage.php:324
+msgid "Empfaenger hinzufuegen"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:466
+msgid "Empfaenger konnte nicht gespeichert werden."
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:249
+msgid "Empfaenger wirklich entfernen?"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:504
+msgid "Empfaenger wurde entfernt."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:604 includes/Admin/RecipientListPage.php:250
+msgid "Entfernen"
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:530
+msgid "Entschluesselung fehlgeschlagen. Export nicht moeglich."
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:170
+msgid ""
+"Entschluesselung fehlgeschlagen. Pruefen Sie den Encryption Key in wp-"
+"config.php."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:245
+msgid "Entschluesselung fehlgeschlagen. Pruefen Sie den Encryption Key."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:518
+msgid "Erfolgsmeldung"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:697
+msgid "Erlaubte Dateitypen"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:69
+msgid ""
+"Erstellen Sie zuerst ein Formular, bevor Sie Empfaenger zuweisen koennen."
+msgstr ""
+
+#: includes/Admin/FormListTable.php:80
+msgid "Erstellt"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:554
+msgid "Erstellt am"
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:413
+msgid "Export CSV (Art. 20)"
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:410
+msgid "Export JSON (Art. 20)"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:212
+#: includes/Admin/FirstLoginNotice.php:222
+#: includes/Admin/FirstLoginNotice.php:231
+msgid "Fehler"
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:427
+#, php-format
+msgid "Fehler beim Hochladen der Datei fuer \"%s\"."
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:211
+msgid "Fehler beim Speichern."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:599
+msgid "Feld"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:781
+msgid "Feld wirklich entfernen? Das Feld wird beim Speichern geloescht."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:657
+msgid "Feldbreite"
+msgstr ""
+
+#: includes/Admin/FormListTable.php:77
+msgid "Felder"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:634
+msgid "Feldname (HTML name-Attribut)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:476
+msgid "Feste Sprache"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:195
+msgid "Filter zuruecksetzen"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:190
+#: includes/Admin/SubmissionListTable.php:345
+msgid "Filtern"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:153
+#: includes/Recipient/SubmissionListView.php:227
+#: includes/Recipient/SubmissionDetailView.php:302
+#: includes/Admin/DataSubjectSearchPage.php:160
+#: includes/Admin/SubmissionListTable.php:122
+#: includes/Admin/SubmissionViewPage.php:226
+msgid "Formular"
+msgstr ""
+
+#: includes/Block/FormBlock.php:184
+#, php-format
+msgid ""
+"Formular \"%1$s\" kann nicht angezeigt werden: Kein Einwilligungstext fuer "
+"Sprache \"%2$s\" vorhanden. Bitte unter DSGVO Formulare → Einwilligungstexte "
+"anlegen."
+msgstr ""
+
+#: includes/Block/FormBlock.php:166
+#, php-format
+msgid ""
+"Formular \"%s\" hat keine Felder. Bitte Felder im Admin-Bereich hinzufuegen."
+msgstr ""
+
+#: includes/Block/FormBlock.php:154
+#, php-format
+msgid "Formular \"%s\" ist deaktiviert."
+msgstr ""
+
+#: includes/Admin/FormListPage.php:100
+#, php-format
+msgid "Formular \"%s\" wurde geloescht."
+msgstr ""
+
+#: includes/Block/FormBlock.php:143
+#, php-format
+msgid "Formular #%d nicht gefunden."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:449
+msgid "Formular aktiv"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:122 includes/Admin/FormEditPage.php:175
+msgid "Formular bearbeiten"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:369
+msgid "Formular gespeichert."
+msgstr ""
+
+#: includes/Admin/FormListPage.php:87
+#: includes/Admin/ConsentManagementPage.php:49
+msgid "Formular nicht gefunden."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:546
+msgid "Formular speichern"
+msgstr ""
+
+#: includes/Admin/FormListTable.php:162
+msgid ""
+"Formular wirklich loeschen? Alle Einsendungen werden unwiderruflich "
+"geloescht."
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:106
+msgid "Formular:"
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:165
+msgid "Formulardaten"
+msgstr ""
+
+#: includes/Admin/FormListPage.php:37 includes/Admin/AdminMenu.php:82
+#: includes/Admin/AdminMenu.php:83
+msgid "Formulare"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:207
+msgid "Formulareinsendungen"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:532
+msgid "Formularfelder"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:544
+msgid ""
+"Fruehere Versionen sind unveraenderlich und dienen als Nachweis der exakten "
+"Einwilligungsformulierung (Art. 7 Abs. 1 DSGVO)."
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:441
+msgid ""
+"Fuer Supervisoren ist die Angabe des Zuweisungszwecks Pflicht (Art. 5 Abs. 1 "
+"lit. b DSGVO)."
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:185
+#: includes/Recipient/SubmissionListView.php:296
+#: includes/Admin/DataSubjectSearchPage.php:188
+#: includes/Admin/SubmissionListTable.php:258
+#: includes/Admin/SubmissionListTable.php:259
+#: includes/Admin/SubmissionListTable.php:341
+msgid "Gelesen"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:215
+#: includes/Recipient/SubmissionDetailView.php:482
+#: includes/Admin/SubmissionViewPage.php:106
+msgid "Gesperrt (Art. 18 DSGVO)"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:201
+#: includes/Admin/SubmissionViewPage.php:448
+msgid "Gesperrt (Art. 18 DSGVO)."
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:289
+#: includes/Admin/DataSubjectSearchPage.php:185
+#: includes/Admin/SubmissionListTable.php:252
+#: includes/Admin/SubmissionListTable.php:253
+msgid "Gesperrt (Art. 18)"
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:517
+msgid "Gesperrte Einsendungen (Art. 18 DSGVO) koennen nicht exportiert werden."
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:553
+msgid "Gueltig seit"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:493
+msgid ""
+"HTML-Formatierung erlaubt (Links, Fettschrift). Jede Aenderung erstellt eine "
+"neue, unveraenderliche Version (Art. 7 DSGVO)."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:664
+msgid "Halb"
+msgstr ""
+
+#: includes/Recipient/RecipientPage.php:279
+#, php-format
+msgid "Hallo, %s"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:313
+msgid "Hinweis"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:201
+msgid ""
+"Hinweis: Bei der Server-zu-Server-Validierung (POST /api/validate) wird die "
+"IP-Adresse des Webservers an den CAPTCHA-Service uebermittelt. Sofern der "
+"CAPTCHA-Service von einem externen Anbieter betrieben wird, kann ein "
+"Auftragsverarbeitungsvertrag (AVV) nach Art. 28 DSGVO erforderlich sein. "
+"Bitte pruefen Sie dies mit Ihrem Datenschutzbeauftragten."
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:204
+msgid ""
+"Hinweis: Nutzen Sie die WordPress-Werkzeuge unter Werkzeuge → "
+"Personenbezogene Daten exportieren/loeschen fuer formelle Art. 15/17 "
+"Anfragen."
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:159
+#: includes/Admin/SubmissionListTable.php:121
+msgid "ID"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:146
+#: includes/Admin/FirstLoginNotice.php:178
+msgid ""
+"Ich habe den Datenschutzhinweis gelesen und akzeptiere die "
+"Vertraulichkeitspflicht."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:160 includes/Api/SubmitEndpoint.php:242
+msgid "Ihre Einsendung wurde erfolgreich uebermittelt."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:106
+#: includes/Admin/FirstLoginNotice.php:322
+msgid "Ihre Rechte"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:307
+msgid ""
+"Ihre Zugriffe auf Einsendungen werden protokolliert (Zeitpunkt, IP-Adresse, "
+"ausgefuehrte Aktion)."
+msgstr ""
+
+#: includes/Admin/FormListTable.php:206 includes/Admin/FormListTable.php:207
+msgid "Inaktiv"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:302
+msgid "Informationspflicht gemaess Art. 13 DSGVO"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:268
+#: includes/Admin/SubmissionViewPage.php:194
+msgid "Ja"
+msgstr ""
+
+#: includes/Admin/SubmissionListTable.php:294
+msgid "Kein Ablauf"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:435
+#, php-format
+msgid ""
+"Kein Einwilligungstext fuer %s vorhanden. Das Formular wird fuer diese "
+"Sprache nicht gerendert (Fail-Closed)."
+msgstr ""
+
+#: includes/Block/FormBlock.php:129
+msgid "Kein Formular ausgewaehlt."
+msgstr ""
+
+#: includes/Admin/FormListPage.php:78
+msgid "Keine Berechtigung zum Loeschen von Formularen."
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:42
+#: includes/Admin/FormEditPage.php:72 includes/Admin/FormEditPage.php:108
+#: includes/Admin/RecipientListPage.php:394
+#: includes/Admin/RecipientListPage.php:488
+msgid "Keine Berechtigung."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:55
+#: includes/Admin/SubmissionViewPage.php:40
+#: includes/Admin/SubmissionViewPage.php:490
+msgid "Keine Einsendung angegeben."
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:142
+msgid "Keine Einsendungen fuer diese E-Mail-Adresse gefunden."
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:213
+msgid "Keine Einsendungen gefunden."
+msgstr ""
+
+#: includes/Admin/SubmissionListTable.php:533
+msgid "Keine Einsendungen vorhanden."
+msgstr ""
+
+#: includes/Admin/FormListTable.php:463
+msgid "Keine Formulare vorhanden."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:701
+msgid "Kommagetrennt. Leer = alle erlaubten WordPress-Typen."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:151
+msgid "Konfiguriert"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:293
+msgid ""
+"Kontakt-E-Mail des Verantwortlichen (Art. 13 Abs. 1 lit. a DSGVO). Standard: "
+"Administrator-E-Mail."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:85
+msgid "Kontaktformulare (WP DSGVO Form)"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:142
+msgid ""
+"Leerer Text wurde nicht gespeichert. Das Formular wird fuer diese Sprache "
+"nicht gerendert (Fail-Closed)."
+msgstr ""
+
+#: includes/Admin/FormListTable.php:104 includes/Admin/FormListTable.php:163
+#: includes/Admin/SubmissionListTable.php:152
+#: includes/Admin/SubmissionListTable.php:216
+msgid "Loeschen"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:111
+msgid "Loeschung Ihrer Daten (Art. 17 DSGVO)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:704
+msgid "Max. Dateigroesse (MB)"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:295
+#: includes/Admin/SubmissionViewPage.php:221
+msgid "Metadaten"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:601
+msgid "Nach oben"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:602
+msgid "Nach unten"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:271
+msgid ""
+"Name des Verantwortlichen (Art. 13 Abs. 1 lit. a DSGVO). Standard: Website-"
+"Titel."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:269
+#: includes/Admin/SubmissionViewPage.php:195
+msgid "Nein"
+msgstr ""
+
+#: includes/Block/FormBlock.php:514
+msgid "Netzwerkfehler. Bitte pruefen Sie Ihre Verbindung."
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:182
+#: includes/Recipient/SubmissionListView.php:293
+msgid "Neu"
+msgstr ""
+
+#: includes/Notification/NotificationService.php:119
+#, php-format
+msgid "Neue Einsendung: %s"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:521
+msgid "Neue Version speichern"
+msgstr ""
+
+#: includes/Admin/FormListPage.php:42 includes/Admin/FormEditPage.php:123
+#: includes/Admin/FormEditPage.php:176
+msgid "Neues Formular"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:195
+msgid "Nicht angegeben"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:154
+msgid "Nicht konfiguriert — Verschluesselung nicht moeglich"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:176
+msgid "Nicht verfuegbar"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:168
+msgid "OpenSSL"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:512
+msgid ""
+"Optional. Sprachspezifischer Link zur Datenschutzerklaerung. Muss HTTPS "
+"verwenden."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:683
+msgid "Optionen (eine pro Zeile)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:164
+msgid "PHP-Version"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:653
+msgid "Pflichtfeld"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:320
+msgid ""
+"Pflichtfeld fuer Supervisoren. Dokumentiert die Zweckbindung des Zugriffs."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:640
+msgid "Platzhalter"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:160
+msgid "Plugin-Version"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:165
+msgid "Privacy-Policy-URL muss HTTPS verwenden."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:402
+#: includes/Admin/FormListTable.php:74 includes/Admin/FormEditPage.php:408
+#: includes/Admin/SubmissionViewPage.php:314
+msgid "Rechtsgrundlage"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:99
+msgid "Rechtsgrundlage der Verarbeitung"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:313
+msgid ""
+"Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der "
+"Nachvollziehbarkeit und Sicherheit der Datenverarbeitung) in Verbindung mit "
+"Art. 5 Abs. 2 DSGVO (Rechenschaftspflicht)."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:84
+msgid "Secret Key"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:339
+#, php-format
+msgid "Seite %1$d von %2$d (%3$d Einsendungen)"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:211
+msgid "Sicherheitspruefung fehlgeschlagen."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:127
+msgid "Sicherheitspruefung fehlgeschlagen. Bitte laden Sie die Seite neu."
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:317
+msgid ""
+"Sie duerfen die Ihnen zugaenglichen Einsendungen nur fuer den vorgesehenen "
+"Zweck verwenden."
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:323
+msgid ""
+"Sie haben das Recht auf Auskunft, Berichtigung und Loeschung Ihrer im Audit-"
+"Log gespeicherten Daten. Wenden Sie sich hierzu an den Website-Administrator."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:107
+msgid "Sie haben jederzeit das Recht auf:"
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:498
+msgid "Sie haben keine Berechtigung fuer den Export."
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:63
+msgid "Sie haben keine Berechtigung fuer diese Seite."
+msgstr ""
+
+#: includes/Api/SubmissionDeleteEndpoint.php:80
+msgid "Sie haben keine Berechtigung, Einsendungen zu loeschen."
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:454
+msgid "Sie haben keine Berechtigung, die Sperre aufzuheben."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:61
+#: includes/Admin/SubmissionViewPage.php:54
+#: includes/Admin/SubmissionViewPage.php:512
+msgid "Sie haben keine Berechtigung, diese Einsendung anzuzeigen."
+msgstr ""
+
+#: includes/Recipient/RecipientPage.php:108
+msgid "Sie haben keinen Zugriff auf den Einsendungs-Bereich."
+msgstr ""
+
+#: includes/Admin/SubmissionListPage.php:99
+msgid "Sie haben nicht die Berechtigung, Einsendungen zu loeschen."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:117
+#: includes/Admin/FirstLoginNotice.php:324
+msgid ""
+"Sie haben zudem das Recht, Beschwerde bei einer Datenschutz-"
+"Aufsichtsbehoerde einzulegen (Art. 77 DSGVO)."
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:221
+msgid "Sie muessen angemeldet sein."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:288
+msgid ""
+"Sie muessen der Datenverarbeitung zustimmen, um das Formular absenden zu "
+"koennen."
+msgstr ""
+
+#: includes/Block/FormBlock.php:509
+msgid "Sie muessen der Datenverarbeitung zustimmen."
+msgstr ""
+
+#: includes/Admin/FormListTable.php:75
+msgid "Slug"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:93
+msgid "Speicherdauer"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:207
+#: includes/Admin/SubmissionViewPage.php:467
+msgid "Sperre aufgehoben."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:441
+#: includes/Admin/SubmissionViewPage.php:356
+msgid "Sperre aufheben"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:452
+msgid "Sperren (Art. 18 DSGVO)"
+msgstr ""
+
+#: includes/Admin/SubmissionViewPage.php:357
+msgid "Sperren (Art. 18)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:463
+msgid "Sprache (Locale)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:99
+msgid "Standard-Aufbewahrungsfrist (Tage)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:249
+msgid ""
+"Standard-Aufbewahrungsfrist in Tagen (1–3650). Einsendungen werden nach "
+"Ablauf automatisch geloescht."
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:689
+msgid "Statischer Inhalt (HTML erlaubt)"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:233
+#: includes/Admin/DataSubjectSearchPage.php:162
+#: includes/Admin/FormListTable.php:76
+#: includes/Admin/SubmissionListTable.php:123
+#: includes/Admin/FormEditPage.php:445
+msgid "Status"
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:133
+msgid "Suchen"
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:109
+msgid ""
+"Suchen Sie nach allen Einsendungen eines Betroffenen anhand seiner E-Mail-"
+"Adresse. Jede Suche wird im Audit-Log protokolliert."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:142
+msgid "Systemstatus"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:384
+#: includes/Admin/SubmissionViewPage.php:297
+msgid "Text anzeigen"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:154
+msgid "Text unveraendert — keine neue Version erstellt."
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:387
+msgid "Text vorhanden"
+msgstr ""
+
+#: includes/Admin/FormListTable.php:73 includes/Admin/FormEditPage.php:397
+msgid "Titel"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:619
+msgid "Typ"
+msgstr ""
+
+#: includes/Privacy/PrivacyHandler.php:208
+msgid "Ueber Kontaktformulare uebermittelte Daten."
+msgstr ""
+
+#: includes/Admin/SubmissionListTable.php:235
+msgid "Unbekannt"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:165
+#, php-format
+msgid "Unbekannter Benutzer (ID %d)"
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:148
+msgid "Unbekannter Feldtyp."
+msgstr ""
+
+#: includes/Admin/DataSubjectSearchPage.php:190
+#: includes/Admin/SubmissionListTable.php:263
+#: includes/Admin/SubmissionListTable.php:264
+#: includes/Admin/SubmissionListTable.php:338
+msgid "Ungelesen"
+msgstr ""
+
+#: includes/Validation/FieldValidator.php:268
+#: includes/Validation/FieldValidator.php:289
+#, php-format
+msgid "Ungueltige Auswahl fuer \"%s\"."
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:132
+msgid "Ungueltige Sprache."
+msgstr ""
+
+#: includes/Api/SubmitEndpoint.php:308
+msgid "Ungueltiges Locale-Format."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:115
+msgid "Verantwortlicher (E-Mail)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:107
+msgid "Verantwortlicher (Name)"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:339
+#, php-format
+msgid "Verantwortlicher: %1$s (Kontakt: %2$s)"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:305
+msgid "Verarbeitete Daten"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:421
+msgid "Verarbeitungszweck"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:514
+msgid "Verfuegbare Platzhalter: {field_name}"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:146
+msgid "Verschluesselungs-Key"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:550
+msgid "Version"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:201
+#, php-format
+msgid "Version %1$d fuer %2$s gespeichert."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:359
+#: includes/Admin/SubmissionViewPage.php:274
+#, php-format
+msgid "Version %d"
+msgstr ""
+
+#: includes/Admin/ConsentManagementPage.php:542
+msgid "Versions-Historie"
+msgstr ""
+
+#: includes/Admin/FormListTable.php:221
+msgid "Vertrag (Art. 6 Abs. 1 lit. b)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:415
+msgid "Vertragserfuellung (Art. 6 Abs. 1 lit. b DSGVO)"
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:315
+msgid "Vertraulichkeitspflicht (Art. 29, 32 DSGVO)"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:660
+msgid "Voll"
+msgstr ""
+
+#: includes/Plugin.php:82
+msgid "WP DSGVO Form:"
+msgstr ""
+
+#: includes/Block/FormBlock.php:228
+msgid "Website"
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:357
+msgid "Weiter"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:87
+msgid "Welche Daten wir erheben"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:88
+msgid ""
+"Wenn Sie ein Kontaktformular auf dieser Website absenden, erheben wir die "
+"von Ihnen eingegebenen Daten (z.B. Name, E-Mail-Adresse, Nachricht) sowie "
+"technische Metadaten (Zeitpunkt der Einsendung)."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:116
+msgid ""
+"Wenn Sie eine Einwilligung erteilt haben, koennen Sie diese jederzeit mit "
+"Wirkung fuer die Zukunft widerrufen (Art. 7 Abs. 3 DSGVO)."
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:114
+msgid "Widerspruch gegen die Verarbeitung (Art. 21 DSGVO)"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:90
+msgid "Wie wir Ihre Daten schuetzen"
+msgstr ""
+
+#: includes/Block/FormBlock.php:513
+msgid "Wird gesendet..."
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:90
+#: includes/Admin/SubmissionViewPage.php:76
+#: includes/Admin/SubmissionViewPage.php:523
+msgid "Zugehoeriges Formular nicht gefunden."
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:147
+msgid "Zugewiesen am"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:132
+msgid "Zugewiesene Empfaenger"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:97
+msgid ""
+"Zugriff auf Ihre Formulardaten haben ausschliesslich die dem jeweiligen "
+"Formular zugeordneten Empfaenger. Die konkreten Empfaenger werden Ihnen im "
+"jeweiligen Formular mitgeteilt. Der Hosting-Anbieter hat als "
+"Auftragsverarbeiter gegebenenfalls technischen Zugang zu den "
+"verschluesselten Daten."
+msgstr ""
+
+#: includes/Admin/FirstLoginNotice.php:311
+msgid ""
+"Zugriff auf das Audit-Log haben ausschliesslich Administratoren mit der "
+"Berechtigung zur Plugin-Verwaltung."
+msgstr ""
+
+#: includes/Recipient/RecipientPage.php:109
+#: includes/Admin/DataSubjectSearchPage.php:64
+msgid "Zugriff verweigert"
+msgstr ""
+
+#: includes/Recipient/RecipientPage.php:271
+msgid "Zum Inhalt springen"
+msgstr ""
+
+#: includes/Notification/NotificationService.php:150
+msgid "Zum Login-Bereich"
+msgstr ""
+
+#: includes/Privacy/PrivacyPolicy.php:120
+msgid ""
+"Zum Schutz vor automatisierten Einsendungen (Spam) wird beim Absenden des "
+"Formulars ein CAPTCHA-Verfahren eingesetzt. Dabei wird Ihre IP-Adresse an "
+"den CAPTCHA-Dienstleister uebertragen. Die Verarbeitung erfolgt auf "
+"Grundlage unseres berechtigten Interesses an der Abwehr von Spam und "
+"Missbrauch (Art. 6 Abs. 1 lit. f DSGVO). Der CAPTCHA-Dienst speichert Ihre "
+"IP-Adresse nicht dauerhaft."
+msgstr ""
+
+#: includes/Recipient/SubmissionListView.php:350
+msgid "Zurueck"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:186
+#: includes/Recipient/SubmissionDetailView.php:505
+#: includes/Admin/ConsentManagementPage.php:59
+#: includes/Admin/ConsentManagementPage.php:305
+#: includes/Admin/FormEditPage.php:362 includes/Admin/SubmissionViewPage.php:96
+msgid "Zurueck zur Uebersicht"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:146
+msgid "Zweck"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:313
+msgid "Zweck der Zuweisung (Art. 5 Abs. 1 lit. b):"
+msgstr ""
+
+#: includes/Recipient/SubmissionDetailView.php:263
+#: includes/Admin/SubmissionViewPage.php:189
+msgid "[Datei — Download ueber Dateiliste]"
+msgstr ""
+
+#: includes/Admin/SubmissionListTable.php:305
+msgid "abgelaufen"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:113
+msgid "inaktiv"
+msgstr ""
+
+#: includes/Admin/FormListTable.php:275
+msgid "ungelesen"
+msgstr ""
+
+#: includes/Admin/RecipientListPage.php:317
+msgid "z.B. Bearbeitung von Kontaktanfragen, Aufsichtsfunktion"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:700
+msgid "z.B. pdf, jpg, png"
+msgstr ""
+
+#: includes/Admin/FormEditPage.php:637
+msgid "z.B. vorname"
+msgstr ""

@@ -67,9 +67,19 @@ if ( $wpdsgvo_admin_role ) {
  */
 delete_option( 'wpdsgvo_version' );
 delete_option( 'wpdsgvo_db_version' );
+delete_option( 'wpdsgvo_captcha_secret' );
+delete_option( 'wpdsgvo_default_retention_days' );
+delete_option( 'wpdsgvo_controller_name' );
+delete_option( 'wpdsgvo_controller_email' );
 
 /*
- * 5. Delete all plugin transients.
+ * 5. Delete all plugin user meta.
+ */
+delete_metadata( 'user', 0, 'wpdsgvo_privacy_notice_ack', '', true );
+delete_metadata( 'user', 0, 'wpdsgvo_dsfa_notice_dismissed', '', true );
+
+/*
+ * 7. Delete all plugin transients.
  */
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 $wpdb->query(
@@ -81,7 +91,7 @@ $wpdb->query(
 );
 
 /*
- * 6. Delete encrypted upload directory.
+ * 8. Delete encrypted upload directory.
  *
  * @security-critical Kaskadierte Loeschung verschluesselter Dateien.
  * @privacy-relevant Art. 17 DSGVO — Recht auf Loeschung.
@@ -117,6 +127,6 @@ if ( is_dir( $wpdsgvo_upload_path ) ) {
 }
 
 /*
- * 7. Clear scheduled cron events.
+ * 9. Clear scheduled cron events.
  */
 wp_clear_scheduled_hook( 'dsgvo_form_cleanup' );

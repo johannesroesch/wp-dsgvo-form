@@ -78,7 +78,7 @@ class AuditLoggerTest extends TestCase {
 	 */
 	public function test_log_accepts_all_valid_actions(): void {
 		$this->assertSame(
-			array( 'view', 'export', 'delete', 'restrict' ),
+			array( 'view', 'export', 'delete', 'restrict', 'privacy_notice_acknowledged' ),
 			AuditLogger::ALLOWED_ACTIONS
 		);
 	}
@@ -190,20 +190,126 @@ class AuditLoggerTest extends TestCase {
 
 	/**
 	 * @test
-	 * SEC-AUDIT-03: cleanup_old_entries runs DELETE query and returns count.
+	 * SEC-AUDIT-03 + PERF-SOLL-04: cleanup_old_entries uses batch-DELETE (do/while LIMIT 500).
+	 * Single batch: all entries fit within one LIMIT 500 pass.
 	 */
-	public function test_cleanup_old_entries_returns_affected_rows(): void {
+	public function test_cleanup_old_entries_single_batch(): void {
 		$wpdb = $this->mock_wpdb();
 
 		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
 
-		$wpdb->shouldReceive( 'prepare' )->once()->andReturn( 'SQL' );
-		$wpdb->shouldReceive( 'query' )->once()->andReturn( 3 );
-		$wpdb->rows_affected = 3;
+		$wpdb->shouldReceive( 'prepare' )
+			->andReturn( 'SQL' );
+
+		// First query: 3 rows deleted. Second query: 0 → loop ends.
+		$wpdb->shouldReceive( 'query' )
+			->twice()
+			->andReturn( 3, 0 );
 
 		$logger = new AuditLogger();
 
 		$this->assertSame( 3, $logger->cleanup_old_entries() );
+	}
+
+	/**
+	 * @test
+	 * PERF-SOLL-04: Multiple batches — accumulates total across iterations.
+	 */
+	public function test_cleanup_old_entries_multiple_batches(): void {
+		$wpdb = $this->mock_wpdb();
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
+
+		$wpdb->shouldReceive( 'prepare' )
+			->andReturn( 'SQL' );
+
+		// Three batches: 500 + 500 + 200 + 0 = 1200 total.
+		$wpdb->shouldReceive( 'query' )
+			->times( 4 )
+			->andReturn( 500, 500, 200, 0 );
+
+		$logger = new AuditLogger();
+
+		$this->assertSame( 1200, $logger->cleanup_old_entries() );
+	}
+
+	/**
+	 * @test
+	 * PERF-SOLL-04: No expired entries — loop exits after first iteration.
+	 */
+	public function test_cleanup_old_entries_returns_zero_when_nothing_to_delete(): void {
+		$wpdb = $this->mock_wpdb();
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
+
+		$wpdb->shouldReceive( 'prepare' )
+			->andReturn( 'SQL' );
+
+		// First query: 0 rows → loop ends immediately.
+		$wpdb->shouldReceive( 'query' )
+			->once()
+			->andReturn( 0 );
+
+		$logger = new AuditLogger();
+
+		$this->assertSame( 0, $logger->cleanup_old_entries() );
+	}
+
+	/**
+	 * @test
+	 * PERF-SOLL-04: Batch DELETE uses LIMIT 500 in SQL.
+	 */
+	public function test_cleanup_old_entries_uses_limit_500(): void {
+		$wpdb = $this->mock_wpdb();
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
+
+		$captured_sql = '';
+
+		$wpdb->shouldReceive( 'prepare' )
+			->andReturnUsing( function ( string $sql ) use ( &$captured_sql ): string {
+				$captured_sql = $sql;
+				return 'SQL';
+			} );
+
+		$wpdb->shouldReceive( 'query' )
+			->once()
+			->andReturn( 0 );
+
+		$logger = new AuditLogger();
+		$logger->cleanup_old_entries();
+
+		$this->assertStringContainsString( 'LIMIT 500', $captured_sql );
+	}
+
+	/**
+	 * @test
+	 * SEC-AUDIT-03: Retention period is 365 days.
+	 */
+	public function test_cleanup_old_entries_uses_365_day_retention(): void {
+		$wpdb = $this->mock_wpdb();
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
+
+		$captured_sql    = '';
+		$captured_days   = 0;
+
+		$wpdb->shouldReceive( 'prepare' )
+			->andReturnUsing( function ( string $sql, ...$args ) use ( &$captured_sql, &$captured_days ): string {
+				$captured_sql  = $sql;
+				$captured_days = $args[1] ?? 0;
+				return 'SQL';
+			} );
+
+		$wpdb->shouldReceive( 'query' )
+			->once()
+			->andReturn( 0 );
+
+		$logger = new AuditLogger();
+		$logger->cleanup_old_entries();
+
+		$this->assertStringContainsString( 'INTERVAL', $captured_sql );
+		$this->assertSame( 365, $captured_days );
 	}
 
 	/**

@@ -624,22 +624,44 @@ class SubmissionViewPage {
 		// BOM for Excel UTF-8 detection.
 		echo "\xEF\xBB\xBF";
 
-		// Header row.
+		// Header row (static labels — no user data, safe from injection).
 		fputcsv( $output, [ 'Feld', 'Wert' ] );
 
 		// Metadata rows.
-		fputcsv( $output, [ 'Formular', $data['form_title'] ] );
-		fputcsv( $output, [ 'Eingegangen', $data['submitted_at'] ] );
+		fputcsv( $output, [ 'Formular', self::sanitize_csv_value( $data['form_title'] ) ] );
+		fputcsv( $output, [ 'Eingegangen', self::sanitize_csv_value( $data['submitted_at'] ) ] );
 
 		// Field data rows.
 		foreach ( $data['fields'] as $label => $value ) {
 			if ( is_array( $value ) ) {
 				$value = implode( ', ', $value );
 			}
-			fputcsv( $output, [ $label, (string) $value ] );
+			fputcsv( $output, [ self::sanitize_csv_value( $label ), self::sanitize_csv_value( (string) $value ) ] );
 		}
 
 		fclose( $output ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- php://output stream, not filesystem
 		exit;
+	}
+
+	/**
+	 * Sanitizes a value for CSV export to prevent formula injection.
+	 *
+	 * Cells starting with =, +, -, @, tab, or carriage return can trigger
+	 * formula execution in spreadsheet applications (Excel, LibreOffice Calc).
+	 * Prefixing with a single quote neutralizes this without altering display.
+	 *
+	 * @param string $value The cell value to sanitize.
+	 * @return string Sanitized value safe for CSV.
+	 */
+	private static function sanitize_csv_value( string $value ): string {
+		if ( $value === '' ) {
+			return $value;
+		}
+
+		if ( in_array( $value[0], [ '=', '+', '-', '@', "\t", "\r" ], true ) ) {
+			return "'" . $value;
+		}
+
+		return $value;
 	}
 }

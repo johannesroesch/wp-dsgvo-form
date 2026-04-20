@@ -129,6 +129,11 @@ class FormBlock {
 			return $this->admin_notice( __( 'Kein Formular ausgewaehlt.', 'wp-dsgvo-form' ) );
 		}
 
+		// REC-01: Exclude pages with forms from page cache (CAPTCHA tokens + nonces).
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+
 		$form = Form::find( $form_id );
 
 		if ( $form === null ) {
@@ -165,7 +170,7 @@ class FormBlock {
 		}
 
 		// Determine locale for consent text (DPO-FINDING-13).
-		$locale = $this->get_current_locale();
+		$locale = $this->get_current_locale( $form );
 
 		// DPO MUSS-3: Fail-Closed — do not render form if no ConsentVersion for current locale.
 		$consent_version = null;
@@ -273,7 +278,8 @@ class FormBlock {
 	 */
 	private function render_field( Field $field ): string {
 		if ( $field->field_type === 'static' ) {
-			return '<div class="dsgvo-form__static ' . esc_attr( $field->css_class ) . '">'
+			return '<div class="dsgvo-form__static dsgvo-form__field--width-' . esc_attr( $field->width )
+				. ' ' . esc_attr( $field->css_class ) . '">'
 				. wp_kses_post( $field->static_content )
 				. '</div>';
 		}
@@ -286,6 +292,7 @@ class FormBlock {
 		$field_id = 'dsgvo-field-' . esc_attr( (string) $field->id );
 
 		$html  = '<div class="dsgvo-form__field dsgvo-form__field--' . esc_attr( $field->field_type )
+			. ' dsgvo-form__field--width-' . esc_attr( $field->width )
 			. ' ' . esc_attr( $field->css_class ) . '">';
 		$html .= '<label for="' . $field_id . '" id="' . $field_id . '-label" class="dsgvo-form__label">'
 			. esc_html( $field->label ) . $required_mark . '</label>';
@@ -514,11 +521,19 @@ class FormBlock {
 	/**
 	 * Returns the current locale (language detection priority).
 	 *
-	 * Priority: WP Locale of current page → site default.
+	 * Priority: Form locale_override → WP determine_locale().
+	 * NO automatic fallback to 'de_DE' — this is intentional (ARCH-LOCALE-01).
+	 * If the WP locale has no ConsentVersion, DPO MUSS-3 (fail-closed) prevents
+	 * rendering. A wrong-language consent text violates Art. 7 Abs. 1 DSGVO.
 	 *
+	 * @param Form $form The form configuration.
 	 * @return string Locale string (e.g. de_DE).
 	 */
-	private function get_current_locale(): string {
+	private function get_current_locale( Form $form ): string {
+		if ( $form->locale_override !== null && $form->locale_override !== '' ) {
+			return $form->locale_override;
+		}
+
 		return determine_locale();
 	}
 

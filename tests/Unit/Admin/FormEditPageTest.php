@@ -365,6 +365,7 @@ class FormEditPageTest extends TestCase {
 			'placeholders' => array( '' ),
 			'required'     => array(),
 			'css_classes'  => array( '' ),
+			'widths'       => array( 'full' ),
 			'options'      => array( '' ),
 			'static'       => array( '' ),
 			'file_config'  => array(
@@ -733,6 +734,7 @@ class FormEditPageTest extends TestCase {
 			'placeholders' => array( 'Ihr Name' ),
 			'required'     => array(),
 			'css_classes'  => array( '' ),
+			'widths'       => array( 'full' ),
 			'options'      => array( '' ),
 			'static'       => array( '' ),
 			'file_config'  => array(
@@ -1169,5 +1171,295 @@ class FormEditPageTest extends TestCase {
 		$output = $this->render_field_row_output( 0, $field );
 
 		$this->assertStringContainsString( 'checked="checked"', $output );
+	}
+
+	// ──────────────────────────────────────────────────
+	// build_field_from_post() — Width POST handling (FEP-01, Task #347)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 */
+	public function test_build_field_from_post_sets_width_from_post_data(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'wp_kses_post' )->returnArg();
+		Functions\when( 'sanitize_html_class' )->returnArg();
+
+		$post_data = array(
+			'ids'          => array( 0 ),
+			'types'        => array( 'text' ),
+			'labels'       => array( 'Vorname' ),
+			'names'        => array( 'vorname' ),
+			'placeholders' => array( '' ),
+			'required'     => array(),
+			'css_classes'  => array( '' ),
+			'widths'       => array( 'half' ),
+			'options'      => array( '' ),
+			'static'       => array( '' ),
+			'file_config'  => array(
+				'allowed_types' => array( '' ),
+				'max_size'      => array( '5' ),
+			),
+		);
+
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'build_field_from_post' );
+		$method->setAccessible( true );
+
+		$field = $method->invoke( $page, 42, 0, $post_data );
+
+		$this->assertNotNull( $field );
+		$this->assertSame( 'half', $field->width );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_build_field_from_post_sets_third_width(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'wp_kses_post' )->returnArg();
+		Functions\when( 'sanitize_html_class' )->returnArg();
+
+		$post_data = array(
+			'ids'          => array( 0 ),
+			'types'        => array( 'email' ),
+			'labels'       => array( 'E-Mail' ),
+			'names'        => array( 'email' ),
+			'placeholders' => array( '' ),
+			'required'     => array(),
+			'css_classes'  => array( '' ),
+			'widths'       => array( 'third' ),
+			'options'      => array( '' ),
+			'static'       => array( '' ),
+			'file_config'  => array(
+				'allowed_types' => array( '' ),
+				'max_size'      => array( '5' ),
+			),
+		);
+
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'build_field_from_post' );
+		$method->setAccessible( true );
+
+		$field = $method->invoke( $page, 42, 0, $post_data );
+
+		$this->assertNotNull( $field );
+		$this->assertSame( 'third', $field->width );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_build_field_from_post_falls_back_to_full_for_invalid_width(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'wp_kses_post' )->returnArg();
+		Functions\when( 'sanitize_html_class' )->returnArg();
+
+		$post_data = array(
+			'ids'          => array( 0 ),
+			'types'        => array( 'text' ),
+			'labels'       => array( 'Feld' ),
+			'names'        => array( 'feld' ),
+			'placeholders' => array( '' ),
+			'required'     => array(),
+			'css_classes'  => array( '' ),
+			'widths'       => array( 'quarter' ),
+			'options'      => array( '' ),
+			'static'       => array( '' ),
+			'file_config'  => array(
+				'allowed_types' => array( '' ),
+				'max_size'      => array( '5' ),
+			),
+		);
+
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'build_field_from_post' );
+		$method->setAccessible( true );
+
+		$field = $method->invoke( $page, 42, 0, $post_data );
+
+		$this->assertNotNull( $field );
+		$this->assertSame( 'full', $field->width, 'Invalid width "quarter" must fall back to "full".' );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_build_field_from_post_falls_back_to_full_for_empty_string_width(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'wp_kses_post' )->returnArg();
+		Functions\when( 'sanitize_html_class' )->returnArg();
+
+		$post_data = array(
+			'ids'          => array( 0 ),
+			'types'        => array( 'text' ),
+			'labels'       => array( 'Feld' ),
+			'names'        => array( 'feld' ),
+			'placeholders' => array( '' ),
+			'required'     => array(),
+			'css_classes'  => array( '' ),
+			'widths'       => array( '' ),
+			'options'      => array( '' ),
+			'static'       => array( '' ),
+			'file_config'  => array(
+				'allowed_types' => array( '' ),
+				'max_size'      => array( '5' ),
+			),
+		);
+
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'build_field_from_post' );
+		$method->setAccessible( true );
+
+		$field = $method->invoke( $page, 42, 0, $post_data );
+
+		$this->assertNotNull( $field );
+		$this->assertSame( 'full', $field->width, 'Empty string width must fall back to "full".' );
+	}
+
+	// ──────────────────────────────────────────────────
+	// build_form_from_post() — locale_override (FEP-03, Task #347)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 */
+	public function test_build_form_from_post_locale_mode_auto_sets_null(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'sanitize_textarea_field' )->returnArg();
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$_POST['form_id']         = '0';
+		$_POST['title']           = 'Kontakt';
+		$_POST['description']     = '';
+		$_POST['success_message'] = 'Danke';
+		$_POST['email_subject']   = '';
+		$_POST['email_template']  = '';
+		$_POST['legal_basis']     = 'consent';
+		$_POST['purpose']         = '';
+		$_POST['retention_days']  = '90';
+		$_POST['locale_mode']     = 'auto';
+
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'build_form_from_post' );
+		$method->setAccessible( true );
+
+		$form = $method->invoke( $page, 0 );
+
+		$this->assertNull( $form->locale_override, 'locale_mode=auto must set locale_override to null.' );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_build_form_from_post_locale_mode_fixed_stores_value(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'sanitize_textarea_field' )->returnArg();
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$_POST['form_id']          = '0';
+		$_POST['title']            = 'Kontakt';
+		$_POST['description']      = '';
+		$_POST['success_message']  = 'Danke';
+		$_POST['email_subject']    = '';
+		$_POST['email_template']   = '';
+		$_POST['legal_basis']      = 'consent';
+		$_POST['purpose']          = '';
+		$_POST['retention_days']   = '90';
+		$_POST['locale_mode']      = 'fixed';
+		$_POST['locale_override']  = 'en_US';
+
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'build_form_from_post' );
+		$method->setAccessible( true );
+
+		$form = $method->invoke( $page, 0 );
+
+		$this->assertSame( 'en_US', $form->locale_override );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_build_form_from_post_locale_mode_fixed_with_empty_value_sets_null(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'sanitize_textarea_field' )->returnArg();
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$_POST['form_id']          = '0';
+		$_POST['title']            = 'Kontakt';
+		$_POST['description']      = '';
+		$_POST['success_message']  = 'Danke';
+		$_POST['email_subject']    = '';
+		$_POST['email_template']   = '';
+		$_POST['legal_basis']      = 'consent';
+		$_POST['purpose']          = '';
+		$_POST['retention_days']   = '90';
+		$_POST['locale_mode']      = 'fixed';
+		$_POST['locale_override']  = '';
+
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'build_form_from_post' );
+		$method->setAccessible( true );
+
+		$form = $method->invoke( $page, 0 );
+
+		$this->assertNull( $form->locale_override, 'Fixed mode with empty value must set locale_override to null.' );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_build_form_from_post_missing_locale_mode_defaults_to_auto(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'sanitize_textarea_field' )->returnArg();
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$_POST['form_id']         = '0';
+		$_POST['title']           = 'Kontakt';
+		$_POST['description']     = '';
+		$_POST['success_message'] = 'Danke';
+		$_POST['email_subject']   = '';
+		$_POST['email_template']  = '';
+		$_POST['legal_basis']     = 'consent';
+		$_POST['purpose']         = '';
+		$_POST['retention_days']  = '90';
+		// No locale_mode set at all.
+
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'build_form_from_post' );
+		$method->setAccessible( true );
+
+		$form = $method->invoke( $page, 0 );
+
+		$this->assertNull( $form->locale_override, 'Missing locale_mode must default to null (auto).' );
 	}
 }

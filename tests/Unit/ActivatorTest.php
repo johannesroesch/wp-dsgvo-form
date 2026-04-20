@@ -434,4 +434,99 @@ class ActivatorTest extends TestCase {
 		$this->assertCount( 7, $tables_created );
 		$this->assertContains( 'wp_dsgvo_consent_versions', $tables_created );
 	}
+
+	// ──────────────────────────────────────────────────
+	// Fields table — width column (FEP-01, Task #347)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * Fields table must include the width column with DEFAULT 'full'.
+	 */
+	public function test_fields_table_has_width_column(): void {
+		$this->stub_activation_deps( array( 'dbDelta' ) );
+
+		$fields_sql = '';
+
+		Functions\expect( 'dbDelta' )
+			->andReturnUsing(
+				function ( string $sql ) use ( &$fields_sql ): array {
+					if ( str_contains( $sql, 'dsgvo_fields' ) ) {
+						$fields_sql = $sql;
+					}
+					return array();
+				}
+			);
+
+		Activator::activate();
+
+		$this->assertStringContainsString( 'width', $fields_sql );
+		$this->assertStringContainsString( "DEFAULT 'full'", $fields_sql );
+	}
+
+	/**
+	 * @test
+	 * Fields table schema via maybe_upgrade also includes width column.
+	 */
+	public function test_maybe_upgrade_fields_table_has_width_column(): void {
+		$this->stub_activation_deps( array( 'dbDelta', 'get_option', 'update_option' ) );
+
+		Functions\expect( 'get_option' )
+			->with( 'wpdsgvo_db_version', '0' )
+			->andReturn( '0' );
+
+		$fields_sql = '';
+
+		Functions\expect( 'dbDelta' )
+			->andReturnUsing(
+				function ( string $sql ) use ( &$fields_sql ): array {
+					if ( str_contains( $sql, 'dsgvo_fields' ) ) {
+						$fields_sql = $sql;
+					}
+					return array();
+				}
+			);
+
+		$GLOBALS['wpdb']->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$GLOBALS['wpdb']->shouldReceive( 'query' )->andReturn( 0 );
+
+		Functions\expect( 'update_option' )
+			->once()
+			->with( 'wpdsgvo_db_version', WPDSGVO_VERSION )
+			->andReturn( true );
+
+		Activator::maybe_upgrade();
+
+		$this->assertStringContainsString( 'width', $fields_sql );
+		$this->assertStringContainsString( "DEFAULT 'full'", $fields_sql );
+	}
+
+	// ──────────────────────────────────────────────────
+	// Forms table — locale_override column (FEP-03, Task #347)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * Forms table must include the locale_override column.
+	 */
+	public function test_forms_table_has_locale_override_column(): void {
+		$this->stub_activation_deps( array( 'dbDelta' ) );
+
+		$forms_sql = '';
+
+		Functions\expect( 'dbDelta' )
+			->andReturnUsing(
+				function ( string $sql ) use ( &$forms_sql ): array {
+					if ( str_contains( $sql, 'dsgvo_forms' ) && ! str_contains( $sql, 'form_recipients' ) ) {
+						$forms_sql = $sql;
+					}
+					return array();
+				}
+			);
+
+		Activator::activate();
+
+		$this->assertStringContainsString( 'locale_override', $forms_sql );
+		$this->assertStringContainsString( 'DEFAULT NULL', $forms_sql );
+	}
 }
