@@ -21,7 +21,7 @@ declare(strict_types=1);
 defined( 'ABSPATH' ) || exit;
 
 define( 'WPDSGVO_VERSION', '1.0.6' );
-define( 'WPDSGVO_CAPTCHA_SRI', 'sha384-N8O+cBn6qc2cXVhRAAZQyZppvk6NGNzKZeL7NYkPcwhZ1Pp5fsfAHgOY07td+/NM' );
+define( 'WPDSGVO_CAPTCHA_SRI', 'sha384-vdnF+DWZHDg9l97VaOzx4lwxRcInsl09kH0DrPLCp2HQSrq8wLLjVx4zQ+mjwgZU' );
 define( 'WPDSGVO_PLUGIN_FILE', __FILE__ );
 define( 'WPDSGVO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPDSGVO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
