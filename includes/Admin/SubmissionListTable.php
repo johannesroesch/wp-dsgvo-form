@@ -83,7 +83,7 @@ class SubmissionListTable extends \WP_List_Table {
 	 *
 	 * @var array<int, string>
 	 */
-	private array $form_title_map = [];
+	private array $form_title_map = array();
 
 	/**
 	 * Constructor.
@@ -229,7 +229,7 @@ class SubmissionListTable extends \WP_List_Table {
 	protected function column_form_title( $item ): string {
 		$title = $this->form_title_map[ $item->form_id ] ?? null;
 
-		if ( $title === null ) {
+		if ( null === $title ) {
 			return sprintf(
 				'<em>%s (#%d)</em>',
 				esc_html__( 'Unbekannt', 'wp-dsgvo-form' ),
@@ -468,7 +468,7 @@ class SubmissionListTable extends \WP_List_Table {
 
 		check_admin_referer( 'bulk-dsgvo-submissions' );
 
-		$ids     = array_map( 'absint', $_POST['submission_ids'] ?? [] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$ids     = array_map( 'absint', $_POST['submission_ids'] ?? array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$user_id = get_current_user_id();
 
 		foreach ( $ids as $id ) {
@@ -488,7 +488,7 @@ class SubmissionListTable extends \WP_List_Table {
 				$submission = Submission::find( $id );
 
 				// LEGAL-F01 / SEC-DSGVO-13: Skip restricted submissions (Art. 18 DSGVO).
-				if ( $submission !== null && ! $submission->is_restricted ) {
+				if ( null !== $submission && ! $submission->is_restricted ) {
 					$this->audit_logger->log( $user_id, 'delete', $id, $submission->form_id );
 
 					// SEC-FILE-09: Cascading deletion (files → DB) via SubmissionDeleter.
@@ -504,7 +504,7 @@ class SubmissionListTable extends \WP_List_Table {
 	 * @return Form[]
 	 */
 	private function get_accessible_forms(): array {
-		if ( $this->cached_forms !== null ) {
+		if ( null !== $this->cached_forms ) {
 			return $this->cached_forms;
 		}
 

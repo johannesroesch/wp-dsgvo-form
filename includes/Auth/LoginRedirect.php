@@ -39,13 +39,13 @@ class LoginRedirect {
 	 *
 	 * @var string[]
 	 */
-	private const ALLOWED_PAGES = [
+	private const ALLOWED_PAGES = array(
 		'dsgvo-form',
 		'dsgvo-form-submissions',
 		'dsgvo-form-recipients',
 		'dsgvo-form-settings',
 		'dsgvo-form-acknowledge',
-	];
+	);
 
 	/**
 	 * Auth cookie expiration for plugin roles: 2 hours in seconds.
@@ -72,19 +72,19 @@ class LoginRedirect {
 	 */
 	public function register_hooks(): void {
 		// SEC-AUTH-06: Redirect after login.
-		add_filter( 'login_redirect', [ $this, 'handle_login_redirect' ], 10, 3 );
+		add_filter( 'login_redirect', array( $this, 'handle_login_redirect' ), 10, 3 );
 
 		// SEC-AUTH-12: Shorter cookie expiration for plugin roles.
-		add_filter( 'auth_cookie_expiration', [ $this, 'handle_cookie_expiration' ], 10, 3 );
+		add_filter( 'auth_cookie_expiration', array( $this, 'handle_cookie_expiration' ), 10, 3 );
 
 		// SEC-AUTH-07: Remove admin menu items.
-		add_action( 'admin_menu', [ $this, 'restrict_admin_menu' ], 999 );
+		add_action( 'admin_menu', array( $this, 'restrict_admin_menu' ), 999 );
 
 		// SEC-AUTH-08: Restrict admin bar.
-		add_action( 'admin_bar_menu', [ $this, 'restrict_admin_bar' ], 999 );
+		add_action( 'admin_bar_menu', array( $this, 'restrict_admin_bar' ), 999 );
 
 		// SEC-AUTH-09: Block direct access to unauthorized admin pages.
-		add_action( 'current_screen', [ $this, 'block_unauthorized_access' ] );
+		add_action( 'current_screen', array( $this, 'block_unauthorized_access' ) );
 	}
 
 	/**
@@ -143,7 +143,7 @@ class LoginRedirect {
 		}
 
 		// Standard WordPress top-level menu pages to remove.
-		$pages_to_remove = [
+		$pages_to_remove = array(
 			'index.php',                // Dashboard
 			'edit.php',                 // Posts
 			'upload.php',               // Media
@@ -155,7 +155,7 @@ class LoginRedirect {
 			'tools.php',              // Tools
 			'options-general.php',    // Settings
 			'profile.php',           // Profile (top-level)
-		];
+		);
 
 		foreach ( $pages_to_remove as $page ) {
 			remove_menu_page( $page );
@@ -176,7 +176,7 @@ class LoginRedirect {
 		}
 
 		// Remove standard admin bar nodes.
-		$nodes_to_remove = [
+		$nodes_to_remove = array(
 			'wp-logo',          // WordPress logo + links
 			'site-name',        // Site name with dashboard link
 			'comments',         // Comments link
@@ -186,7 +186,7 @@ class LoginRedirect {
 			'customize',        // Customizer
 			'updates',          // Update notifications
 			'my-sites',         // My Sites (multisite)
-		];
+		);
 
 		foreach ( $nodes_to_remove as $node ) {
 			$wp_admin_bar->remove_node( $node );

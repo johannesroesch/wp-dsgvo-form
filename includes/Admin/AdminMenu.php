@@ -258,5 +258,4 @@ class AdminMenu {
 	public function render_subject_search_page(): void {
 		( new DataSubjectSearchPage( $this->container->encryption(), $this->container->audit_logger() ) )->render();
 	}
-
 }

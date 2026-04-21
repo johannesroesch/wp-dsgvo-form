@@ -60,7 +60,7 @@ class IpResolver {
 	public function resolve(): ?string {
 		$remote_addr = $this->get_remote_addr();
 
-		if ( $remote_addr === null ) {
+		if ( null === $remote_addr ) {
 			return null;
 		}
 
@@ -166,12 +166,12 @@ class IpResolver {
 		}
 
 		[ $subnet, $bits ] = explode( '/', $cidr, 2 );
-		$bits = (int) $bits;
+		$bits              = (int) $bits;
 
 		$ip_bin     = inet_pton( $ip );
 		$subnet_bin = inet_pton( $subnet );
 
-		if ( $ip_bin === false || $subnet_bin === false ) {
+		if ( false === $ip_bin || false === $subnet_bin ) {
 			return false;
 		}
 
@@ -183,7 +183,7 @@ class IpResolver {
 		// Build bitmask.
 		$mask = str_repeat( "\xff", (int) ( $bits / 8 ) );
 
-		if ( $bits % 8 !== 0 ) {
+		if ( 0 !== $bits % 8 ) {
 			$mask .= chr( 0xff << ( 8 - ( $bits % 8 ) ) & 0xff );
 		}
 
@@ -200,7 +200,7 @@ class IpResolver {
 	 * @return string[]
 	 */
 	private function get_trusted_proxies(): array {
-		if ( $this->trusted_proxies !== null ) {
+		if ( null !== $this->trusted_proxies ) {
 			return $this->trusted_proxies;
 		}
 
@@ -212,30 +212,33 @@ class IpResolver {
 		}
 
 		// 2. Fallback to wp_options.
-		if ( $raw === '' ) {
+		if ( '' === $raw ) {
 			$raw = (string) get_option( self::TRUSTED_PROXIES_OPTION, '' );
 		}
 
-		if ( $raw === '' ) {
-			$this->trusted_proxies = [];
+		if ( '' === $raw ) {
+			$this->trusted_proxies = array();
 			return $this->trusted_proxies;
 		}
 
 		$entries = array_map( 'trim', explode( ',', $raw ) );
-		$entries = array_filter( $entries, static function ( string $entry ): bool {
-			// Validate: must be a valid IP or CIDR.
-			if ( str_contains( $entry, '/' ) ) {
-				[ $subnet, $bits ] = explode( '/', $entry, 2 );
-				if ( filter_var( $subnet, FILTER_VALIDATE_IP ) === false || ! ctype_digit( $bits ) ) {
-					return false;
+		$entries = array_filter(
+			$entries,
+			static function ( string $entry ): bool {
+				// Validate: must be a valid IP or CIDR.
+				if ( str_contains( $entry, '/' ) ) {
+					[ $subnet, $bits ] = explode( '/', $entry, 2 );
+					if ( filter_var( $subnet, FILTER_VALIDATE_IP ) === false || ! ctype_digit( $bits ) ) {
+						return false;
+					}
+					$bits_int = (int) $bits;
+					$max_bits = filter_var( $subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) !== false ? 32 : 128;
+					return $bits_int >= 0 && $bits_int <= $max_bits;
 				}
-				$bits_int = (int) $bits;
-				$max_bits = filter_var( $subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) !== false ? 32 : 128;
-				return $bits_int >= 0 && $bits_int <= $max_bits;
-			}
 
-			return filter_var( $entry, FILTER_VALIDATE_IP ) !== false;
-		} );
+				return filter_var( $entry, FILTER_VALIDATE_IP ) !== false;
+			}
+		);
 
 		$this->trusted_proxies = array_values( $entries );
 

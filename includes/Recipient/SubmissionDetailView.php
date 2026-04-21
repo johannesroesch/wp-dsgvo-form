@@ -72,7 +72,7 @@ class SubmissionDetailView {
 
 		$submission = Submission::find( $submission_id );
 
-		if ( $submission === null ) {
+		if ( null === $submission ) {
 			$this->render_error( __( 'Einsendung nicht gefunden.', 'wp-dsgvo-form' ) );
 			return;
 		}
@@ -88,7 +88,7 @@ class SubmissionDetailView {
 
 		$form = Form::find( $submission->form_id );
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			$this->render_error( __( 'Zugehoeriges Formular nicht gefunden.', 'wp-dsgvo-form' ) );
 			return;
 		}
@@ -135,7 +135,7 @@ class SubmissionDetailView {
 			Submission::set_restricted( $submission_id, true );
 
 			// SEC-AUDIT-01: Log restrict action (Art. 18 DSGVO).
-			$submission   = Submission::find( $submission_id );
+			$submission = Submission::find( $submission_id );
 			$this->audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'restricted' );
 
 			$this->action_performed = true;
@@ -145,7 +145,7 @@ class SubmissionDetailView {
 			Submission::set_restricted( $submission_id, false );
 
 			// SEC-AUDIT-01: Log unrestrict action (Art. 18 DSGVO).
-			$submission   = Submission::find( $submission_id );
+			$submission = Submission::find( $submission_id );
 			$this->audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'unrestricted' );
 
 			$this->action_performed = true;
@@ -237,7 +237,7 @@ class SubmissionDetailView {
 				?>
 			</div>
 			<div style="padding:1rem;">
-				<?php if ( $data === null ) : ?>
+				<?php if ( null === $data ) : ?>
 					<div style="padding:0.75rem 1rem;background:#f8d7da;border:1px solid #dc3545;border-radius:4px;color:#721c24;">
 						<?php esc_html_e( 'Entschluesselung fehlgeschlagen. Pruefen Sie den Encryption Key.', 'wp-dsgvo-form' ); ?>
 					</div>
@@ -245,9 +245,11 @@ class SubmissionDetailView {
 					<table style="width:100%;border-collapse:collapse;">
 						<tbody>
 							<?php foreach ( $fields as $field ) : ?>
-								<?php if ( 'static' === $field->field_type ) {
+								<?php
+								if ( 'static' === $field->field_type ) {
 									continue;
-								} ?>
+								}
+								?>
 								<tr style="border-bottom:1px solid #eee;">
 									<th style="padding:0.75rem 1rem;text-align:left;width:30%;color:#555;font-weight:600;vertical-align:top;">
 										<?php echo esc_html( $field->label ); ?>
@@ -371,7 +373,7 @@ class SubmissionDetailView {
 								$consent_version_record = ConsentVersion::find( $submission->consent_version_id );
 							}
 							?>
-							<?php if ( $consent_version_record !== null ) : ?>
+							<?php if ( null !== $consent_version_record ) : ?>
 								<tr style="border-bottom:1px solid #eee;">
 									<th style="padding:0.5rem 1rem;text-align:left;color:#555;vertical-align:top;">
 										<?php esc_html_e( 'Einwilligungstext', 'wp-dsgvo-form' ); ?>

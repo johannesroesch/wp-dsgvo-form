@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Models;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Encryption\KeyManager;
 
@@ -21,25 +21,25 @@ class Form {
 	private const CACHE_PREFIX = 'dsgvo_form_';
 	private const CACHE_TTL    = 3600;
 
-	public int $id               = 0;
-	public string $title         = '';
-	public string $slug          = '';
-	public string $description   = '';
-	public string $success_message = '';
-	public string $email_subject = '';
-	public string $email_template = '';
-	public bool $is_active       = true;
-	public bool $captcha_enabled = true;
+	public int $id                  = 0;
+	public string $title            = '';
+	public string $slug             = '';
+	public string $description      = '';
+	public string $success_message  = '';
+	public string $email_subject    = '';
+	public string $email_template   = '';
+	public bool $is_active          = true;
+	public bool $captcha_enabled    = true;
 	public ?string $locale_override = null;
-	public int $retention_days   = 90;
-	public string $encrypted_dek = '';
-	public string $dek_iv        = '';
-	public string $legal_basis   = 'consent';
-	public string $purpose       = '';
-	public string $consent_text  = '';
-	public int $consent_version  = 1;
-	public string $created_at    = '';
-	public string $updated_at    = '';
+	public int $retention_days      = 90;
+	public string $encrypted_dek    = '';
+	public string $dek_iv           = '';
+	public string $legal_basis      = 'consent';
+	public string $purpose          = '';
+	public string $consent_text     = '';
+	public int $consent_version     = 1;
+	public string $created_at       = '';
+	public string $updated_at       = '';
 
 	/**
 	 * Returns the full table name with WordPress prefix.
@@ -68,7 +68,7 @@ class Form {
 			ARRAY_A
 		);
 
-		if ( $row === null ) {
+		if ( null === $row ) {
 			return null;
 		}
 
@@ -90,7 +90,7 @@ class Form {
 			ARRAY_A
 		);
 
-		if ( $row === null ) {
+		if ( null === $row ) {
 			return null;
 		}
 
@@ -125,7 +125,7 @@ class Form {
 			);
 		}
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -144,16 +144,16 @@ class Form {
 	public function save( ?KeyManager $key_manager = null ): int {
 		$this->validate();
 
-		if ( $this->slug === '' ) {
+		if ( '' === $this->slug ) {
 			$this->slug = sanitize_title( $this->title );
 		}
 
 		// Ensure slug uniqueness (append suffix if needed).
-		if ( $this->id === 0 ) {
+		if ( 0 === $this->id ) {
 			$this->slug = self::ensure_unique_slug( $this->slug );
 		}
 
-		if ( $this->id === 0 ) {
+		if ( 0 === $this->id ) {
 			return $this->insert_record( $key_manager );
 		}
 
@@ -182,7 +182,7 @@ class Form {
 				)
 			);
 
-			if ( $existing === null ) {
+			if ( null === $existing ) {
 				return $slug;
 			}
 
@@ -207,11 +207,11 @@ class Form {
 	public static function delete( int $id ): bool {
 		global $wpdb;
 		$table  = self::get_table_name();
-		$result = $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
+		$result = $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
 
 		self::invalidate_cache( $id );
 
-		return $result !== false;
+		return false !== $result;
 	}
 
 	/**
@@ -240,7 +240,7 @@ class Form {
 			);
 		}
 
-		$valid_bases = [ 'consent', 'contract' ];
+		$valid_bases = array( 'consent', 'contract' );
 		if ( ! in_array( $this->legal_basis, $valid_bases, true ) ) {
 			throw new \RuntimeException(
 				'Legal basis must be "consent" or "contract" (SEC-DSGVO-14).'
@@ -248,7 +248,7 @@ class Form {
 		}
 
 		// LEGAL-I18N-04: Validate locale_override against supported locales.
-		if ( $this->locale_override !== null && $this->locale_override !== '' ) {
+		if ( null !== $this->locale_override && '' !== $this->locale_override ) {
 			$supported = apply_filters( 'wpdsgvo_supported_locales', ConsentVersion::SUPPORTED_LOCALES );
 
 			if ( ! array_key_exists( $this->locale_override, $supported ) ) {
@@ -268,7 +268,7 @@ class Form {
 	 * @security-critical Generates per-form DEK via KeyManager (Architecture §3.2)
 	 */
 	private function insert_record( ?KeyManager $key_manager ): int {
-		if ( $key_manager === null ) {
+		if ( null === $key_manager ) {
 			throw new \RuntimeException(
 				'KeyManager is required when creating a new form (DEK generation).'
 			);
@@ -284,13 +284,13 @@ class Form {
 		$this->dek_iv          = $encrypted['dek_iv'];
 		$this->consent_version = 1;
 
-		$data   = $this->to_db_array();
+		$data                  = $this->to_db_array();
 		$data['encrypted_dek'] = $this->encrypted_dek;
 		$data['dek_iv']        = $this->dek_iv;
 
 		$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
-		if ( $wpdb->insert_id === 0 ) {
+		if ( 0 === $wpdb->insert_id ) {
 			throw new \RuntimeException( 'Failed to insert form: ' . esc_html( $wpdb->last_error ) );
 		}
 
@@ -319,7 +319,7 @@ class Form {
 			ARRAY_A
 		);
 
-		if ( $existing_row !== null && $existing_row['consent_text'] !== $this->consent_text ) {
+		if ( null !== $existing_row && $existing_row['consent_text'] !== $this->consent_text ) {
 			$this->consent_version = (int) $existing_row['consent_version'] + 1;
 		}
 
@@ -328,9 +328,9 @@ class Form {
 		$wpdb->update(
 			$table,
 			$data,
-			[ 'id' => $this->id ],
+			array( 'id' => $this->id ),
 			self::get_formats( $data ),
-			[ '%d' ]
+			array( '%d' )
 		);
 
 		self::invalidate_cache( $this->id );
@@ -376,7 +376,7 @@ class Form {
 	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
-		$data = [
+		$data = array(
 			'title'           => $this->title,
 			'slug'            => $this->slug,
 			'description'     => $this->description,
@@ -390,9 +390,9 @@ class Form {
 			'purpose'         => $this->purpose,
 			'consent_text'    => $this->consent_text,
 			'consent_version' => $this->consent_version,
-		];
+		);
 
-		if ( $this->locale_override !== null ) {
+		if ( null !== $this->locale_override ) {
 			$data['locale_override'] = $this->locale_override;
 		}
 
@@ -406,7 +406,7 @@ class Form {
 	 * @return string[]
 	 */
 	private static function get_formats( array $data ): array {
-		$formats = [];
+		$formats = array();
 		foreach ( $data as $value ) {
 			$formats[] = is_int( $value ) ? '%d' : '%s';
 		}

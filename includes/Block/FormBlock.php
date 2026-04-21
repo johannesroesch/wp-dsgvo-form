@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Block;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Models\ConsentVersion;
 use WpDsgvoForm\Models\Form;
@@ -30,19 +30,19 @@ class FormBlock {
 
 		register_block_type(
 			plugin_dir_path( __DIR__ ) . '../build/block/block.json',
-			[
-				'render_callback' => [ $this, 'render' ],
-			]
+			array(
+				'render_callback' => array( $this, 'render' ),
+			)
 		);
 
 		// Shortcode: [dsgvo_form id="123"]
-		add_shortcode( 'dsgvo_form', [ $this, 'shortcode_handler' ] );
+		add_shortcode( 'dsgvo_form', array( $this, 'shortcode_handler' ) );
 
 		// Provide forms list for the editor REST API.
-		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
+		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 
 		// Localize editor script with admin data.
-		add_action( 'enqueue_block_editor_assets', [ $this, 'localize_editor_script' ] );
+		add_action( 'enqueue_block_editor_assets', array( $this, 'localize_editor_script' ) );
 	}
 
 	/**
@@ -54,9 +54,9 @@ class FormBlock {
 	 * @return string Rendered form HTML.
 	 */
 	public function shortcode_handler( $atts ): string {
-		$atts = shortcode_atts( [ 'id' => 0 ], $atts, 'dsgvo_form' );
+		$atts = shortcode_atts( array( 'id' => 0 ), $atts, 'dsgvo_form' );
 
-		return $this->render( [ 'formId' => (int) $atts['id'] ] );
+		return $this->render( array( 'formId' => (int) $atts['id'] ) );
 	}
 
 	/**
@@ -66,13 +66,13 @@ class FormBlock {
 		register_rest_route(
 			'dsgvo-form/v1',
 			'/forms',
-			[
+			array(
 				'methods'             => 'GET',
-				'callback'            => [ $this, 'rest_get_forms' ],
+				'callback'            => array( $this, 'rest_get_forms' ),
 				'permission_callback' => function () {
 					return current_user_can( 'edit_posts' );
 				},
-			]
+			)
 		);
 	}
 
@@ -86,11 +86,11 @@ class FormBlock {
 
 		$data = array_map(
 			static function ( Form $form ): array {
-				return [
+				return array(
 					'id'    => $form->id,
 					'title' => $form->title,
 					'slug'  => $form->slug,
-				];
+				);
 			},
 			$forms
 		);
@@ -104,9 +104,11 @@ class FormBlock {
 	public function localize_editor_script(): void {
 		wp_add_inline_script(
 			'dsgvo-form-form-editor-script',
-			'window.dsgvoFormAdmin = ' . wp_json_encode( [
-				'adminUrl' => admin_url(),
-			] ) . ';',
+			'window.dsgvoFormAdmin = ' . wp_json_encode(
+				array(
+					'adminUrl' => admin_url(),
+				)
+			) . ';',
 			'before'
 		);
 	}
@@ -136,7 +138,7 @@ class FormBlock {
 
 		$form = Form::find( $form_id );
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			return $this->admin_notice(
 				sprintf(
 					/* translators: %d: form ID */
@@ -174,10 +176,10 @@ class FormBlock {
 
 		// DPO MUSS-3: Fail-Closed — do not render form if no ConsentVersion for current locale.
 		$consent_version = null;
-		if ( $form->legal_basis === 'consent' ) {
+		if ( 'consent' === $form->legal_basis ) {
 			$consent_version = ConsentVersion::get_current_version( $form_id, $locale );
 
-			if ( $consent_version === null ) {
+			if ( null === $consent_version ) {
 				return $this->admin_notice(
 					sprintf(
 						/* translators: 1: form title, 2: locale string */
@@ -236,7 +238,7 @@ class FormBlock {
 		}
 
 		// Consent checkbox (if legal basis is consent).
-		if ( $form->legal_basis === 'consent' && $consent_version !== null ) {
+		if ( 'consent' === $form->legal_basis && null !== $consent_version ) {
 			$html .= $this->render_consent_checkbox( $form, $consent_version );
 		}
 
@@ -277,7 +279,7 @@ class FormBlock {
 	 * @return string Field HTML.
 	 */
 	private function render_field( Field $field ): string {
-		if ( $field->field_type === 'static' ) {
+		if ( 'static' === $field->field_type ) {
 			return '<div class="dsgvo-form__static dsgvo-form__field--width-' . esc_attr( $field->width )
 				. ' ' . esc_attr( $field->css_class ) . '">'
 				. wp_kses_post( $field->static_content )
@@ -373,14 +375,14 @@ class FormBlock {
 				static fn( string $t ): string => '.' . ltrim( $t, '.' ),
 				(array) $config['allowed_types']
 			);
-			$accept = ' accept="' . esc_attr( implode( ',', $accept_values ) ) . '"';
+			$accept        = ' accept="' . esc_attr( implode( ',', $accept_values ) ) . '"';
 		}
 		return '<input type="file" id="' . $field_id . '" name="' . esc_attr( $field->name ) . '"'
 			. ' class="dsgvo-form__input dsgvo-form__file"' . $accept . $required_attr . '>';
 	}
 
 	private function render_text_input( Field $field, string $field_id, string $required_attr ): string {
-		$type = in_array( $field->field_type, [ 'text', 'email', 'tel', 'date' ], true )
+		$type = in_array( $field->field_type, array( 'text', 'email', 'tel', 'date' ), true )
 			? $field->field_type
 			: 'text';
 		return '<input type="' . esc_attr( $type ) . '" id="' . $field_id . '"'
@@ -432,27 +434,32 @@ class FormBlock {
 		wp_enqueue_script(
 			'dsgvo-captcha',
 			esc_url_raw( WPDSGVO_PLUGIN_URL . 'public/js/captcha.min.js' ),
-			[],
+			array(),
 			WPDSGVO_VERSION,
-			[
+			array(
 				'in_footer' => true,
 				'strategy'  => 'defer',
-			]
+			)
 		);
 
 		// SRI integrity attribute (SEC-SRI-01).
 		if ( defined( 'WPDSGVO_CAPTCHA_SRI' ) && WPDSGVO_CAPTCHA_SRI !== '' ) {
 			$sri_hash = WPDSGVO_CAPTCHA_SRI;
 
-			add_filter( 'script_loader_tag', function ( string $tag, string $handle ) use ( $sri_hash ): string {
-				if ( 'dsgvo-captcha' !== $handle ) {
+			add_filter(
+				'script_loader_tag',
+				function ( string $tag, string $handle ) use ( $sri_hash ): string {
+					if ( 'dsgvo-captcha' !== $handle ) {
+						return $tag;
+					}
+
+					$tag = str_replace( ' src=', ' integrity="' . esc_attr( $sri_hash ) . '" crossorigin="anonymous" src=', $tag );
+
 					return $tag;
-				}
-
-				$tag = str_replace( ' src=', ' integrity="' . esc_attr( $sri_hash ) . '" crossorigin="anonymous" src=', $tag );
-
-				return $tag;
-			}, 10, 2 );
+				},
+				10,
+				2
+			);
 		}
 	}
 
@@ -469,7 +476,7 @@ class FormBlock {
 		wp_enqueue_style(
 			'dsgvo-form-frontend',
 			WPDSGVO_PLUGIN_URL . 'public/css/dsgvo-form.css',
-			[],
+			array(),
 			WPDSGVO_VERSION
 		);
 	}
@@ -488,48 +495,53 @@ class FormBlock {
 		wp_enqueue_script(
 			'dsgvo-form-handler',
 			WPDSGVO_PLUGIN_URL . 'build/frontend/form-handler.js',
-			[],
+			array(),
 			WPDSGVO_VERSION,
-			[
+			array(
 				'in_footer' => true,
 				'strategy'  => 'defer',
-			]
+			)
 		);
 
 		// SRI integrity attribute (SEC-SOLL-04).
 		if ( defined( 'WPDSGVO_FORM_HANDLER_SRI' ) && WPDSGVO_FORM_HANDLER_SRI !== '' ) {
 			$handler_sri = WPDSGVO_FORM_HANDLER_SRI;
 
-			add_filter( 'script_loader_tag', function ( string $tag, string $handle ) use ( $handler_sri ): string {
-				if ( 'dsgvo-form-handler' !== $handle ) {
+			add_filter(
+				'script_loader_tag',
+				function ( string $tag, string $handle ) use ( $handler_sri ): string {
+					if ( 'dsgvo-form-handler' !== $handle ) {
+						return $tag;
+					}
+
+					$tag = str_replace( ' src=', ' integrity="' . esc_attr( $handler_sri ) . '" crossorigin="anonymous" src=', $tag );
+
 					return $tag;
-				}
-
-				$tag = str_replace( ' src=', ' integrity="' . esc_attr( $handler_sri ) . '" crossorigin="anonymous" src=', $tag );
-
-				return $tag;
-			}, 10, 2 );
+				},
+				10,
+				2
+			);
 		}
 
 		wp_localize_script(
 			'dsgvo-form-handler',
 			'dsgvoFormHandler',
-			[
+			array(
 				'restUrl' => esc_url_raw( rest_url( 'dsgvo-form/v1/submit' ) ),
-				'i18n'    => [
-					'required'         => __( 'Dieses Feld ist erforderlich.', 'wp-dsgvo-form' ),
-					'emailInvalid'     => __( 'Bitte geben Sie eine gueltige E-Mail-Adresse ein.', 'wp-dsgvo-form' ),
-					'telInvalid'       => __( 'Bitte geben Sie eine gueltige Telefonnummer ein.', 'wp-dsgvo-form' ),
-					'dateInvalid'      => __( 'Bitte geben Sie ein gueltiges Datum ein.', 'wp-dsgvo-form' ),
-					'consentRequired'  => __( 'Sie muessen der Datenverarbeitung zustimmen.', 'wp-dsgvo-form' ),
-					'captchaRequired'  => __( 'Bitte loesen Sie das CAPTCHA.', 'wp-dsgvo-form' ),
-					'fileTooLarge'     => __( 'Die Datei ist zu gross.', 'wp-dsgvo-form' ),
+				'i18n'    => array(
+					'required'           => __( 'Dieses Feld ist erforderlich.', 'wp-dsgvo-form' ),
+					'emailInvalid'       => __( 'Bitte geben Sie eine gueltige E-Mail-Adresse ein.', 'wp-dsgvo-form' ),
+					'telInvalid'         => __( 'Bitte geben Sie eine gueltige Telefonnummer ein.', 'wp-dsgvo-form' ),
+					'dateInvalid'        => __( 'Bitte geben Sie ein gueltiges Datum ein.', 'wp-dsgvo-form' ),
+					'consentRequired'    => __( 'Sie muessen der Datenverarbeitung zustimmen.', 'wp-dsgvo-form' ),
+					'captchaRequired'    => __( 'Bitte loesen Sie das CAPTCHA.', 'wp-dsgvo-form' ),
+					'fileTooLarge'       => __( 'Die Datei ist zu gross.', 'wp-dsgvo-form' ),
 					'fileTypeNotAllowed' => __( 'Dieser Dateityp ist nicht erlaubt.', 'wp-dsgvo-form' ),
-					'submitting'       => __( 'Wird gesendet...', 'wp-dsgvo-form' ),
-					'networkError'     => __( 'Netzwerkfehler. Bitte pruefen Sie Ihre Verbindung.', 'wp-dsgvo-form' ),
-					'genericError'     => __( 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.', 'wp-dsgvo-form' ),
-				],
-			]
+					'submitting'         => __( 'Wird gesendet...', 'wp-dsgvo-form' ),
+					'networkError'       => __( 'Netzwerkfehler. Bitte pruefen Sie Ihre Verbindung.', 'wp-dsgvo-form' ),
+					'genericError'       => __( 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.', 'wp-dsgvo-form' ),
+				),
+			)
 		);
 	}
 
@@ -545,7 +557,7 @@ class FormBlock {
 	 * @return string Locale string (e.g. de_DE).
 	 */
 	private function get_current_locale( Form $form ): string {
-		if ( $form->locale_override !== null && $form->locale_override !== '' ) {
+		if ( null !== $form->locale_override && '' !== $form->locale_override ) {
 			return $form->locale_override;
 		}
 
@@ -567,11 +579,11 @@ class FormBlock {
 			return '';
 		}
 
-		$styles = [
+		$styles = array(
 			'warning' => 'background:#fff3cd;border:1px solid #ffc107;color:#856404;',
 			'error'   => 'background:#f8d7da;border:1px solid #dc3545;color:#721c24;',
-		];
-		$style = $styles[ $type ] ?? $styles['warning'];
+		);
+		$style  = $styles[ $type ] ?? $styles['warning'];
 
 		return '<div class="wp-block-dsgvo-form-form dsgvo-form-admin-notice" style="'
 			. 'padding:1rem;' . $style . 'border-radius:4px;margin:1rem 0;'

@@ -45,7 +45,7 @@ class PrivacyPolicy {
 			return;
 		}
 
-		add_action( 'admin_init', [ $this, 'add_privacy_policy_content' ] );
+		add_action( 'admin_init', array( $this, 'add_privacy_policy_content' ) );
 	}
 
 	/**

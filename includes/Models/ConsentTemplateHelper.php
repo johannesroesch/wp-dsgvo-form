@@ -35,7 +35,7 @@ class ConsentTemplateHelper {
 	 *
 	 * @var array<string, string>
 	 */
-	private const TEMPLATES = [
+	private const TEMPLATES = array(
 		'de_DE' => '<!-- DRAFT -->Ich willige ein, dass meine Angaben durch {controller_name} zur Bearbeitung meiner Anfrage erhoben und verarbeitet werden. Die Daten werden nach Ablauf von {retention_days} Tagen geloescht. Hinweis: Sie koennen Ihre Einwilligung jederzeit fuer die Zukunft per E-Mail an {controller_email} widerrufen. Detaillierte Informationen zum Umgang mit Nutzerdaten finden Sie in unserer <a href="{privacy_policy_url}">Datenschutzerklaerung</a>.',
 
 		'en_US' => '<!-- DRAFT -->I consent to my data being collected and processed by {controller_name} for the purpose of handling my inquiry. The data will be deleted after {retention_days} days. Note: You may revoke your consent at any time by sending an email to {controller_email}. Detailed information on data handling can be found in our <a href="{privacy_policy_url}">privacy policy</a>.',
@@ -51,7 +51,7 @@ class ConsentTemplateHelper {
 		'pl_PL' => '<!-- DRAFT -->Wyrażam zgodę na zbieranie i przetwarzanie moich danych przez {controller_name} w celu obsługi mojego zapytania. Dane zostaną automatycznie usunięte po {retention_days} dniach. Uwaga: Zgodę można wycofać w dowolnym momencie, wysyłając wiadomość e-mail na adres {controller_email}. Szczegółowe informacje dotyczące przetwarzania danych osobowych znajdują się w naszej <a href="{privacy_policy_url}">polityce prywatności</a>.',
 
 		'sv_SE' => '<!-- DRAFT -->Jag samtycker till att mina uppgifter samlas in och behandlas av {controller_name} for att hantera min forfragan. Uppgifterna raderas efter {retention_days} dagar. Observera: Du kan nar som helst aterkalla ditt samtycke via e-post till {controller_email}. Detaljerad information om datahantering finns i var <a href="{privacy_policy_url}">integritetspolicy</a>.',
-	];
+	);
 
 	/**
 	 * Returns the draft consent text template for the given locale.
@@ -101,13 +101,13 @@ class ConsentTemplateHelper {
 	 * @return string Template with placeholders replaced.
 	 */
 	public static function resolve_placeholders( string $template, Form $form, string $privacy_policy_url = '' ): string {
-		$replacements = [
+		$replacements = array(
 			'{controller_name}'  => get_option( 'wpdsgvo_controller_name', '' ),
 			'{controller_email}' => get_option( 'wpdsgvo_controller_email', '' ),
 			'{retention_days}'   => (string) $form->retention_days,
-		];
+		);
 
-		if ( $privacy_policy_url !== '' ) {
+		if ( '' !== $privacy_policy_url ) {
 			$replacements['{privacy_policy_url}'] = $privacy_policy_url;
 		}
 
@@ -132,7 +132,7 @@ class ConsentTemplateHelper {
 	public static function get_resolved_template( string $locale, Form $form, string $privacy_policy_url = '' ): string {
 		$template = self::get_template( $locale );
 
-		if ( $template === '' ) {
+		if ( '' === $template ) {
 			return '';
 		}
 

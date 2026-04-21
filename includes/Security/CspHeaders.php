@@ -39,7 +39,7 @@ class CspHeaders {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_init', [ $this, 'maybe_send_headers' ] );
+		add_action( 'admin_init', array( $this, 'maybe_send_headers' ) );
 	}
 
 	/**
@@ -72,7 +72,7 @@ class CspHeaders {
 	 * @return void
 	 */
 	private function send_csp_header(): void {
-		$directives = [
+		$directives = array(
 			"default-src 'self'",
 			"script-src 'self' 'unsafe-inline'",
 			"style-src 'self' 'unsafe-inline'",
@@ -81,7 +81,7 @@ class CspHeaders {
 			"frame-ancestors 'self'",
 			"base-uri 'self'",
 			"form-action 'self'",
-		];
+		);
 
 		$policy = implode( '; ', $directives );
 
@@ -97,7 +97,7 @@ class CspHeaders {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only page detection.
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
 
-		if ( $page === '' ) {
+		if ( '' === $page ) {
 			return false;
 		}
 

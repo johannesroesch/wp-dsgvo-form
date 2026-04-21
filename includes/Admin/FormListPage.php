@@ -80,7 +80,7 @@ class FormListPage {
 
 		$form = Form::find( $form_id );
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			add_settings_error(
 				'dsgvo_form_messages',
 				'form_not_found',

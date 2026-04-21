@@ -36,7 +36,7 @@ class AuditLogger {
 	 *
 	 * @var string[]
 	 */
-	public const ALLOWED_ACTIONS = [
+	public const ALLOWED_ACTIONS = array(
 		'view',
 		'export',
 		'delete',
@@ -46,7 +46,7 @@ class AuditLogger {
 		'kek_rotation_rehash',
 		'capability_granted',
 		'capability_revoked',
-	];
+	);
 
 	/**
 	 * Days after which IP addresses are anonymized (SEC-AUDIT-04).
@@ -107,7 +107,7 @@ class AuditLogger {
 		// SEC-SQL-01: Prepared statement.
 		$result = $wpdb->insert(
 			$table,
-			[
+			array(
 				'user_id'       => $user_id,
 				'action'        => $action,
 				'submission_id' => $submission_id,
@@ -115,8 +115,8 @@ class AuditLogger {
 				'ip_address'    => $ip_address,
 				'details'       => $details,
 				'created_at'    => current_time( 'mysql', true ),
-			],
-			[
+			),
+			array(
 				'%d',
 				'%s',
 				'%d',
@@ -124,7 +124,7 @@ class AuditLogger {
 				'%s',
 				'%s',
 				'%s',
-			]
+			)
 		);
 
 		return false !== $result;
@@ -144,13 +144,13 @@ class AuditLogger {
 	 * @param int $offset Pagination offset (default: 0).
 	 * @return object[] Array of audit log entries.
 	 */
-	public function get_logs( array $filters = [], int $limit = 50, int $offset = 0 ): array {
+	public function get_logs( array $filters = array(), int $limit = 50, int $offset = 0 ): array {
 		global $wpdb;
 
 		$table = $wpdb->prefix . 'dsgvo_audit_log';
 
-		$where   = [];
-		$values  = [];
+		$where  = array();
+		$values = array();
 
 		if ( ! empty( $filters['user_id'] ) ) {
 			$where[]  = '`user_id` = %d';
@@ -192,7 +192,7 @@ class AuditLogger {
 			$wpdb->prepare( $sql, ...$values )
 		);
 
-		return is_array( $results ) ? $results : [];
+		return is_array( $results ) ? $results : array();
 	}
 
 	/**
@@ -201,13 +201,13 @@ class AuditLogger {
 	 * @param array<string, mixed> $filters Same filters as get_logs().
 	 * @return int Total count of matching entries.
 	 */
-	public function count_logs( array $filters = [] ): int {
+	public function count_logs( array $filters = array() ): int {
 		global $wpdb;
 
 		$table = $wpdb->prefix . 'dsgvo_audit_log';
 
-		$where  = [];
-		$values = [];
+		$where  = array();
+		$values = array();
 
 		if ( ! empty( $filters['user_id'] ) ) {
 			$where[]  = '`user_id` = %d';
@@ -311,7 +311,7 @@ class AuditLogger {
 					self::ENTRY_RETENTION_DAYS
 				)
 			);
-			$total += $deleted;
+			$total  += $deleted;
 		} while ( $deleted > 0 );
 
 		return $total;

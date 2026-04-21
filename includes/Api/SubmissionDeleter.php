@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Api;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Models\Submission;
 use WpDsgvoForm\Upload\FileHandler;
@@ -85,11 +85,13 @@ class SubmissionDeleter {
 		global $wpdb;
 		$table = Submission::get_files_table_name();
 
-		return $wpdb->get_col(
+		$result = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT file_path FROM `{$table}` WHERE submission_id = %d",
 				$submission_id
 			)
-		) ?: [];
+		);
+
+		return $result ? $result : array();
 	}
 }

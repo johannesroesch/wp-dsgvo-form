@@ -139,7 +139,7 @@ class RecipientListPage {
 
 		// Only show on the recipients page.
 		$screen = get_current_screen();
-		if ( $screen === null || strpos( $screen->id, 'dsgvo-form-recipients' ) === false ) {
+		if ( null === $screen || strpos( $screen->id, 'dsgvo-form-recipients' ) === false ) {
 			return;
 		}
 
@@ -169,7 +169,7 @@ class RecipientListPage {
 		check_ajax_referer( 'wpdsgvo_dismiss_cap_migration', '_wpnonce' );
 
 		if ( ! current_user_can( 'dsgvo_form_manage' ) ) {
-			wp_die( '', '', [ 'response' => 403 ] );
+			wp_die( '', '', array( 'response' => 403 ) );
 		}
 
 		update_user_meta( get_current_user_id(), self::MIGRATION_NOTICE_DISMISS_KEY, 1 );
@@ -276,7 +276,7 @@ class RecipientListPage {
 									</td>
 									<td>
 										<?php
-										if ( $recipient->role_justification !== '' ) {
+										if ( '' !== $recipient->role_justification ) {
 											echo esc_html( $recipient->role_justification );
 										} else {
 											echo '<em style="color:#999;">' . esc_html__( 'Nicht angegeben', 'wp-dsgvo-form' ) . '</em>';
@@ -554,7 +554,7 @@ class RecipientListPage {
 
 		$access_level = sanitize_text_field( wp_unslash( $_POST['access_level'] ?? Recipient::ACCESS_LEVEL_READER ) );
 
-		if ( ! in_array( $access_level, [ Recipient::ACCESS_LEVEL_READER, Recipient::ACCESS_LEVEL_SUPERVISOR ], true ) ) {
+		if ( ! in_array( $access_level, array( Recipient::ACCESS_LEVEL_READER, Recipient::ACCESS_LEVEL_SUPERVISOR ), true ) ) {
 			$access_level = Recipient::ACCESS_LEVEL_READER;
 		}
 
@@ -640,7 +640,7 @@ class RecipientListPage {
 		} elseif ( 'enable_notify' === $action || 'disable_notify' === $action ) {
 			$recipient = Recipient::find( $recipient_id );
 
-			if ( $recipient !== null ) {
+			if ( null !== $recipient ) {
 				$recipient->notify_email = ( 'enable_notify' === $action );
 				$recipient->save();
 
@@ -667,7 +667,7 @@ class RecipientListPage {
 	private function handle_remove_recipient( int $recipient_id ): void {
 		$recipient = Recipient::find( $recipient_id );
 
-		if ( $recipient === null ) {
+		if ( null === $recipient ) {
 			return;
 		}
 
@@ -725,12 +725,12 @@ class RecipientListPage {
 	 * @param int $admin_id The admin performing the action.
 	 */
 	private function revoke_all_plugin_capabilities( int $user_id, int $admin_id ): void {
-		$caps_to_revoke = [
+		$caps_to_revoke = array(
 			'dsgvo_form_view_submissions',
 			'dsgvo_form_view_all_submissions',
 			'dsgvo_form_export',
 			AccessControl::RECIPIENT_CAPABILITY,
-		];
+		);
 
 		foreach ( $caps_to_revoke as $cap ) {
 			if ( user_can( $user_id, $cap ) ) {

@@ -31,7 +31,7 @@ use WpDsgvoForm\Models\Submission;
  */
 class SubmissionListView {
 
-	private const PER_PAGE   = 20;
+	private const PER_PAGE = 20;
 
 	private AccessControl $access_control;
 	private AuditLogger $audit_logger;
@@ -67,7 +67,7 @@ class SubmissionListView {
 		}
 
 		// Determine status filter.
-		$is_read            = null;
+		$is_read = null;
 		// DPO-EMPFEHLUNG: Privacy-by-Default — readers don't see restricted submissions.
 		// Supervisors/admins see restricted submissions for oversight.
 		$include_restricted = $is_supervisor || $this->access_control->is_admin( $user_id );
@@ -78,8 +78,8 @@ class SubmissionListView {
 		}
 
 		// Build submissions list.
-		$submissions  = [];
-		$total_count  = 0;
+		$submissions = array();
+		$total_count = 0;
 
 		if ( $filter_form_id > 0 ) {
 			// Single form filter.
@@ -95,7 +95,7 @@ class SubmissionListView {
 		$total_pages = (int) ceil( $total_count / self::PER_PAGE );
 
 		// Form lookup for display.
-		$form_map = [];
+		$form_map = array();
 		foreach ( $accessible_forms as $form ) {
 			$form_map[ $form->id ] = $form->title;
 		}
@@ -140,13 +140,13 @@ class SubmissionListView {
 		);
 
 		if ( empty( $form_ids ) ) {
-			return [];
+			return array();
 		}
 
-		$forms = [];
+		$forms = array();
 		foreach ( $form_ids as $form_id ) {
 			$form = Form::find( (int) $form_id );
-			if ( $form !== null ) {
+			if ( null !== $form ) {
 				$forms[] = $form;
 			}
 		}
@@ -192,7 +192,7 @@ class SubmissionListView {
 					<?php esc_html_e( 'Filtern', 'wp-dsgvo-form' ); ?>
 				</button>
 
-				<?php if ( $active_form_id > 0 || $active_status !== '' ) : ?>
+				<?php if ( $active_form_id > 0 || '' !== $active_status ) : ?>
 					<a href="<?php echo esc_url( $base_url ); ?>" style="padding:0.4rem 0.6rem;color:#666;text-decoration:none;">
 						<?php esc_html_e( 'Filter zuruecksetzen', 'wp-dsgvo-form' ); ?>
 					</a>
@@ -324,7 +324,7 @@ class SubmissionListView {
 		$base_url = RecipientPage::get_base_url();
 
 		// Preserve current filter parameters.
-		$query_args = [];
+		$query_args = array();
 		if ( ! empty( $_GET['form_id'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$query_args['form_id'] = absint( $_GET['form_id'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		}
@@ -347,14 +347,14 @@ class SubmissionListView {
 			</span>
 			<div style="display:flex;gap:0.5rem;">
 				<?php if ( $current_page > 1 ) : ?>
-					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, [ 'paged' => $current_page - 1 ] ), $base_url ) ); ?>"
+					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, array( 'paged' => $current_page - 1 ) ), $base_url ) ); ?>"
 						style="padding:0.4rem 0.8rem;border:1px solid #ccc;border-radius:4px;text-decoration:none;color:#333;">
 						&laquo; <?php esc_html_e( 'Zurueck', 'wp-dsgvo-form' ); ?>
 					</a>
 				<?php endif; ?>
 
 				<?php if ( $current_page < $total_pages ) : ?>
-					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, [ 'paged' => $current_page + 1 ] ), $base_url ) ); ?>"
+					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, array( 'paged' => $current_page + 1 ) ), $base_url ) ); ?>"
 						style="padding:0.4rem 0.8rem;border:1px solid #ccc;border-radius:4px;text-decoration:none;color:#333;">
 						<?php esc_html_e( 'Weiter', 'wp-dsgvo-form' ); ?> &raquo;
 					</a>

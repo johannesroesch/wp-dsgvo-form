@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Auth;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Handles authorization checks for the DSGVO Form plugin.
@@ -24,18 +24,18 @@ defined('ABSPATH') || exit;
  *
  * Security requirements: SEC-AUTH-03, SEC-AUTH-10, SEC-AUTH-14, SEC-AUTH-DSGVO-03.
  */
-class AccessControl
-{
+class AccessControl {
+
 
 	/**
 	 * Plugin roles that receive restricted backend access.
 	 *
 	 * @var string[]
 	 */
-	public const PLUGIN_ROLES = [
+	public const PLUGIN_ROLES = array(
 		'wp_dsgvo_form_reader',
 		'wp_dsgvo_form_supervisor',
-	];
+	);
 
 	/**
 	 * Capability for DSGVO-compliant recipient access.
@@ -56,24 +56,23 @@ class AccessControl
 	 * @param int $form_id The form ID.
 	 * @return bool True if the user may access the form.
 	 */
-	public function can_view_form(int $user_id, int $form_id): bool
-	{
+	public function can_view_form( int $user_id, int $form_id ): bool {
 		// Admin: full access.
-		if (user_can($user_id, 'dsgvo_form_manage')) {
+		if ( user_can( $user_id, 'dsgvo_form_manage' ) ) {
 			return true;
 		}
 
 		// Supervisor: all forms (caller is responsible for audit logging).
-		if ($this->is_supervisor($user_id)) {
+		if ( $this->is_supervisor( $user_id ) ) {
 			return true;
 		}
 
 		// Reader: only assigned forms.
-		if (!user_can($user_id, 'dsgvo_form_view_submissions')) {
+		if ( ! user_can( $user_id, 'dsgvo_form_view_submissions' ) ) {
 			return false;
 		}
 
-		return $this->is_recipient_of_form($user_id, $form_id);
+		return $this->is_recipient_of_form( $user_id, $form_id );
 	}
 
 	/**
@@ -86,30 +85,29 @@ class AccessControl
 	 * @param int $submission_id The submission ID.
 	 * @return bool True if the user may access the submission.
 	 */
-	public function can_view_submission(int $user_id, int $submission_id): bool
-	{
+	public function can_view_submission( int $user_id, int $submission_id ): bool {
 		// Admin: full access.
-		if (user_can($user_id, 'dsgvo_form_manage')) {
+		if ( user_can( $user_id, 'dsgvo_form_manage' ) ) {
 			return true;
 		}
 
 		// Supervisor: all submissions (caller must log).
-		if ($this->is_supervisor($user_id)) {
+		if ( $this->is_supervisor( $user_id ) ) {
 			return true;
 		}
 
 		// Reader: only submissions for assigned forms.
-		if (!user_can($user_id, 'dsgvo_form_view_submissions')) {
+		if ( ! user_can( $user_id, 'dsgvo_form_view_submissions' ) ) {
 			return false;
 		}
 
-		$form_id = $this->get_form_id_for_submission($submission_id);
+		$form_id = $this->get_form_id_for_submission( $submission_id );
 
-		if ($form_id === 0) {
+		if ( 0 === $form_id ) {
 			return false;
 		}
 
-		return $this->is_recipient_of_form($user_id, $form_id);
+		return $this->is_recipient_of_form( $user_id, $form_id );
 	}
 
 	/**
@@ -120,9 +118,8 @@ class AccessControl
 	 * @param int $user_id The WordPress user ID.
 	 * @return bool True if the user may delete submissions.
 	 */
-	public function can_delete_submission(int $user_id): bool
-	{
-		return user_can($user_id, 'dsgvo_form_delete_submissions');
+	public function can_delete_submission( int $user_id ): bool {
+		return user_can( $user_id, 'dsgvo_form_delete_submissions' );
 	}
 
 	/**
@@ -131,9 +128,8 @@ class AccessControl
 	 * @param int $user_id The WordPress user ID.
 	 * @return bool True if the user may export submissions.
 	 */
-	public function can_export(int $user_id): bool
-	{
-		return user_can($user_id, 'dsgvo_form_export');
+	public function can_export( int $user_id ): bool {
+		return user_can( $user_id, 'dsgvo_form_export' );
 	}
 
 	/**
@@ -145,9 +141,8 @@ class AccessControl
 	 * @param int $user_id The WordPress user ID.
 	 * @return bool True if the user is a supervisor.
 	 */
-	public function is_supervisor(int $user_id): bool
-	{
-		return user_can($user_id, 'dsgvo_form_view_all_submissions');
+	public function is_supervisor( int $user_id ): bool {
+		return user_can( $user_id, 'dsgvo_form_view_all_submissions' );
 	}
 
 	/**
@@ -186,8 +181,7 @@ class AccessControl
 	 * @param int $user_id The WordPress user ID.
 	 * @return bool True if the user has a plugin role.
 	 */
-	public function has_plugin_role(int $user_id): bool
-	{
+	public function has_plugin_role( int $user_id ): bool {
 		_deprecated_function( __METHOD__, '1.2.0', 'AccessControl::has_plugin_access()' );
 		return $this->has_plugin_access( $user_id );
 	}
@@ -198,9 +192,8 @@ class AccessControl
 	 * @param int $user_id The WordPress user ID.
 	 * @return bool True if the user can manage forms.
 	 */
-	public function is_admin(int $user_id): bool
-	{
-		return user_can($user_id, 'dsgvo_form_manage');
+	public function is_admin( int $user_id ): bool {
+		return user_can( $user_id, 'dsgvo_form_manage' );
 	}
 
 	/**
@@ -212,8 +205,7 @@ class AccessControl
 	 * @param int $form_id The form ID.
 	 * @return bool True if the user is a recipient of the form.
 	 */
-	private function is_recipient_of_form(int $user_id, int $form_id): bool
-	{
+	private function is_recipient_of_form( int $user_id, int $form_id ): bool {
 		global $wpdb;
 
 		$table = $wpdb->prefix . 'dsgvo_form_recipients';
@@ -236,8 +228,7 @@ class AccessControl
 	 * @param int $submission_id The submission ID.
 	 * @return int The form ID, or 0 if not found.
 	 */
-	private function get_form_id_for_submission(int $submission_id): int
-	{
+	private function get_form_id_for_submission( int $submission_id ): int {
 		global $wpdb;
 
 		$table = $wpdb->prefix . 'dsgvo_submissions';
@@ -250,6 +241,6 @@ class AccessControl
 			)
 		);
 
-		return $form_id !== null ? (int) $form_id : 0;
+		return null !== $form_id ? (int) $form_id : 0;
 	}
 }

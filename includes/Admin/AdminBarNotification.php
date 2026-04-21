@@ -49,9 +49,9 @@ class AdminBarNotification {
 	 * Styles on both admin_head and wp_head (admin bar appears on frontend too).
 	 */
 	public function register_hooks(): void {
-		add_action( 'admin_bar_menu', [ $this, 'add_notification_node' ], 80 );
-		add_action( 'admin_head', [ $this, 'render_badge_styles' ] );
-		add_action( 'wp_head', [ $this, 'render_badge_styles' ] );
+		add_action( 'admin_bar_menu', array( $this, 'add_notification_node' ), 80 );
+		add_action( 'admin_head', array( $this, 'render_badge_styles' ) );
+		add_action( 'wp_head', array( $this, 'render_badge_styles' ) );
 	}
 
 	/**
@@ -75,23 +75,25 @@ class AdminBarNotification {
 
 		$count = $this->get_unread_count( $user_id );
 
-		if ( $count === 0 ) {
+		if ( 0 === $count ) {
 			return;
 		}
 
-		$wp_admin_bar->add_node( [
-			'id'    => 'wpdsgvo-unread',
-			'title' => $this->build_badge_html( $count ),
-			'href'  => admin_url( 'admin.php?page=dsgvo-form-submissions' ),
-			'meta'  => [
-				'class' => 'wpdsgvo-admin-bar-notification',
-				'title' => sprintf(
+		$wp_admin_bar->add_node(
+			array(
+				'id'    => 'wpdsgvo-unread',
+				'title' => $this->build_badge_html( $count ),
+				'href'  => admin_url( 'admin.php?page=dsgvo-form-submissions' ),
+				'meta'  => array(
+					'class' => 'wpdsgvo-admin-bar-notification',
+					'title' => sprintf(
 					/* translators: %d: number of unread submissions */
-					_n( '%d ungelesene Einsendung', '%d ungelesene Einsendungen', $count, 'wp-dsgvo-form' ),
-					$count
+						_n( '%d ungelesene Einsendung', '%d ungelesene Einsendungen', $count, 'wp-dsgvo-form' ),
+						$count
+					),
 				),
-			],
-		] );
+			)
+		);
 	}
 
 	/**

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Models;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Recipient model — CRUD for the dsgvo_form_recipients table.
@@ -21,13 +21,13 @@ class Recipient {
 	public const ACCESS_LEVEL_READER     = 'reader';
 	public const ACCESS_LEVEL_SUPERVISOR = 'supervisor';
 
-	public int $id                     = 0;
-	public int $form_id                = 0;
-	public int $user_id                = 0;
-	public bool $notify_email          = true;
-	public string $access_level        = self::ACCESS_LEVEL_READER;
-	public string $role_justification  = '';
-	public string $created_at          = '';
+	public int $id                    = 0;
+	public int $form_id               = 0;
+	public int $user_id               = 0;
+	public bool $notify_email         = true;
+	public string $access_level       = self::ACCESS_LEVEL_READER;
+	public string $role_justification = '';
+	public string $created_at         = '';
 
 	/**
 	 * Returns the full table name with WordPress prefix.
@@ -49,7 +49,7 @@ class Recipient {
 			ARRAY_A
 		);
 
-		if ( $row === null ) {
+		if ( null === $row ) {
 			return null;
 		}
 
@@ -73,7 +73,7 @@ class Recipient {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -95,7 +95,7 @@ class Recipient {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -116,7 +116,7 @@ class Recipient {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -135,7 +135,7 @@ class Recipient {
 			)
 		);
 
-		return array_map( 'intval', $ids ?: [] );
+		return array_map( 'intval', $ids ? $ids : array() );
 	}
 
 	/**
@@ -192,7 +192,7 @@ class Recipient {
 		$table = self::get_table_name();
 		$data  = $this->to_db_array();
 
-		if ( $this->id === 0 ) {
+		if ( 0 === $this->id ) {
 			if ( self::exists( $this->form_id, $this->user_id ) ) {
 				throw new \RuntimeException(
 					'User is already assigned as recipient for this form.'
@@ -201,7 +201,7 @@ class Recipient {
 
 			$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
-			if ( $wpdb->insert_id === 0 ) {
+			if ( 0 === $wpdb->insert_id ) {
 				throw new \RuntimeException( 'Failed to insert recipient: ' . esc_html( $wpdb->last_error ) );
 			}
 
@@ -210,9 +210,9 @@ class Recipient {
 			$wpdb->update(
 				$table,
 				$data,
-				[ 'id' => $this->id ],
+				array( 'id' => $this->id ),
 				self::get_formats( $data ),
-				[ '%d' ]
+				array( '%d' )
 			);
 		}
 
@@ -225,9 +225,9 @@ class Recipient {
 	public static function delete( int $id ): bool {
 		global $wpdb;
 		$table  = self::get_table_name();
-		$result = $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
+		$result = $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
 
-		return $result !== false;
+		return false !== $result;
 	}
 
 	/**
@@ -239,14 +239,14 @@ class Recipient {
 
 		$result = $wpdb->delete(
 			$table,
-			[
+			array(
 				'form_id' => $form_id,
 				'user_id' => $user_id,
-			],
-			[ '%d', '%d' ]
+			),
+			array( '%d', '%d' )
 		);
 
-		return $result !== false;
+		return false !== $result;
 	}
 
 	/**
@@ -263,7 +263,7 @@ class Recipient {
 			throw new \RuntimeException( 'Recipient must reference a WordPress user (user_id required).' );
 		}
 
-		if ( ! in_array( $this->access_level, [ self::ACCESS_LEVEL_READER, self::ACCESS_LEVEL_SUPERVISOR ], true ) ) {
+		if ( ! in_array( $this->access_level, array( self::ACCESS_LEVEL_READER, self::ACCESS_LEVEL_SUPERVISOR ), true ) ) {
 			throw new \RuntimeException( 'Invalid access_level. Must be "reader" or "supervisor".' );
 		}
 	}
@@ -292,14 +292,14 @@ class Recipient {
 	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
-		$data = [
+		$data = array(
 			'form_id'      => $this->form_id,
 			'user_id'      => $this->user_id,
 			'notify_email' => (int) $this->notify_email,
 			'access_level' => $this->access_level,
-		];
+		);
 
-		if ( $this->role_justification !== '' ) {
+		if ( '' !== $this->role_justification ) {
 			$data['role_justification'] = $this->role_justification;
 		}
 
@@ -313,7 +313,7 @@ class Recipient {
 	 * @return string[]
 	 */
 	private static function get_formats( array $data ): array {
-		$formats = [];
+		$formats = array();
 		foreach ( $data as $value ) {
 			$formats[] = is_int( $value ) ? '%d' : '%s';
 		}

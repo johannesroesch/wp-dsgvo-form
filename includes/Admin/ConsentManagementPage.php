@@ -46,12 +46,12 @@ class ConsentManagementPage {
 		$form_id = isset( $_GET['form_id'] ) ? absint( $_GET['form_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$form    = $form_id > 0 ? Form::find( $form_id ) : null;
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			wp_die( esc_html__( 'Formular nicht gefunden.', 'wp-dsgvo-form' ) );
 		}
 
 		// ARCH-v104-03: Hard-block — consent management only for forms with legal_basis = 'consent'.
-		if ( $form->legal_basis !== 'consent' ) {
+		if ( 'consent' !== $form->legal_basis ) {
 			$back_url = admin_url( 'admin.php?page=' . AdminMenu::MENU_SLUG );
 			?>
 			<div class="wrap">
@@ -91,9 +91,9 @@ class ConsentManagementPage {
 		$locales_with_versions = ConsentVersion::get_locales_with_versions( $form_id );
 
 		// PERF-SOLL-01: Only load versions for the active locale (paginated).
-		$per_page      = 20;
-		$current_page  = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$offset        = ( $current_page - 1 ) * $per_page;
+		$per_page        = 20;
+		$current_page    = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$offset          = ( $current_page - 1 ) * $per_page;
 		$locale_versions = ConsentVersion::find_by_form_and_locale_paginated( $form_id, $active_locale, $per_page, $offset );
 		$total_versions  = ConsentVersion::count_by_form_and_locale( $form_id, $active_locale );
 
@@ -151,7 +151,7 @@ class ConsentManagementPage {
 
 		// Check if text differs from current version.
 		$current = ConsentVersion::get_current_version( $form->id, $locale );
-		if ( $current !== null && $current->consent_text === $text && $current->privacy_policy_url === $privacy_url ) {
+		if ( null !== $current && $current->consent_text === $text && $current->privacy_policy_url === $privacy_url ) {
 			$this->redirect_with_notice(
 				$form->id,
 				$locale,
@@ -162,7 +162,7 @@ class ConsentManagementPage {
 		}
 
 		// Validate privacy URL (HTTPS only, if provided).
-		if ( $privacy_url !== '' && strpos( $privacy_url, 'https://' ) !== 0 ) {
+		if ( '' !== $privacy_url && strpos( $privacy_url, 'https://' ) !== 0 ) {
 			$this->redirect_with_notice(
 				$form->id,
 				$locale,
@@ -172,11 +172,11 @@ class ConsentManagementPage {
 			return null;
 		}
 
-		return [
+		return array(
 			'locale'      => $locale,
 			'text'        => $text,
 			'privacy_url' => $privacy_url,
-		];
+		);
 	}
 
 	/**
@@ -192,7 +192,7 @@ class ConsentManagementPage {
 		$version->locale             = $validated['locale'];
 		$version->version            = 0; // Trigger auto-increment in save().
 		$version->consent_text       = $validated['text'];
-		$version->privacy_policy_url = $validated['privacy_url'] !== '' ? $validated['privacy_url'] : null;
+		$version->privacy_policy_url = '' !== $validated['privacy_url'] ? $validated['privacy_url'] : null;
 
 		try {
 			// PERF-SOLL-02: Pass Form object to avoid redundant DB query in validate().
@@ -231,7 +231,10 @@ class ConsentManagementPage {
 	private function redirect_with_notice( int $form_id, string $locale, string $type, string $message ): void {
 		set_transient(
 			'dsgvo_consent_notice_' . get_current_user_id(),
-			[ 'type' => $type, 'message' => $message ],
+			array(
+				'type'    => $type,
+				'message' => $message,
+			),
 			30
 		);
 
@@ -289,8 +292,8 @@ class ConsentManagementPage {
 		printf(
 			/* translators: %d: total number of pages */
 			esc_html__( 'Seite %1$d von %2$d', 'wp-dsgvo-form' ),
-			$current_page,
-			$total_pages
+			(int) $current_page,
+			(int) $total_pages
 		);
 		echo '</span> ';
 
@@ -440,11 +443,11 @@ class ConsentManagementPage {
 	 * @return void
 	 */
 	private function render_locale_content( Form $form, string $locale, array $versions, int $total_versions, int $current_page, int $per_page ): void {
-		$current     = ! empty( $versions ) ? $versions[0] : null;
+		$current      = ! empty( $versions ) ? $versions[0] : null;
 		$locale_label = ConsentVersion::SUPPORTED_LOCALES[ $locale ] ?? $locale;
 
 		// Current version info.
-		if ( $current !== null ) {
+		if ( null !== $current ) {
 			?>
 			<div class="notice notice-info inline" style="margin:0 0 1rem 0;">
 				<p>
@@ -533,16 +536,16 @@ class ConsentManagementPage {
 								rows="8"
 								class="large-text"
 								placeholder="<?php esc_attr_e( 'Einwilligungstext eingeben...', 'wp-dsgvo-form' ); ?>"
-							><?php echo esc_textarea( $current !== null ? $current->consent_text : '' ); ?></textarea>
+							><?php echo esc_textarea( null !== $current ? $current->consent_text : '' ); ?></textarea>
 							<p class="description">
 								<?php esc_html_e( 'HTML-Formatierung erlaubt (Links, Fettschrift). Jede Aenderung erstellt eine neue, unveraenderliche Version (Art. 7 DSGVO).', 'wp-dsgvo-form' ); ?>
 							</p>
 								<?php
 								// UX-TMPL-01: "Vorlage laden" button — integrates ConsentTemplateHelper.
-								$privacy_url_hint = $current !== null && $current->privacy_policy_url !== null ? $current->privacy_policy_url : '';
+								$privacy_url_hint = null !== $current && null !== $current->privacy_policy_url ? $current->privacy_policy_url : '';
 								$template_text    = ConsentTemplateHelper::get_resolved_template( $locale, $form, $privacy_url_hint );
-								if ( $template_text !== '' ) :
-								?>
+								if ( '' !== $template_text ) :
+									?>
 									<button type="button"
 										id="dsgvo-load-template"
 										class="button"
@@ -581,7 +584,7 @@ class ConsentManagementPage {
 								type="url"
 								id="privacy_policy_url"
 								name="privacy_policy_url"
-								value="<?php echo esc_attr( $current !== null && $current->privacy_policy_url !== null ? $current->privacy_policy_url : '' ); ?>"
+								value="<?php echo esc_attr( null !== $current && null !== $current->privacy_policy_url ? $current->privacy_policy_url : '' ); ?>"
 								class="regular-text"
 								placeholder="https://example.com/datenschutz">
 							<p class="description">
@@ -642,7 +645,7 @@ class ConsentManagementPage {
 							</span>
 						</td>
 						<td>
-							<?php if ( $version->privacy_policy_url !== null && $version->privacy_policy_url !== '' ) : ?>
+							<?php if ( null !== $version->privacy_policy_url && '' !== $version->privacy_policy_url ) : ?>
 								<a href="<?php echo esc_url( $version->privacy_policy_url ); ?>" target="_blank" rel="noopener noreferrer">
 									<?php echo esc_html( $this->excerpt( $version->privacy_policy_url, 50 ) ); ?>
 								</a>

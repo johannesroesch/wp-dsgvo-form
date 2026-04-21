@@ -110,7 +110,7 @@ class SubmissionListPage {
 		// SEC-AUDIT-01: Log deletion BEFORE executing (data is gone after).
 		$submission = Submission::find( $submission_id );
 
-		if ( $submission === null ) {
+		if ( null === $submission ) {
 			return;
 		}
 

@@ -41,7 +41,7 @@ class FormEditPage {
 	/**
 	 * Human-readable labels for field types (MUSS-UX-05).
 	 */
-	private const FIELD_TYPE_LABELS = [
+	private const FIELD_TYPE_LABELS = array(
 		'text'     => 'Text',
 		'email'    => 'E-Mail',
 		'tel'      => 'Telefon',
@@ -52,7 +52,7 @@ class FormEditPage {
 		'date'     => 'Datum',
 		'file'     => 'Datei-Upload',
 		'static'   => 'Statischer Inhalt',
-	];
+	);
 
 	/**
 	 * Handle POST save before output to allow redirects (PRG pattern).
@@ -77,18 +77,18 @@ class FormEditPage {
 		try {
 			$form = $this->build_form_from_post( $form_id );
 
-			$key_manager = $form->id === 0 ? new KeyManager() : null;
+			$key_manager = 0 === $form->id ? new KeyManager() : null;
 			$saved_id    = $form->save( $key_manager );
 
 			$this->save_fields( $saved_id );
 
 			$redirect = add_query_arg(
-				[
+				array(
 					'page'    => AdminMenu::MENU_SLUG,
 					'action'  => 'edit',
 					'form_id' => $saved_id,
 					'saved'   => '1',
-				],
+				),
 				admin_url( 'admin.php' )
 			);
 			wp_safe_redirect( $redirect );
@@ -109,7 +109,7 @@ class FormEditPage {
 		}
 
 		// Display save error stored by maybe_save_and_redirect().
-		if ( $this->save_error !== null ) {
+		if ( null !== $this->save_error ) {
 			$this->render_save_error( $this->save_error, $this->save_error_form_id );
 			return;
 		}
@@ -117,8 +117,8 @@ class FormEditPage {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display parameter, no state change
 		$form_id = isset( $_GET['form_id'] ) ? absint( $_GET['form_id'] ) : 0;
 		$form    = $form_id > 0 ? Form::find( $form_id ) : null;
-		$fields  = $form_id > 0 ? Field::find_by_form_id( $form_id ) : [];
-		$title   = $form !== null
+		$fields  = $form_id > 0 ? Field::find_by_form_id( $form_id ) : array();
+		$title   = null !== $form
 			? __( 'Formular bearbeiten', 'wp-dsgvo-form' )
 			: __( 'Neues Formular', 'wp-dsgvo-form' );
 
@@ -131,7 +131,7 @@ class FormEditPage {
 	private function build_form_from_post( int $form_id ): Form {
 		$form = $form_id > 0 ? Form::find( $form_id ) : new Form();
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			$form = new Form();
 		}
 
@@ -142,7 +142,7 @@ class FormEditPage {
 		$form->email_subject   = sanitize_text_field( wp_unslash( $_POST['email_subject'] ?? '' ) );
 		$form->email_template  = sanitize_textarea_field( wp_unslash( $_POST['email_template'] ?? '' ) );
 		$legal_basis_raw       = sanitize_key( wp_unslash( $_POST['legal_basis'] ?? '' ) );
-		$form->legal_basis     = in_array( $legal_basis_raw, [ 'consent', 'contract' ], true )
+		$form->legal_basis     = in_array( $legal_basis_raw, array( 'consent', 'contract' ), true )
 			? $legal_basis_raw
 			: 'consent';
 		$form->purpose         = sanitize_textarea_field( wp_unslash( $_POST['purpose'] ?? '' ) );
@@ -154,7 +154,7 @@ class FormEditPage {
 		$locale_mode = sanitize_key( wp_unslash( $_POST['locale_mode'] ?? 'auto' ) );
 		if ( 'fixed' === $locale_mode ) {
 			$form->locale_override = sanitize_text_field( wp_unslash( $_POST['locale_override'] ?? '' ) );
-			if ( $form->locale_override === '' ) {
+			if ( '' === $form->locale_override ) {
 				$form->locale_override = null;
 			}
 		} else {
@@ -170,7 +170,7 @@ class FormEditPage {
 	 */
 	private function render_save_error( string $message, int $form_id ): void {
 		$form   = $form_id > 0 ? Form::find( $form_id ) : new Form();
-		$fields = $form_id > 0 ? Field::find_by_form_id( $form_id ) : [];
+		$fields = $form_id > 0 ? Field::find_by_form_id( $form_id ) : array();
 		$title  = $form_id > 0
 			? __( 'Formular bearbeiten', 'wp-dsgvo-form' )
 			: __( 'Neues Formular', 'wp-dsgvo-form' );
@@ -189,12 +189,12 @@ class FormEditPage {
 	 */
 	private function save_fields( int $form_id ): void {
 		$post_data = $this->extract_field_post_data();
-		$keep_ids  = [];
+		$keep_ids  = array();
 		$count     = count( $post_data['types'] );
 
 		for ( $i = 0; $i < $count; $i++ ) {
 			$field = $this->build_field_from_post( $form_id, $i, $post_data );
-			if ( $field === null ) {
+			if ( null === $field ) {
 				continue;
 			}
 
@@ -213,22 +213,22 @@ class FormEditPage {
 	private function extract_field_post_data(): array {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in maybe_save_and_redirect()
 		// array_values() ensures contiguous keys after DOM reorder (Fix: Array-Key-Reorder).
-		return [
-			'ids'          => array_values( array_map( 'absint', (array) wp_unslash( $_POST['field_id'] ?? [] ) ) ),
-			'types'        => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_type'] ?? [] ) ) ),
-			'labels'       => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_label'] ?? [] ) ) ),
-			'names'        => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_name'] ?? [] ) ) ),
-			'placeholders' => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_placeholder'] ?? [] ) ) ),
-			'required'     => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_required'] ?? [] ) ) ),
-			'css_classes'  => array_values( array_map( 'sanitize_html_class', (array) wp_unslash( $_POST['field_css_class'] ?? [] ) ) ),
-			'widths'       => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_width'] ?? [] ) ) ),
-			'options'      => array_values( (array) wp_unslash( $_POST['field_options'] ?? [] ) ),
-			'static'       => array_values( array_map( 'wp_kses_post', (array) wp_unslash( $_POST['field_static_content'] ?? [] ) ) ),
-			'file_config'  => [
-				'allowed_types' => array_values( (array) wp_unslash( $_POST['field_file_types'] ?? [] ) ),
-				'max_size'      => array_values( (array) wp_unslash( $_POST['field_file_max_size'] ?? [] ) ),
-			],
-		];
+		return array(
+			'ids'          => array_values( array_map( 'absint', (array) wp_unslash( $_POST['field_id'] ?? array() ) ) ),
+			'types'        => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_type'] ?? array() ) ) ),
+			'labels'       => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_label'] ?? array() ) ) ),
+			'names'        => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_name'] ?? array() ) ) ),
+			'placeholders' => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_placeholder'] ?? array() ) ) ),
+			'required'     => array_values( array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['field_required'] ?? array() ) ) ),
+			'css_classes'  => array_values( array_map( 'sanitize_html_class', (array) wp_unslash( $_POST['field_css_class'] ?? array() ) ) ),
+			'widths'       => array_values( array_map( 'sanitize_key', (array) wp_unslash( $_POST['field_width'] ?? array() ) ) ),
+			'options'      => array_values( (array) wp_unslash( $_POST['field_options'] ?? array() ) ),
+			'static'       => array_values( array_map( 'wp_kses_post', (array) wp_unslash( $_POST['field_static_content'] ?? array() ) ) ),
+			'file_config'  => array(
+				'allowed_types' => array_values( (array) wp_unslash( $_POST['field_file_types'] ?? array() ) ),
+				'max_size'      => array_values( (array) wp_unslash( $_POST['field_file_max_size'] ?? array() ) ),
+			),
+		);
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 	}
 
@@ -251,13 +251,13 @@ class FormEditPage {
 			return null;
 		}
 
-		$field_db_id = $post_data['ids'][ $i ] ?? 0;
-		$field       = $field_db_id > 0 ? ( Field::find( $field_db_id ) ?? new Field() ) : new Field();
-		$field->form_id     = $form_id;
-		$field->field_type  = $field_type;
-		$field->label       = $label;
-		$field->name        = $post_data['names'][ $i ] ?? sanitize_key( $label );
-		if ( $field->name === '' ) {
+		$field_db_id       = $post_data['ids'][ $i ] ?? 0;
+		$field             = $field_db_id > 0 ? ( Field::find( $field_db_id ) ?? new Field() ) : new Field();
+		$field->form_id    = $form_id;
+		$field->field_type = $field_type;
+		$field->label      = $label;
+		$field->name       = $post_data['names'][ $i ] ?? sanitize_key( $label );
+		if ( '' === $field->name ) {
 			$field->name = 'field_' . ( $i + 1 );
 		}
 		$field->placeholder    = $post_data['placeholders'][ $i ] ?? '';
@@ -270,7 +270,7 @@ class FormEditPage {
 
 		$field->options = $this->parse_field_options( $post_data['options'][ $i ] ?? '' );
 
-		if ( $field_type === 'file' ) {
+		if ( 'file' === $field_type ) {
 			$field->file_config = $this->parse_file_config( $post_data, $i );
 		}
 
@@ -288,12 +288,16 @@ class FormEditPage {
 			return null;
 		}
 
-		$parsed = array_values( array_filter( array_map(
-			fn( $opt ) => sanitize_text_field( trim( $opt ) ),
-			explode( "\n", $raw_options )
-		) ) );
+		$parsed = array_values(
+			array_filter(
+				array_map(
+					fn( $opt ) => sanitize_text_field( trim( $opt ) ),
+					explode( "\n", $raw_options )
+				)
+			)
+		);
 
-		return $parsed ?: null;
+		return $parsed ? $parsed : null;
 	}
 
 	/**
@@ -308,18 +312,22 @@ class FormEditPage {
 		$max_size  = absint( $post_data['file_config']['max_size'][ $index ] ?? 5 );
 		$max_size  = min( max( $max_size, 1 ), 50 );
 
-		$allowed = [];
+		$allowed = array();
 		if ( trim( $raw_types ) !== '' ) {
-			$allowed = array_values( array_filter( array_map(
-				fn( $t ) => sanitize_key( trim( $t ) ),
-				explode( ',', $raw_types )
-			) ) );
+			$allowed = array_values(
+				array_filter(
+					array_map(
+						fn( $t ) => sanitize_key( trim( $t ) ),
+						explode( ',', $raw_types )
+					)
+				)
+			);
 		}
 
-		return [
+		return array(
 			'allowed_types' => $allowed,
 			'max_size_mb'   => $max_size,
-		];
+		);
 	}
 
 	/**
@@ -406,9 +414,11 @@ class FormEditPage {
 					</tr>
 					<tr>
 						<th><label for="dsgvo-description"><?php esc_html_e( 'Beschreibung', 'wp-dsgvo-form' ); ?></label></th>
-						<td><textarea id="dsgvo-description" name="description" rows="3" class="large-text"><?php
+						<td><textarea id="dsgvo-description" name="description" rows="3" class="large-text">
+						<?php
 							echo esc_textarea( $form->description );
-						?></textarea></td>
+						?>
+						</textarea></td>
 					</tr>
 					<tr>
 						<th><label for="dsgvo-legal-basis"><?php esc_html_e( 'Rechtsgrundlage', 'wp-dsgvo-form' ); ?></label></th>
@@ -425,9 +435,11 @@ class FormEditPage {
 					</tr>
 					<tr>
 						<th><label for="dsgvo-purpose"><?php esc_html_e( 'Verarbeitungszweck', 'wp-dsgvo-form' ); ?></label></th>
-						<td><textarea id="dsgvo-purpose" name="purpose" rows="2" class="large-text"><?php
+						<td><textarea id="dsgvo-purpose" name="purpose" rows="2" class="large-text">
+						<?php
 							echo esc_textarea( $form->purpose );
-						?></textarea></td>
+						?>
+						</textarea></td>
 					</tr>
 					<tr>
 						<th><label for="dsgvo-retention"><?php esc_html_e( 'Aufbewahrungsdauer (Tage)', 'wp-dsgvo-form' ); ?></label></th>
@@ -469,8 +481,8 @@ class FormEditPage {
 						<th><?php esc_html_e( 'Sprache (Locale)', 'wp-dsgvo-form' ); ?></th>
 						<td>
 							<?php
-							$locale_mode    = ( $form->locale_override !== null && $form->locale_override !== '' ) ? 'fixed' : 'auto';
-							$supported      = apply_filters( 'wpdsgvo_supported_locales', ConsentVersion::SUPPORTED_LOCALES );
+							$locale_mode = ( null !== $form->locale_override && '' !== $form->locale_override ) ? 'fixed' : 'auto';
+							$supported   = apply_filters( 'wpdsgvo_supported_locales', ConsentVersion::SUPPORTED_LOCALES );
 							?>
 							<fieldset>
 								<label style="display:block;margin-bottom:6px;">
@@ -494,13 +506,18 @@ class FormEditPage {
 								</p>
 								<?php
 								// UX-I18N-03: Inline warning when selected locale has no consent text.
-								if ( $form->id > 0 && $form->legal_basis === 'consent' ) :
+								if ( $form->id > 0 && 'consent' === $form->legal_basis ) :
 									$locales_with_versions = ConsentVersion::get_locales_with_versions( $form->id );
-								?>
+									?>
 									<div id="dsgvo-locale-warning"
 										data-locales="<?php echo esc_attr( wp_json_encode( $locales_with_versions ) ); ?>"
 										data-labels="<?php echo esc_attr( wp_json_encode( $supported ) ); ?>"
-										data-template="<?php echo esc_attr( __( 'Fuer die gewaehlte Sprache (%s) existiert kein Einwilligungstext. Bitte legen Sie einen unter Consent-Verwaltung an.', 'wp-dsgvo-form' ) ); ?>"
+										data-template="
+										<?php
+												/* translators: %s: locale/language name */
+												echo esc_attr( __( 'Fuer die gewaehlte Sprache (%s) existiert kein Einwilligungstext. Bitte legen Sie einen unter Consent-Verwaltung an.', 'wp-dsgvo-form' ) );
+										?>
+												"
 										class="notice notice-warning inline"
 										style="margin:8px 0 0 24px;display:none;">
 										<p></p>
@@ -528,17 +545,21 @@ class FormEditPage {
 					<tr>
 						<th><label for="dsgvo-email-template"><?php esc_html_e( 'E-Mail-Vorlage', 'wp-dsgvo-form' ); ?></label></th>
 						<td>
-							<textarea id="dsgvo-email-template" name="email_template" rows="5" class="large-text"><?php
+							<textarea id="dsgvo-email-template" name="email_template" rows="5" class="large-text">
+							<?php
 								echo esc_textarea( $form->email_template );
-							?></textarea>
+							?>
+							</textarea>
 							<p class="description"><?php esc_html_e( 'Verfuegbare Platzhalter: {field_name}', 'wp-dsgvo-form' ); ?></p>
 						</td>
 					</tr>
 					<tr>
 						<th><label for="dsgvo-success-msg"><?php esc_html_e( 'Erfolgsmeldung', 'wp-dsgvo-form' ); ?></label></th>
-						<td><textarea id="dsgvo-success-msg" name="success_message" rows="2" class="large-text"><?php
+						<td><textarea id="dsgvo-success-msg" name="success_message" rows="2" class="large-text">
+						<?php
 							echo esc_textarea( $form->success_message );
-						?></textarea></td>
+						?>
+						</textarea></td>
 					</tr>
 				</table>
 		<?php
@@ -604,7 +625,10 @@ class FormEditPage {
 		$width       = $field ? $field->width : 'full';
 		$options_str = $field ? implode( "\n", $field->get_options() ) : '';
 		$static_html = $field ? $field->static_content : '';
-		$file_config = $field ? $field->get_file_config() : [ 'allowed_types' => [], 'max_size_mb' => 5 ];
+		$file_config = $field ? $field->get_file_config() : array(
+			'allowed_types' => array(),
+			'max_size_mb'   => 5,
+		);
 
 		$idx = esc_attr( (string) $index );
 
@@ -706,7 +730,7 @@ class FormEditPage {
 	 * @param array<string, mixed> $file_config File upload configuration.
 	 */
 	private function render_field_row_extras( string $idx, string $type, string $options_str, string $static_html, array $file_config ): void {
-		$allowed_types_str = implode( ', ', $file_config['allowed_types'] ?? [] );
+		$allowed_types_str = implode( ', ', $file_config['allowed_types'] ?? array() );
 		$max_size          = $file_config['max_size_mb'] ?? 5;
 		?>
 			<div class="dsgvo-options-section" style="margin-top:8px;">
@@ -870,7 +894,7 @@ class FormEditPage {
 			. "typeSelect.addEventListener('change', function() { toggleFieldSections(row, this.value); });\n"
 			. "toggleFieldSections(row, typeSelect.value);\n"
 			. "}\n"
-			. "}",
+			. '}',
 			$confirm_msg
 		);
 	}
@@ -906,7 +930,7 @@ class FormEditPage {
 			. "	if (placeholderRow) {\n"
 			. "		placeholderRow.style.display = ['text','email','tel','textarea','date'].includes(type) ? 'flex' : 'none';\n"
 			. "	}\n"
-			. "}";
+			. '}';
 	}
 
 	/**
@@ -925,6 +949,6 @@ class FormEditPage {
 			. "});\n"
 			. "\n"
 			. "var rows = container.querySelectorAll('.dsgvo-field-row');\n"
-			. "rows.forEach(function(row) { bindRow(row); });";
+			. 'rows.forEach(function(row) { bindRow(row); });';
 	}
 }

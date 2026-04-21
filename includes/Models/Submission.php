@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Models;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Encryption\EncryptionService;
 
@@ -19,8 +19,8 @@ use WpDsgvoForm\Encryption\EncryptionService;
  */
 class Submission {
 
-	private const MAX_PER_PAGE  = 20;
-	private const FILES_TABLE   = 'dsgvo_submission_files';
+	private const MAX_PER_PAGE = 20;
+	private const FILES_TABLE  = 'dsgvo_submission_files';
 
 	public int $id                    = 0;
 	public int $form_id               = 0;
@@ -32,7 +32,7 @@ class Submission {
 	public ?string $expires_at        = null;
 	public ?int $consent_text_version = null;
 	public ?string $consent_timestamp = null;
-	public ?string $email_lookup_hash  = null;
+	public ?string $email_lookup_hash = null;
 	public ?string $consent_locale    = null;
 	public ?int $consent_version_id   = null;
 	public bool $is_restricted        = false;
@@ -65,7 +65,7 @@ class Submission {
 			ARRAY_A
 		);
 
-		if ( $row === null ) {
+		if ( null === $row ) {
 			return null;
 		}
 
@@ -109,15 +109,15 @@ class Submission {
 		$columns = 'id, form_id, submitted_at, is_read, expires_at, '
 			. 'consent_text_version, consent_timestamp, email_lookup_hash, consent_locale, consent_version_id, is_restricted';
 
-		$where  = [ 'form_id = %d' ];
-		$values = [ $form_id ];
+		$where  = array( 'form_id = %d' );
+		$values = array( $form_id );
 
 		if ( ! $include_restricted ) {
 			$where[]  = 'is_restricted = %d';
 			$values[] = 0;
 		}
 
-		if ( $is_read !== null ) {
+		if ( null !== $is_read ) {
 			$where[]  = 'is_read = %d';
 			$values[] = (int) $is_read;
 		}
@@ -135,7 +135,7 @@ class Submission {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -149,15 +149,15 @@ class Submission {
 		global $wpdb;
 		$table = self::get_table_name();
 
-		$where  = [ 'form_id = %d' ];
-		$values = [ $form_id ];
+		$where  = array( 'form_id = %d' );
+		$values = array( $form_id );
 
 		if ( ! $include_restricted ) {
 			$where[]  = 'is_restricted = %d';
 			$values[] = 0;
 		}
 
-		if ( $is_read !== null ) {
+		if ( null !== $is_read ) {
 			$where[]  = 'is_read = %d';
 			$values[] = (int) $is_read;
 		}
@@ -194,7 +194,7 @@ class Submission {
 		bool $include_restricted = false
 	): array {
 		if ( empty( $form_ids ) ) {
-			return [];
+			return array();
 		}
 
 		global $wpdb;
@@ -209,7 +209,7 @@ class Submission {
 
 		// SEC-SQL-01: Use %d placeholders for each form ID.
 		$id_placeholders = implode( ',', array_fill( 0, count( $form_ids ), '%d' ) );
-		$where           = [ "form_id IN ({$id_placeholders})" ];
+		$where           = array( "form_id IN ({$id_placeholders})" );
 		$values          = array_map( 'intval', $form_ids );
 
 		if ( ! $include_restricted ) {
@@ -217,7 +217,7 @@ class Submission {
 			$values[] = 0;
 		}
 
-		if ( $is_read !== null ) {
+		if ( null !== $is_read ) {
 			$where[]  = 'is_read = %d';
 			$values[] = (int) $is_read;
 		}
@@ -235,7 +235,7 @@ class Submission {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -259,7 +259,7 @@ class Submission {
 		$table = self::get_table_name();
 
 		$id_placeholders = implode( ',', array_fill( 0, count( $form_ids ), '%d' ) );
-		$where           = [ "form_id IN ({$id_placeholders})" ];
+		$where           = array( "form_id IN ({$id_placeholders})" );
 		$values          = array_map( 'intval', $form_ids );
 
 		if ( ! $include_restricted ) {
@@ -267,7 +267,7 @@ class Submission {
 			$values[] = 0;
 		}
 
-		if ( $is_read !== null ) {
+		if ( null !== $is_read ) {
 			$where[]  = 'is_read = %d';
 			$values[] = (int) $is_read;
 		}
@@ -302,7 +302,7 @@ class Submission {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -329,7 +329,7 @@ class Submission {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -372,7 +372,7 @@ class Submission {
 			)
 		);
 
-		return is_array( $rows ) ? $rows : [];
+		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**
@@ -388,10 +388,10 @@ class Submission {
 		$table = self::get_table_name();
 		$data  = $this->to_db_array();
 
-		if ( $this->id === 0 ) {
+		if ( 0 === $this->id ) {
 			$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
-			if ( $wpdb->insert_id === 0 ) {
+			if ( 0 === $wpdb->insert_id ) {
 				throw new \RuntimeException( 'Failed to insert submission: ' . esc_html( $wpdb->last_error ) );
 			}
 
@@ -400,9 +400,9 @@ class Submission {
 			$wpdb->update(
 				$table,
 				$data,
-				[ 'id' => $this->id ],
+				array( 'id' => $this->id ),
 				self::get_formats( $data ),
-				[ '%d' ]
+				array( '%d' )
 			);
 		}
 
@@ -420,9 +420,9 @@ class Submission {
 	public static function delete( int $id ): bool {
 		global $wpdb;
 		$table  = self::get_table_name();
-		$result = $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
+		$result = $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
 
-		return $result !== false;
+		return false !== $result;
 	}
 
 	/**
@@ -434,13 +434,13 @@ class Submission {
 
 		$result = $wpdb->update(
 			$table,
-			[ 'is_read' => 1 ],
-			[ 'id' => $id ],
-			[ '%d' ],
-			[ '%d' ]
+			array( 'is_read' => 1 ),
+			array( 'id' => $id ),
+			array( '%d' ),
+			array( '%d' )
 		);
 
-		return $result !== false;
+		return false !== $result;
 	}
 
 	/**
@@ -454,13 +454,13 @@ class Submission {
 
 		$result = $wpdb->update(
 			$table,
-			[ 'is_restricted' => (int) $restricted ],
-			[ 'id' => $id ],
-			[ '%d' ],
-			[ '%d' ]
+			array( 'is_restricted' => (int) $restricted ),
+			array( 'id' => $id ),
+			array( '%d' ),
+			array( '%d' )
 		);
 
-		return $result !== false;
+		return false !== $result;
 	}
 
 	/**
@@ -491,7 +491,10 @@ class Submission {
 		);
 
 		if ( empty( $expired_ids ) ) {
-			return [ 'count' => 0, 'file_paths' => [] ];
+			return array(
+				'count'      => 0,
+				'file_paths' => array(),
+			);
 		}
 
 		// Collect file paths before deletion (for physical cleanup by caller).
@@ -512,10 +515,10 @@ class Submission {
 			$wpdb->prepare( $delete_sql, ...array_map( 'intval', $expired_ids ) )
 		);
 
-		return [
+		return array(
 			'count'      => (int) $deleted,
-			'file_paths' => $file_paths ?: [],
-		];
+			'file_paths' => $file_paths ? $file_paths : array(),
+		);
 	}
 
 	/**
@@ -548,16 +551,16 @@ class Submission {
 			throw new \RuntimeException( 'Submission must belong to a form (form_id required).' );
 		}
 
-		if ( $this->encrypted_data === '' ) {
+		if ( '' === $this->encrypted_data ) {
 			throw new \RuntimeException( 'Submission must contain encrypted data.' );
 		}
 
-		if ( $this->iv === '' || $this->auth_tag === '' ) {
+		if ( '' === $this->iv || '' === $this->auth_tag ) {
 			throw new \RuntimeException( 'Submission must contain IV and authentication tag.' );
 		}
 
 		// DPO-FINDING-01: No unlimited storage — expires_at required on insert.
-		if ( $this->id === 0 && $this->expires_at === null ) {
+		if ( 0 === $this->id && null === $this->expires_at ) {
 			throw new \RuntimeException(
 				'New submissions must have an expires_at date (DPO retention requirement).'
 			);
@@ -595,36 +598,36 @@ class Submission {
 	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
-		$data = [
+		$data = array(
 			'form_id'        => $this->form_id,
 			'encrypted_data' => $this->encrypted_data,
 			'iv'             => $this->iv,
 			'auth_tag'       => $this->auth_tag,
 			'is_read'        => (int) $this->is_read,
 			'is_restricted'  => (int) $this->is_restricted,
-		];
+		);
 
-		if ( $this->expires_at !== null ) {
+		if ( null !== $this->expires_at ) {
 			$data['expires_at'] = $this->expires_at;
 		}
 
-		if ( $this->consent_text_version !== null ) {
+		if ( null !== $this->consent_text_version ) {
 			$data['consent_text_version'] = $this->consent_text_version;
 		}
 
-		if ( $this->consent_timestamp !== null ) {
+		if ( null !== $this->consent_timestamp ) {
 			$data['consent_timestamp'] = $this->consent_timestamp;
 		}
 
-		if ( $this->email_lookup_hash !== null ) {
+		if ( null !== $this->email_lookup_hash ) {
 			$data['email_lookup_hash'] = $this->email_lookup_hash;
 		}
 
-		if ( $this->consent_locale !== null ) {
+		if ( null !== $this->consent_locale ) {
 			$data['consent_locale'] = $this->consent_locale;
 		}
 
-		if ( $this->consent_version_id !== null ) {
+		if ( null !== $this->consent_version_id ) {
 			$data['consent_version_id'] = $this->consent_version_id;
 		}
 
@@ -638,7 +641,7 @@ class Submission {
 	 * @return string[]
 	 */
 	private static function get_formats( array $data ): array {
-		$formats = [];
+		$formats = array();
 		foreach ( $data as $value ) {
 			$formats[] = is_int( $value ) ? '%d' : '%s';
 		}

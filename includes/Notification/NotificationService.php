@@ -11,7 +11,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Notification;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * E-Mail notification service for form submissions.
@@ -22,8 +22,8 @@ defined('ABSPATH') || exit;
  *
  * Security requirements: SEC-MAIL-01 through SEC-MAIL-05.
  */
-class NotificationService
-{
+class NotificationService {
+
 
 	/**
 	 * Sends notification emails to all active recipients of a form.
@@ -33,36 +33,35 @@ class NotificationService
 	 * @param string $form_title    The form title (for email subject).
 	 * @return int Number of emails successfully sent.
 	 */
-	public function notify(int $form_id, int $submission_id, string $form_title): int
-	{
-		$recipients = $this->get_recipients($form_id);
+	public function notify( int $form_id, int $submission_id, string $form_title ): int {
+		$recipients = $this->get_recipients( $form_id );
 
-		if (empty($recipients)) {
+		if ( empty( $recipients ) ) {
 			return 0;
 		}
 
-		$subject = $this->build_subject($form_title);
-		$body    = $this->build_body($form_title);
+		$subject = $this->build_subject( $form_title );
+		$body    = $this->build_body( $form_title );
 		$headers = $this->build_headers();
 		$sent    = 0;
 
-		foreach ($recipients as $recipient) {
-			$user = get_userdata($recipient->user_id);
+		foreach ( $recipients as $recipient ) {
+			$user = get_userdata( $recipient->user_id );
 
-			if (!$user || empty($user->user_email)) {
+			if ( ! $user || empty( $user->user_email ) ) {
 				continue;
 			}
 
-			$email = sanitize_email($user->user_email);
+			$email = sanitize_email( $user->user_email );
 
-			if (empty($email)) {
+			if ( empty( $email ) ) {
 				continue;
 			}
 
 			// SEC-MAIL-01: Only wp_mail(), never mail() directly.
-			$result = wp_mail($email, $subject, $body, $headers);
+			$result = wp_mail( $email, $subject, $body, $headers );
 
-			if ($result) {
+			if ( $result ) {
 				++$sent;
 			}
 		}
@@ -78,25 +77,24 @@ class NotificationService
 	 * @param string $form_title    The form title.
 	 * @return bool True if the email was sent successfully.
 	 */
-	public function notify_single(int $user_id, int $submission_id, string $form_title): bool
-	{
-		$user = get_userdata($user_id);
+	public function notify_single( int $user_id, int $submission_id, string $form_title ): bool {
+		$user = get_userdata( $user_id );
 
-		if (!$user || empty($user->user_email)) {
+		if ( ! $user || empty( $user->user_email ) ) {
 			return false;
 		}
 
-		$email = sanitize_email($user->user_email);
+		$email = sanitize_email( $user->user_email );
 
-		if (empty($email)) {
+		if ( empty( $email ) ) {
 			return false;
 		}
 
-		$subject = $this->build_subject($form_title);
-		$body    = $this->build_body($form_title);
+		$subject = $this->build_subject( $form_title );
+		$body    = $this->build_body( $form_title );
 		$headers = $this->build_headers();
 
-		return wp_mail($email, $subject, $body, $headers);
+		return wp_mail( $email, $subject, $body, $headers );
 	}
 
 	/**
@@ -107,16 +105,15 @@ class NotificationService
 	 * @param string $form_title The form title.
 	 * @return string Sanitized subject line.
 	 */
-	private function build_subject(string $form_title): string
-	{
-		$sanitized_title = sanitize_text_field($form_title);
+	private function build_subject( string $form_title ): string {
+		$sanitized_title = sanitize_text_field( $form_title );
 
 		// SEC-MAIL-02: Remove line breaks that could cause header injection.
-		$sanitized_title = str_replace(["\r", "\n"], '', $sanitized_title);
+		$sanitized_title = str_replace( array( "\r", "\n" ), '', $sanitized_title );
 
 		return sprintf(
 			/* translators: %s: form title */
-			__('Neue Einsendung: %s', 'wp-dsgvo-form'),
+			__( 'Neue Einsendung: %s', 'wp-dsgvo-form' ),
 			$sanitized_title
 		);
 	}
@@ -130,24 +127,23 @@ class NotificationService
 	 * @param string $form_title The form title.
 	 * @return string HTML email body.
 	 */
-	private function build_body(string $form_title): string
-	{
+	private function build_body( string $form_title ): string {
 		$login_url = $this->get_submissions_url();
 
-		$sanitized_title = esc_html(sanitize_text_field($form_title));
+		$sanitized_title = esc_html( sanitize_text_field( $form_title ) );
 
 		$body  = '<!DOCTYPE html><html><body>';
 		$body .= '<p>' . sprintf(
 			/* translators: %s: form title */
-			esc_html__('Eine neue Einsendung ist fuer das Formular "%s" eingegangen.', 'wp-dsgvo-form'),
+			esc_html__( 'Eine neue Einsendung ist fuer das Formular "%s" eingegangen.', 'wp-dsgvo-form' ),
 			$sanitized_title
 		) . '</p>';
 		$body .= '<p>' . esc_html__(
 			'Bitte melden Sie sich an, um die Einsendung einzusehen:',
 			'wp-dsgvo-form'
 		) . '</p>';
-		$body .= '<p><a href="' . esc_url($login_url) . '">'
-			. esc_html__('Zum Login-Bereich', 'wp-dsgvo-form')
+		$body .= '<p><a href="' . esc_url( $login_url ) . '">'
+			. esc_html__( 'Zum Login-Bereich', 'wp-dsgvo-form' )
 			. '</a></p>';
 		$body .= '<hr>';
 		$body .= '<p><small>' . esc_html__(
@@ -164,11 +160,10 @@ class NotificationService
 	 *
 	 * @return string[] Email headers array.
 	 */
-	private function build_headers(): array
-	{
-		return [
+	private function build_headers(): array {
+		return array(
 			'Content-Type: text/html; charset=UTF-8',
-		];
+		);
 	}
 
 	/**
@@ -179,8 +174,7 @@ class NotificationService
 	 * @param int $form_id The form ID.
 	 * @return object[] Array of recipient records with user_id property.
 	 */
-	private function get_recipients(int $form_id): array
-	{
+	private function get_recipients( int $form_id ): array {
 		global $wpdb;
 
 		$table = $wpdb->prefix . 'dsgvo_form_recipients';
@@ -193,7 +187,7 @@ class NotificationService
 			)
 		);
 
-		return is_array($results) ? $results : [];
+		return is_array( $results ) ? $results : array();
 	}
 
 	/**
@@ -201,8 +195,7 @@ class NotificationService
 	 *
 	 * @return string Admin URL for submissions page.
 	 */
-	private function get_submissions_url(): string
-	{
-		return admin_url('admin.php?page=dsgvo-form-submissions');
+	private function get_submissions_url(): string {
+		return admin_url( 'admin.php?page=dsgvo-form-submissions' );
 	}
 }

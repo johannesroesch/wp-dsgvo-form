@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Captcha;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Models\Form;
 
@@ -58,27 +58,30 @@ class CaptchaVerifier {
 	 * @return bool True if the token is valid, false otherwise.
 	 */
 	public function verify( string $token ): bool {
-		if ( $token === '' ) {
+		if ( '' === $token ) {
 			return false;
 		}
 
 		// SEC-CAP-04: Fail-closed — no API key configured means no verification possible.
 		$api_key = get_option( 'wpdsgvo_captcha_secret', '' );
 
-		if ( ! is_string( $api_key ) || $api_key === '' ) {
+		if ( ! is_string( $api_key ) || '' === $api_key ) {
 			return false;
 		}
 
 		// SEC-CAP-08: Only send the verification token, no IP or user-agent.
-		$response = wp_remote_post( $this->validate_url, [
-			'headers'   => [
-				'Content-Type'  => 'application/json',
-				'Authorization' => 'Bearer ' . $api_key,
-			],
-			'body'      => wp_json_encode( [ 'verification_token' => $token ] ),
-			'timeout'   => self::TIMEOUT,
-			'sslverify' => true, // SEC-CAP-06: Validate certificate.
-		] );
+		$response = wp_remote_post(
+			$this->validate_url,
+			array(
+				'headers'   => array(
+					'Content-Type'  => 'application/json',
+					'Authorization' => 'Bearer ' . $api_key,
+				),
+				'body'      => wp_json_encode( array( 'verification_token' => $token ) ),
+				'timeout'   => self::TIMEOUT,
+				'sslverify' => true, // SEC-CAP-06: Validate certificate.
+			)
+		);
 
 		// SEC-CAP-04: Fail-closed on WP_Error (network error, timeout).
 		if ( is_wp_error( $response ) ) {
@@ -106,14 +109,14 @@ class CaptchaVerifier {
 	public function is_enabled_for_form( int $form_id ): bool {
 		$global_mode = get_option( 'dsgvo_form_captcha_mode', 'always' );
 
-		if ( $global_mode === 'off' ) {
+		if ( 'off' === $global_mode ) {
 			return false;
 		}
 
 		// SEC-CAP-07: Read per-form CAPTCHA setting from the Form model.
 		$form = Form::find( $form_id );
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			return true; // Secure default: enable CAPTCHA for unknown forms.
 		}
 

@@ -33,21 +33,21 @@ class FormListTable extends \WP_List_Table {
 	 *
 	 * @var array<int, int>
 	 */
-	private array $field_counts = [];
+	private array $field_counts = array();
 
 	/**
 	 * Preloaded total submission counts per form (N+1 optimization).
 	 *
 	 * @var array<int, int>
 	 */
-	private array $submission_total_counts = [];
+	private array $submission_total_counts = array();
 
 	/**
 	 * Preloaded unread submission counts per form (N+1 optimization).
 	 *
 	 * @var array<int, int>
 	 */
-	private array $submission_unread_counts = [];
+	private array $submission_unread_counts = array();
 
 	/**
 	 * Constructor.
@@ -151,12 +151,12 @@ class FormListTable extends \WP_List_Table {
 		);
 
 		$actions = array(
-			'edit'    => sprintf(
+			'edit'   => sprintf(
 				'<a href="%s">%s</a>',
 				esc_url( $edit_url ),
 				esc_html__( 'Bearbeiten', 'wp-dsgvo-form' )
 			),
-			'delete'  => sprintf(
+			'delete' => sprintf(
 				'<a href="%s" class="submitdelete" onclick="return confirm(\'%s\');">%s</a>',
 				esc_url( $delete_url ),
 				esc_js( __( 'Formular wirklich loeschen? Alle Einsendungen werden unwiderruflich geloescht.', 'wp-dsgvo-form' ) ),
@@ -165,7 +165,7 @@ class FormListTable extends \WP_List_Table {
 		);
 
 		// UX-FLT-01: Consent link only for forms with consent legal basis.
-		if ( $item->legal_basis === 'consent' ) {
+		if ( 'consent' === $item->legal_basis ) {
 			$consent_url = admin_url(
 				sprintf(
 					'admin.php?page=%s&action=consent&form_id=%d',
@@ -217,7 +217,7 @@ class FormListTable extends \WP_List_Table {
 	 * @return string Column HTML.
 	 */
 	protected function column_legal_basis( $item ): string {
-		if ( $item->legal_basis === 'contract' ) {
+		if ( 'contract' === $item->legal_basis ) {
 			return esc_html__( 'Vertrag (Art. 6 Abs. 1 lit. b)', 'wp-dsgvo-form' );
 		}
 
@@ -346,8 +346,8 @@ class FormListTable extends \WP_List_Table {
 		);
 
 		// Pagination.
-		$per_page    = 20;
-		$total_items = count( $forms );
+		$per_page     = 20;
+		$total_items  = count( $forms );
 		$current_page = $this->get_pagenum();
 
 		$this->items = array_slice(
@@ -445,7 +445,7 @@ class FormListTable extends \WP_List_Table {
 			return;
 		}
 
-		$form_ids = array_map( 'absint', $_POST['form_ids'] ?? [] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$form_ids = array_map( 'absint', $_POST['form_ids'] ?? array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
 		foreach ( $form_ids as $form_id ) {
 			if ( $form_id > 0 ) {

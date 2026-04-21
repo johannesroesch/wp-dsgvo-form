@@ -54,7 +54,7 @@ final class Plugin {
 		$this->register_cli_commands();
 
 		// Run schema upgrades on version change (DPO-FINDING-13).
-		add_action( 'admin_init', [ Activator::class, 'maybe_upgrade' ] );
+		add_action( 'admin_init', array( Activator::class, 'maybe_upgrade' ) );
 	}
 
 	/**
@@ -163,7 +163,7 @@ final class Plugin {
 		$health_check->register();
 
 		// Batch 7d: Dismissible migration notice for capability system change.
-		add_action( 'wp_ajax_wpdsgvo_dismiss_cap_migration_notice', [ Admin\RecipientListPage::class, 'handle_dismiss_migration_notice' ] );
+		add_action( 'wp_ajax_wpdsgvo_dismiss_cap_migration_notice', array( Admin\RecipientListPage::class, 'handle_dismiss_migration_notice' ) );
 	}
 
 	/**
@@ -237,5 +237,4 @@ final class Plugin {
 
 		\WP_CLI::add_command( 'dsgvo-form rotate-kek', Cli\KekRotateCommand::class );
 	}
-
 }

@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Models;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 class ConsentVersion {
 
@@ -30,7 +30,7 @@ class ConsentVersion {
 	 *
 	 * @var array<string, string> Locale code => display label.
 	 */
-	public const SUPPORTED_LOCALES = [
+	public const SUPPORTED_LOCALES = array(
 		'de_DE' => 'Deutsch',
 		'en_US' => 'English',
 		'fr_FR' => 'Français',
@@ -39,16 +39,16 @@ class ConsentVersion {
 		'nl_NL' => 'Nederlands',
 		'pl_PL' => 'Polski',
 		'sv_SE' => 'Svenska',
-	];
+	);
 
-	public int $id                    = 0;
-	public int $form_id               = 0;
-	public string $locale             = 'de_DE';
-	public int $version               = 1;
-	public string $consent_text       = '';
+	public int $id                     = 0;
+	public int $form_id                = 0;
+	public string $locale              = 'de_DE';
+	public int $version                = 1;
+	public string $consent_text        = '';
 	public ?string $privacy_policy_url = null;
-	public string $valid_from         = '';
-	public string $created_at         = '';
+	public string $valid_from          = '';
+	public string $created_at          = '';
 
 	/**
 	 * Returns the full table name with WordPress prefix.
@@ -70,7 +70,7 @@ class ConsentVersion {
 			ARRAY_A
 		);
 
-		if ( $row === null ) {
+		if ( null === $row ) {
 			return null;
 		}
 
@@ -107,7 +107,7 @@ class ConsentVersion {
 			ARRAY_A
 		);
 
-		$result = $row !== null ? self::from_row( $row ) : null;
+		$result = null !== $row ? self::from_row( $row ) : null;
 
 		// Cache null as 'not_found' sentinel to avoid repeated DB hits.
 		wp_cache_set( $cache_key, $result ?? 'not_found', self::CACHE_GROUP );
@@ -142,7 +142,7 @@ class ConsentVersion {
 			ARRAY_A
 		);
 
-		if ( $row === null ) {
+		if ( null === $row ) {
 			return null;
 		}
 
@@ -160,7 +160,7 @@ class ConsentVersion {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return is_array( $cached ) ? $cached : [];
+			return is_array( $cached ) ? $cached : array();
 		}
 
 		global $wpdb;
@@ -174,7 +174,7 @@ class ConsentVersion {
 			ARRAY_A
 		);
 
-		$result = array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		$result = array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 
 		wp_cache_set( $cache_key, $result, self::CACHE_GROUP );
 
@@ -210,7 +210,7 @@ class ConsentVersion {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -254,7 +254,7 @@ class ConsentVersion {
 			)
 		);
 
-		return is_array( $results ) ? $results : [];
+		return is_array( $results ) ? $results : array();
 	}
 
 	/**
@@ -278,7 +278,7 @@ class ConsentVersion {
 
 		// Auto-increment version for this form + locale combination.
 		if ( $this->version < 1 ) {
-			$max_version = (int) $wpdb->get_var(
+			$max_version   = (int) $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT MAX(version) FROM `{$table}` WHERE form_id = %d AND locale = %s",
 					$this->form_id,
@@ -288,7 +288,7 @@ class ConsentVersion {
 			$this->version = $max_version + 1;
 		}
 
-		if ( $this->valid_from === '' ) {
+		if ( '' === $this->valid_from ) {
 			$this->valid_from = current_time( 'mysql', true );
 		}
 
@@ -296,7 +296,7 @@ class ConsentVersion {
 
 		$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
-		if ( $wpdb->insert_id === 0 ) {
+		if ( 0 === $wpdb->insert_id ) {
 			throw new \RuntimeException( 'Failed to insert consent version: ' . esc_html( $wpdb->last_error ) );
 		}
 
@@ -321,15 +321,15 @@ class ConsentVersion {
 		}
 
 		// PERF-SOLL-02: Use pre-loaded Form if available, otherwise fetch.
-		if ( $form === null || $form->id !== $this->form_id ) {
+		if ( null === $form || $form->id !== $this->form_id ) {
 			$form = Form::find( $this->form_id );
 		}
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			throw new \RuntimeException( 'ConsentVersion references a non-existent form.' );
 		}
 
-		if ( $form->legal_basis !== 'consent' ) {
+		if ( 'consent' !== $form->legal_basis ) {
 			throw new \RuntimeException(
 				sprintf(
 					'ConsentVersion cannot be created for form %d: legal_basis is "%s", not "consent".',
@@ -381,15 +381,15 @@ class ConsentVersion {
 	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
-		$data = [
+		$data = array(
 			'form_id'      => $this->form_id,
 			'locale'       => $this->locale,
 			'version'      => $this->version,
 			'consent_text' => $this->consent_text,
 			'valid_from'   => $this->valid_from,
-		];
+		);
 
-		if ( $this->privacy_policy_url !== null ) {
+		if ( null !== $this->privacy_policy_url ) {
 			$data['privacy_policy_url'] = $this->privacy_policy_url;
 		}
 
@@ -403,7 +403,7 @@ class ConsentVersion {
 	 * @return string[]
 	 */
 	private static function get_formats( array $data ): array {
-		$formats = [];
+		$formats = array();
 		foreach ( $data as $value ) {
 			$formats[] = is_int( $value ) ? '%d' : '%s';
 		}

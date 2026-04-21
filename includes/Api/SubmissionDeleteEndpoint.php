@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Api;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Auth\AccessControl;
 use WpDsgvoForm\Audit\AuditLogger;
@@ -30,8 +30,8 @@ use WpDsgvoForm\Models\Submission;
  */
 class SubmissionDeleteEndpoint {
 
-	private const NAMESPACE   = 'dsgvo-form/v1';
-	private const ROUTE       = '/submissions/(?P<id>[\d]+)';
+	private const NAMESPACE = 'dsgvo-form/v1';
+	private const ROUTE     = '/submissions/(?P<id>[\d]+)';
 
 	private SubmissionDeleter $deleter;
 	private AccessControl $access_control;
@@ -47,22 +47,26 @@ class SubmissionDeleteEndpoint {
 	 * Registers the REST API route.
 	 */
 	public function register(): void {
-		register_rest_route( self::NAMESPACE, self::ROUTE, [
-			'methods'             => \WP_REST_Server::DELETABLE,
-			'callback'            => [ $this, 'handle_delete' ],
-			'permission_callback' => [ $this, 'check_permissions' ],
-			'args'                => [
-				'id' => [
-					'required'          => true,
-					'validate_callback' => static function ( $value ): bool {
-						return is_numeric( $value ) && (int) $value > 0;
-					},
-					'sanitize_callback' => static function ( $value ): int {
-						return (int) $value;
-					},
-				],
-			],
-		] );
+		register_rest_route(
+			self::NAMESPACE,
+			self::ROUTE,
+			array(
+				'methods'             => \WP_REST_Server::DELETABLE,
+				'callback'            => array( $this, 'handle_delete' ),
+				'permission_callback' => array( $this, 'check_permissions' ),
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'validate_callback' => static function ( $value ): bool {
+							return is_numeric( $value ) && (int) $value > 0;
+						},
+						'sanitize_callback' => static function ( $value ): int {
+							return (int) $value;
+						},
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -78,7 +82,7 @@ class SubmissionDeleteEndpoint {
 			return new \WP_Error(
 				'forbidden',
 				__( 'Sie haben keine Berechtigung, Einsendungen zu loeschen.', 'wp-dsgvo-form' ),
-				[ 'status' => 403 ]
+				array( 'status' => 403 )
 			);
 		}
 
@@ -100,11 +104,11 @@ class SubmissionDeleteEndpoint {
 		// Verify the submission exists.
 		$submission = Submission::find( $submission_id );
 
-		if ( $submission === null ) {
+		if ( null === $submission ) {
 			return new \WP_Error(
 				'not_found',
 				__( 'Einsendung nicht gefunden.', 'wp-dsgvo-form' ),
-				[ 'status' => 404 ]
+				array( 'status' => 404 )
 			);
 		}
 
@@ -113,7 +117,7 @@ class SubmissionDeleteEndpoint {
 			return new \WP_Error(
 				'submission_locked',
 				__( 'Diese Einsendung ist gesperrt (Art. 18 DSGVO) und kann nicht geloescht werden.', 'wp-dsgvo-form' ),
-				[ 'status' => 409 ]
+				array( 'status' => 409 )
 			);
 		}
 
@@ -127,13 +131,16 @@ class SubmissionDeleteEndpoint {
 			return new \WP_Error(
 				'delete_failed',
 				__( 'Beim Loeschen ist ein Fehler aufgetreten.', 'wp-dsgvo-form' ),
-				[ 'status' => 500 ]
+				array( 'status' => 500 )
 			);
 		}
 
-		return new \WP_REST_Response( [
-			'deleted' => true,
-			'id'      => $submission_id,
-		], 200 );
+		return new \WP_REST_Response(
+			array(
+				'deleted' => true,
+				'id'      => $submission_id,
+			),
+			200
+		);
 	}
 }

@@ -80,11 +80,11 @@ class KekRotateCommand {
 	 * @param string[] $assoc_args Named arguments.
 	 */
 	public function __invoke( array $args, array $assoc_args ): void {
-		$dry_run         = \WP_CLI\Utils\get_flag_value( $assoc_args, 'dry-run', false );
-		$generate        = \WP_CLI\Utils\get_flag_value( $assoc_args, 'generate', false );
-		$rehash          = \WP_CLI\Utils\get_flag_value( $assoc_args, 'rehash-lookups', false );
-		$new_key         = $assoc_args['new-key'] ?? '';
-		$batch_size      = (int) ( $assoc_args['batch-size'] ?? 100 );
+		$dry_run    = \WP_CLI\Utils\get_flag_value( $assoc_args, 'dry-run', false );
+		$generate   = \WP_CLI\Utils\get_flag_value( $assoc_args, 'generate', false );
+		$rehash     = \WP_CLI\Utils\get_flag_value( $assoc_args, 'rehash-lookups', false );
+		$new_key    = $assoc_args['new-key'] ?? '';
+		$batch_size = (int) ( $assoc_args['batch-size'] ?? 100 );
 
 		// SEC-SOLL-06: Cap batch size to prevent excessive memory usage.
 		if ( $batch_size < 1 || $batch_size > 500 ) {
@@ -92,11 +92,11 @@ class KekRotateCommand {
 			\WP_CLI::warning( sprintf( '--batch-size capped to %d (valid range: 1–500).', $batch_size ) );
 		}
 
-		if ( $generate && $new_key !== '' ) {
+		if ( $generate && '' !== $new_key ) {
 			\WP_CLI::error( 'Cannot use --generate and --new-key together.' );
 		}
 
-		if ( ! $generate && $new_key === '' ) {
+		if ( ! $generate && '' === $new_key ) {
 			\WP_CLI::error( 'Provide --new-key=<base64> or use --generate.' );
 		}
 
@@ -157,10 +157,12 @@ class KekRotateCommand {
 		\WP_CLI::success( 'KEK rotation complete.' );
 		\WP_CLI::log( '' );
 		\WP_CLI::log( 'IMPORTANT: Update wp-config.php with the new key:' );
-		\WP_CLI::log( sprintf(
-			"define( 'DSGVO_FORM_ENCRYPTION_KEY', '%s' );",
-			$result['new_kek_base64']
-		) );
+		\WP_CLI::log(
+			sprintf(
+				"define( 'DSGVO_FORM_ENCRYPTION_KEY', '%s' );",
+				$result['new_kek_base64']
+			)
+		);
 		\WP_CLI::log( '' );
 		\WP_CLI::warning(
 			'Until wp-config.php is updated, the plugin will use the OLD key and decryption will FAIL.'
@@ -194,7 +196,7 @@ class KekRotateCommand {
 			$new_key,
 			$batch_size,
 			static function ( int $processed, int $total ) use ( &$progress, &$last_tick ): void {
-				if ( $progress === null ) {
+				if ( null === $progress ) {
 					$progress = \WP_CLI\Utils\make_progress_bar( 'Rehashing lookups', $total );
 				}
 				// UX-BUG-01: tick() expects delta, not absolute value.
@@ -203,7 +205,7 @@ class KekRotateCommand {
 			}
 		);
 
-		if ( $progress !== null ) {
+		if ( null !== $progress ) {
 			$progress->finish();
 		}
 

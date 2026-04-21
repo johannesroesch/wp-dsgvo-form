@@ -62,7 +62,7 @@ class DataSubjectSearchPage {
 			wp_die(
 				esc_html__( 'Sie haben keine Berechtigung fuer diese Seite.', 'wp-dsgvo-form' ),
 				esc_html__( 'Zugriff verweigert', 'wp-dsgvo-form' ),
-				[ 'response' => 403 ]
+				array( 'response' => 403 )
 			);
 		}
 
@@ -81,7 +81,7 @@ class DataSubjectSearchPage {
 				? sanitize_email( wp_unslash( $_POST['subject_email'] ) )
 				: '';
 
-			if ( $email !== '' && is_email( $email ) ) {
+			if ( '' !== $email && is_email( $email ) ) {
 				$searched    = true;
 				$lookup_hash = $this->encryption->calculate_email_lookup_hash( $email );
 				$submissions = Submission::find_by_email_lookup_hash( $lookup_hash );

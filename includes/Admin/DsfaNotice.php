@@ -46,8 +46,8 @@ class DsfaNotice {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_notices', [ $this, 'maybe_show_notice' ] );
-		add_action( 'wp_ajax_wpdsgvo_dismiss_dsfa_notice', [ $this, 'handle_dismiss' ] );
+		add_action( 'admin_notices', array( $this, 'maybe_show_notice' ) );
+		add_action( 'wp_ajax_wpdsgvo_dismiss_dsfa_notice', array( $this, 'handle_dismiss' ) );
 	}
 
 	/**
@@ -67,7 +67,7 @@ class DsfaNotice {
 
 		// Only show on plugin pages.
 		$screen = get_current_screen();
-		if ( $screen === null || strpos( $screen->id, 'dsgvo-form' ) === false ) {
+		if ( null === $screen || strpos( $screen->id, 'dsgvo-form' ) === false ) {
 			return;
 		}
 
@@ -99,7 +99,7 @@ class DsfaNotice {
 		check_ajax_referer( 'wpdsgvo_dismiss_dsfa', '_wpnonce' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( '', '', [ 'response' => 403 ] );
+			wp_die( '', '', array( 'response' => 403 ) );
 		}
 
 		update_user_meta( get_current_user_id(), self::DISMISS_META_KEY, 1 );

@@ -69,12 +69,14 @@ if ( $wpdsgvo_admin_role ) {
  * Capability migration (KANN-ARCH-01) grants caps directly to users.
  * These must be cleaned up on uninstall to leave no plugin traces.
  */
-$wpdsgvo_cap_users = get_users( [
-	'meta_key'     => $wpdb->prefix . 'capabilities',
-	'meta_compare' => 'EXISTS',
-	'fields'       => 'ID',
-	'number'       => -1,
-] );
+$wpdsgvo_cap_users = get_users(
+	array(
+		'meta_key'     => $wpdb->prefix . 'capabilities',
+		'meta_compare' => 'EXISTS',
+		'fields'       => 'ID',
+		'number'       => -1,
+	)
+);
 
 foreach ( $wpdsgvo_cap_users as $wpdsgvo_uid ) {
 	$wpdsgvo_user = new WP_User( (int) $wpdsgvo_uid );

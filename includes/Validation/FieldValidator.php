@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Validation;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Models\Field;
 
@@ -61,12 +61,12 @@ class FieldValidator {
 	 *         Sanitized values and any validation errors keyed by field name.
 	 */
 	public function validate( array $submitted_data, array $fields ): array {
-		$sanitized = [];
-		$errors    = [];
+		$sanitized = array();
+		$errors    = array();
 
 		foreach ( $fields as $field ) {
 			// Skip static text blocks — they don't accept input.
-			if ( $field->field_type === 'static' ) {
+			if ( 'static' === $field->field_type ) {
 				continue;
 			}
 
@@ -92,17 +92,17 @@ class FieldValidator {
 			// Type-specific validation and sanitization.
 			$result = $this->validate_field_type( $field, $value );
 
-			if ( $result['error'] !== null ) {
+			if ( null !== $result['error'] ) {
 				$errors[ $name ] = $result['error'];
 			} else {
 				$sanitized[ $name ] = $result['value'];
 			}
 		}
 
-		return [
+		return array(
 			'sanitized' => $sanitized,
 			'errors'    => $errors,
-		];
+		);
 	}
 
 	/**
@@ -140,13 +140,16 @@ class FieldValidator {
 
 			case 'file':
 				// File validation is handled separately by FileHandler.
-				return [ 'value' => $value, 'error' => null ];
+				return array(
+					'value' => $value,
+					'error' => null,
+				);
 
 			default:
-				return [
+				return array(
 					'value' => null,
 					'error' => __( 'Unbekannter Feldtyp.', 'wp-dsgvo-form' ),
-				];
+				);
 		}
 	}
 
@@ -163,7 +166,7 @@ class FieldValidator {
 		// SEC-VAL-03: Enforce max length.
 		$max_length = $this->get_max_length( $field );
 		if ( mb_strlen( $value ) > $max_length ) {
-			return [
+			return array(
 				'value' => null,
 				'error' => sprintf(
 					/* translators: 1: field label, 2: max length */
@@ -171,16 +174,22 @@ class FieldValidator {
 					$field->label,
 					$max_length
 				),
-			];
+			);
 		}
 
 		// Custom pattern validation.
 		$pattern_error = $this->validate_pattern( $field, $value );
-		if ( $pattern_error !== null ) {
-			return [ 'value' => null, 'error' => $pattern_error ];
+		if ( null !== $pattern_error ) {
+			return array(
+				'value' => null,
+				'error' => $pattern_error,
+			);
 		}
 
-		return [ 'value' => sanitize_text_field( $value ), 'error' => null ];
+		return array(
+			'value' => sanitize_text_field( $value ),
+			'error' => null,
+		);
 	}
 
 	/**
@@ -195,17 +204,20 @@ class FieldValidator {
 		$sanitized = sanitize_email( $value );
 
 		if ( ! is_email( $sanitized ) ) {
-			return [
+			return array(
 				'value' => null,
 				'error' => sprintf(
 					/* translators: %s: field label */
 					__( 'Bitte geben Sie eine gueltige E-Mail-Adresse fuer "%s" ein.', 'wp-dsgvo-form' ),
 					$field->label
 				),
-			];
+			);
 		}
 
-		return [ 'value' => $sanitized, 'error' => null ];
+		return array(
+			'value' => $sanitized,
+			'error' => null,
+		);
 	}
 
 	/**
@@ -219,17 +231,20 @@ class FieldValidator {
 		$value = (string) $value;
 
 		if ( ! preg_match( self::PHONE_PATTERN, $value ) ) {
-			return [
+			return array(
 				'value' => null,
 				'error' => sprintf(
 					/* translators: %s: field label */
 					__( 'Bitte geben Sie eine gueltige Telefonnummer fuer "%s" ein.', 'wp-dsgvo-form' ),
 					$field->label
 				),
-			];
+			);
 		}
 
-		return [ 'value' => sanitize_text_field( $value ), 'error' => null ];
+		return array(
+			'value' => sanitize_text_field( $value ),
+			'error' => null,
+		);
 	}
 
 	/**
@@ -245,7 +260,7 @@ class FieldValidator {
 		// SEC-VAL-03: Enforce max length.
 		$max_length = $this->get_max_length( $field );
 		if ( mb_strlen( $value ) > $max_length ) {
-			return [
+			return array(
 				'value' => null,
 				'error' => sprintf(
 					/* translators: 1: field label, 2: max length */
@@ -253,10 +268,13 @@ class FieldValidator {
 					$field->label,
 					$max_length
 				),
-			];
+			);
 		}
 
-		return [ 'value' => sanitize_textarea_field( $value ), 'error' => null ];
+		return array(
+			'value' => sanitize_textarea_field( $value ),
+			'error' => null,
+		);
 	}
 
 	/**
@@ -272,7 +290,7 @@ class FieldValidator {
 		$allowed = $field->get_options();
 
 		if ( ! is_array( $value ) ) {
-			$value = [ (string) $value ];
+			$value = array( (string) $value );
 		}
 
 		$value = array_map( 'strval', $value );
@@ -281,17 +299,20 @@ class FieldValidator {
 		$invalid = array_diff( $value, $allowed );
 
 		if ( ! empty( $invalid ) ) {
-			return [
+			return array(
 				'value' => null,
 				'error' => sprintf(
 					/* translators: %s: field label */
 					__( 'Ungueltige Auswahl fuer "%s".', 'wp-dsgvo-form' ),
 					$field->label
 				),
-			];
+			);
 		}
 
-		return [ 'value' => $value, 'error' => null ];
+		return array(
+			'value' => $value,
+			'error' => null,
+		);
 	}
 
 	/**
@@ -306,17 +327,20 @@ class FieldValidator {
 		$allowed = $field->get_options();
 
 		if ( ! in_array( $value, $allowed, true ) ) {
-			return [
+			return array(
 				'value' => null,
 				'error' => sprintf(
 					/* translators: %s: field label */
 					__( 'Ungueltige Auswahl fuer "%s".', 'wp-dsgvo-form' ),
 					$field->label
 				),
-			];
+			);
 		}
 
-		return [ 'value' => $value, 'error' => null ];
+		return array(
+			'value' => $value,
+			'error' => null,
+		);
 	}
 
 	/**
@@ -339,14 +363,14 @@ class FieldValidator {
 	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_date( Field $field, $value ): array {
-		$value = (string) $value;
-		$rules = $field->get_validation_rules();
+		$value  = (string) $value;
+		$rules  = $field->get_validation_rules();
 		$format = $rules['date_format'] ?? self::DATE_FORMAT;
 
 		$date = \DateTime::createFromFormat( $format, $value );
 
 		if ( ! $date || $date->format( $format ) !== $value ) {
-			return [
+			return array(
 				'value' => null,
 				'error' => sprintf(
 					/* translators: 1: field label, 2: expected format */
@@ -354,10 +378,13 @@ class FieldValidator {
 					$field->label,
 					$format
 				),
-			];
+			);
 		}
 
-		return [ 'value' => $value, 'error' => null ];
+		return array(
+			'value' => $value,
+			'error' => null,
+		);
 	}
 
 	/**
@@ -414,7 +441,7 @@ class FieldValidator {
 		ini_set( 'pcre.backtrack_limit', $prev_limit ); // phpcs:ignore WordPress.PHP.IniSet.Risky -- Restoring original value after SEC-VAL-10 pattern check.
 
 		// PREG_BACKTRACK_LIMIT_ERROR or other PCRE error — fail closed.
-		if ( $match === false ) {
+		if ( false === $match ) {
 			return sprintf(
 				/* translators: %s: field label */
 				__( 'Die Formatpruefung fuer "%s" konnte nicht ausgefuehrt werden.', 'wp-dsgvo-form' ),
@@ -422,7 +449,7 @@ class FieldValidator {
 			);
 		}
 
-		if ( $match === 0 ) {
+		if ( 0 === $match ) {
 			$message = $rules['pattern_message']
 				?? sprintf(
 					/* translators: %s: field label */
@@ -442,7 +469,7 @@ class FieldValidator {
 	 * @param mixed $value The value to check.
 	 */
 	private function is_empty_value( $value ): bool {
-		if ( $value === null ) {
+		if ( null === $value ) {
 			return true;
 		}
 

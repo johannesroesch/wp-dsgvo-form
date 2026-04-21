@@ -67,29 +67,29 @@ class KekRotation {
 
 		try {
 
-		if ( $old_kek === $new_kek ) {
-			throw new \RuntimeException( 'New KEK must be different from current KEK.' );
-		}
+			if ( $old_kek === $new_kek ) {
+				throw new \RuntimeException( 'New KEK must be different from current KEK.' );
+			}
 
-		$forms = Form::find_all();
+			$forms = Form::find_all();
 
-		$result = [
-			'success'        => true,
-			'forms_total'    => count( $forms ),
-			'forms_rotated'  => 0,
-			'errors'         => [],
-			'new_kek_base64' => $new_kek_base64,
-		];
+			$result = array(
+				'success'        => true,
+				'forms_total'    => count( $forms ),
+				'forms_rotated'  => 0,
+				'errors'         => array(),
+				'new_kek_base64' => $new_kek_base64,
+			);
 
-		if ( empty( $forms ) ) {
-			return $result;
-		}
+			if ( empty( $forms ) ) {
+				return $result;
+			}
 
-		if ( $dry_run ) {
-			return $this->dry_run_rotate( $forms, $old_kek, $new_kek, $result );
-		}
+			if ( $dry_run ) {
+				return $this->dry_run_rotate( $forms, $old_kek, $new_kek, $result );
+			}
 
-		return $this->execute_rotate( $forms, $old_kek, $new_kek, $result );
+			return $this->execute_rotate( $forms, $old_kek, $new_kek, $result );
 
 		} finally {
 			// SEC-SOLL-05: Clear KEK material from memory.
@@ -131,152 +131,152 @@ class KekRotation {
 
 		try {
 
-		$result = [
-			'success'                 => true,
-			'submissions_total'       => 0,
-			'submissions_rehashed'    => 0,
-			'submissions_skipped'     => 0,
-			'errors'                  => [],
-		];
-
-		// Load all forms and decrypt their DEKs with NEW KEK (DB already has re-wrapped DEKs).
-		$forms = Form::find_all();
-		$deks  = [];
-
-		foreach ( $forms as $form ) {
-			try {
-				$deks[ $form->id ] = $this->key_manager->decrypt_dek_with_kek(
-					$new_kek,
-					$form->encrypted_dek,
-					$form->dek_iv
-				);
-			} catch ( \Throwable $e ) {
-				$result['errors'][] = sprintf(
-					'Form #%d (%s): Cannot decrypt DEK — %s',
-					$form->id,
-					$form->title,
-					$e->getMessage()
-				);
-				$result['success'] = false;
-			}
-		}
-
-		if ( ! $result['success'] ) {
-			return $result;
-		}
-
-		// Count total submissions with lookup hashes.
-		global $wpdb;
-		$sub_table = Submission::get_table_name();
-
-		$total = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM `{$sub_table}` WHERE email_lookup_hash IS NOT NULL AND email_lookup_hash != %s",
-				''
-			)
-		);
-
-		$result['submissions_total'] = $total;
-
-		if ( $total === 0 ) {
-			return $result;
-		}
-
-		// Process in batches.
-		$encryption = new EncryptionService( $this->key_manager );
-		$offset     = 0;
-
-		while ( $offset < $total ) {
-			$submissions = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT id, form_id, encrypted_data, iv, auth_tag, email_lookup_hash FROM `{$sub_table}` WHERE email_lookup_hash IS NOT NULL AND email_lookup_hash != %s ORDER BY id ASC LIMIT %d OFFSET %d",
-					'',
-					$batch_size,
-					$offset
-				),
-				ARRAY_A
+			$result = array(
+				'success'              => true,
+				'submissions_total'    => 0,
+				'submissions_rehashed' => 0,
+				'submissions_skipped'  => 0,
+				'errors'               => array(),
 			);
 
-			if ( empty( $submissions ) ) {
-				break;
+			// Load all forms and decrypt their DEKs with NEW KEK (DB already has re-wrapped DEKs).
+			$forms = Form::find_all();
+			$deks  = array();
+
+			foreach ( $forms as $form ) {
+				try {
+					$deks[ $form->id ] = $this->key_manager->decrypt_dek_with_kek(
+						$new_kek,
+						$form->encrypted_dek,
+						$form->dek_iv
+					);
+				} catch ( \Throwable $e ) {
+					$result['errors'][] = sprintf(
+						'Form #%d (%s): Cannot decrypt DEK — %s',
+						$form->id,
+						$form->title,
+						$e->getMessage()
+					);
+					$result['success']  = false;
+				}
 			}
 
-			foreach ( $submissions as $row ) {
-				$sub_id  = (int) $row['id'];
-				$form_id = (int) $row['form_id'];
+			if ( ! $result['success'] ) {
+				return $result;
+			}
 
-				if ( ! isset( $deks[ $form_id ] ) ) {
-					++$result['submissions_skipped'];
-					continue;
+			// Count total submissions with lookup hashes.
+			global $wpdb;
+			$sub_table = Submission::get_table_name();
+
+			$total = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM `{$sub_table}` WHERE email_lookup_hash IS NOT NULL AND email_lookup_hash != %s",
+					''
+				)
+			);
+
+			$result['submissions_total'] = $total;
+
+			if ( 0 === $total ) {
+				return $result;
+			}
+
+			// Process in batches.
+			$encryption = new EncryptionService( $this->key_manager );
+			$offset     = 0;
+
+			while ( $offset < $total ) {
+				$submissions = $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT id, form_id, encrypted_data, iv, auth_tag, email_lookup_hash FROM `{$sub_table}` WHERE email_lookup_hash IS NOT NULL AND email_lookup_hash != %s ORDER BY id ASC LIMIT %d OFFSET %d",
+						'',
+						$batch_size,
+						$offset
+					),
+					ARRAY_A
+				);
+
+				if ( empty( $submissions ) ) {
+					break;
 				}
 
-				try {
-					$json = $encryption->decrypt(
-						$row['encrypted_data'],
-						$row['iv'],
-						$row['auth_tag'],
-						$deks[ $form_id ]
-					);
+				foreach ( $submissions as $row ) {
+					$sub_id  = (int) $row['id'];
+					$form_id = (int) $row['form_id'];
 
-					$data  = json_decode( $json, true, 512, JSON_THROW_ON_ERROR );
-					$email = $this->find_email_in_data( $data );
-
-					if ( $email === null ) {
+					if ( ! isset( $deks[ $form_id ] ) ) {
 						++$result['submissions_skipped'];
 						continue;
 					}
 
-					$new_hash = $this->key_manager->calculate_lookup_hash_with_key( $new_hmac_key, $email );
+					try {
+						$json = $encryption->decrypt(
+							$row['encrypted_data'],
+							$row['iv'],
+							$row['auth_tag'],
+							$deks[ $form_id ]
+						);
 
-					$wpdb->update(
-						$sub_table,
-						[ 'email_lookup_hash' => $new_hash ],
-						[ 'id' => $sub_id ],
-						[ '%s' ],
-						[ '%d' ]
-					);
+						$data  = json_decode( $json, true, 512, JSON_THROW_ON_ERROR );
+						$email = $this->find_email_in_data( $data );
 
-					++$result['submissions_rehashed'];
-				} catch ( \Throwable $e ) {
-					++$result['submissions_skipped'];
-					$result['errors'][] = sprintf(
-						'Submission #%d: %s',
-						$sub_id,
-						$e->getMessage()
-					);
+						if ( null === $email ) {
+							++$result['submissions_skipped'];
+							continue;
+						}
+
+						$new_hash = $this->key_manager->calculate_lookup_hash_with_key( $new_hmac_key, $email );
+
+						$wpdb->update(
+							$sub_table,
+							array( 'email_lookup_hash' => $new_hash ),
+							array( 'id' => $sub_id ),
+							array( '%s' ),
+							array( '%d' )
+						);
+
+						++$result['submissions_rehashed'];
+					} catch ( \Throwable $e ) {
+						++$result['submissions_skipped'];
+						$result['errors'][] = sprintf(
+							'Submission #%d: %s',
+							$sub_id,
+							$e->getMessage()
+						);
+					}
+				}
+
+				$offset += $batch_size;
+
+				if ( null !== $progress_callback ) {
+					$progress_callback( min( $offset, $total ), $total );
 				}
 			}
 
-			$offset += $batch_size;
-
-			if ( $progress_callback !== null ) {
-				$progress_callback( min( $offset, $total ), $total );
+			// Clear DEKs from memory.
+			foreach ( $deks as &$dek ) {
+				if ( function_exists( 'sodium_memzero' ) ) {
+					sodium_memzero( $dek );
+				}
 			}
-		}
+			unset( $dek );
 
-		// Clear DEKs from memory.
-		foreach ( $deks as &$dek ) {
-			if ( function_exists( 'sodium_memzero' ) ) {
-				sodium_memzero( $dek );
-			}
-		}
-		unset( $dek );
+			// Audit log.
+			$this->audit_logger->log(
+				get_current_user_id(),
+				'kek_rotation_rehash',
+				null,
+				null,
+				sprintf(
+					'Lookup hashes recomputed: %d rehashed, %d skipped, %d errors',
+					$result['submissions_rehashed'],
+					$result['submissions_skipped'],
+					count( $result['errors'] )
+				)
+			);
 
-		// Audit log.
-		$this->audit_logger->log(
-			get_current_user_id(),
-			'kek_rotation_rehash',
-			null,
-			null,
-			sprintf(
-				'Lookup hashes recomputed: %d rehashed, %d skipped, %d errors',
-				$result['submissions_rehashed'],
-				$result['submissions_skipped'],
-				count( $result['errors'] )
-			)
-		);
-
-		return $result;
+			return $result;
 
 		} finally {
 			// SEC-SOLL-05: Clear KEK and HMAC key material from memory.
@@ -323,7 +323,7 @@ class KekRotation {
 	private function validate_and_decode_kek( string $kek_base64 ): string {
 		$kek = base64_decode( $kek_base64, true );
 
-		if ( $kek === false || strlen( $kek ) !== self::KEY_LENGTH ) {
+		if ( false === $kek || strlen( $kek ) !== self::KEY_LENGTH ) {
 			throw new \RuntimeException(
 				'KEK must be a valid base64-encoded 256-bit key '
 				. '(32 bytes raw, 44 characters base64).'
@@ -376,7 +376,7 @@ class KekRotation {
 					$form->title,
 					$e->getMessage()
 				);
-				$result['success'] = false;
+				$result['success']  = false;
 			}
 		}
 
@@ -433,16 +433,16 @@ class KekRotation {
 
 				$updated = $wpdb->update(
 					$table,
-					[
+					array(
 						'encrypted_dek' => $re_encrypted['encrypted_dek'],
 						'dek_iv'        => $re_encrypted['dek_iv'],
-					],
-					[ 'id' => $form->id ],
-					[ '%s', '%s' ],
-					[ '%d' ]
+					),
+					array( 'id' => $form->id ),
+					array( '%s', '%s' ),
+					array( '%d' )
 				);
 
-				if ( $updated === false ) {
+				if ( false === $updated ) {
 					throw new \RuntimeException(
 						sprintf( 'Form #%d: DB update failed: %s', $form->id, esc_html( $wpdb->last_error ) )
 					);

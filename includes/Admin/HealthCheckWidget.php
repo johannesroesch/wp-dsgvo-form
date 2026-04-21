@@ -30,7 +30,7 @@ class HealthCheckWidget {
 	 * Registers the dashboard widget hook.
 	 */
 	public function register(): void {
-		add_action( 'wp_dashboard_setup', [ $this, 'add_widget' ] );
+		add_action( 'wp_dashboard_setup', array( $this, 'add_widget' ) );
 	}
 
 	/**
@@ -44,7 +44,7 @@ class HealthCheckWidget {
 		wp_add_dashboard_widget(
 			self::WIDGET_ID,
 			__( 'DSGVO Form — Verschluesselungs-Status', 'wp-dsgvo-form' ),
-			[ $this, 'render' ]
+			array( $this, 'render' )
 		);
 	}
 
@@ -64,9 +64,9 @@ class HealthCheckWidget {
 
 			printf(
 				'<tr><td style="width:2em;text-align:center">%s</td><td><strong>%s</strong><br><small>%s</small></td></tr>',
-				$icon,
-				$label,
-				$desc
+				$icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded HTML entity (&#9989;/&#10060;).
+				$label, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Already escaped via esc_html() above.
+				$desc // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Already escaped via esc_html() above.
 			);
 		}
 
@@ -95,11 +95,11 @@ class HealthCheckWidget {
 	 */
 	private function run_checks(): array {
 		$key_manager = new KeyManager();
-		$checks      = [];
+		$checks      = array();
 
 		// Check 1: KEK constant defined.
 		$kek_available = $key_manager->is_kek_available();
-		$checks[]      = [
+		$checks[]      = array(
 			'label'       => __( 'Master Key (KEK)', 'wp-dsgvo-form' ),
 			'ok'          => $kek_available,
 			'description' => $kek_available
@@ -113,7 +113,7 @@ class HealthCheckWidget {
 					__( '%s ist nicht definiert. Bitte in wp-config.php konfigurieren.', 'wp-dsgvo-form' ),
 					$key_manager->get_kek_constant_name()
 				),
-		];
+		);
 
 		// Check 2: KEK valid format (32 bytes base64).
 		$kek_valid = false;
@@ -121,40 +121,40 @@ class HealthCheckWidget {
 			try {
 				$key_manager->get_kek();
 				$kek_valid = true;
-			} catch ( \RuntimeException $e ) {
-				// Invalid format.
+			} catch ( \RuntimeException $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch -- KEK format validation; exception means invalid key.
+				$kek_valid = false;
 			}
 		}
-		$checks[] = [
+		$checks[] = array(
 			'label'       => __( 'KEK-Format', 'wp-dsgvo-form' ),
 			'ok'          => $kek_valid,
 			'description' => $kek_valid
 				? __( 'Gueltiger base64-codierter 256-Bit-Schluessel.', 'wp-dsgvo-form' )
 				: __( 'Ungueltig oder fehlend. Erwartet: 44 Zeichen base64 (32 Byte).', 'wp-dsgvo-form' ),
-		];
+		);
 
 		// Check 3: OpenSSL cipher available.
 		$cipher_ok = in_array( 'aes-256-gcm', openssl_get_cipher_methods(), true );
-		$checks[]  = [
+		$checks[]  = array(
 			'label'       => __( 'OpenSSL AES-256-GCM', 'wp-dsgvo-form' ),
 			'ok'          => $cipher_ok,
 			'description' => $cipher_ok
 				? __( 'Cipher ist verfuegbar.', 'wp-dsgvo-form' )
 				: __( 'Cipher nicht verfuegbar. OpenSSL-Installation pruefen.', 'wp-dsgvo-form' ),
-		];
+		);
 
 		// Check 4: Round-trip test.
 		$roundtrip_ok = false;
 		if ( $kek_valid && $cipher_ok ) {
 			$roundtrip_ok = $this->test_roundtrip( $key_manager );
 		}
-		$checks[] = [
+		$checks[] = array(
 			'label'       => __( 'Roundtrip-Test', 'wp-dsgvo-form' ),
 			'ok'          => $roundtrip_ok,
 			'description' => $roundtrip_ok
 				? __( 'Verschluesselung und Entschluesselung funktionieren korrekt.', 'wp-dsgvo-form' )
 				: __( 'Roundtrip fehlgeschlagen. DEK-Verschluesselung pruefen.', 'wp-dsgvo-form' ),
-		];
+		);
 
 		return $checks;
 	}
@@ -167,8 +167,8 @@ class HealthCheckWidget {
 	 */
 	private function test_roundtrip( KeyManager $key_manager ): bool {
 		try {
-			$dek        = $key_manager->generate_dek();
-			$encrypted  = $key_manager->encrypt_dek( $dek );
+			$dek       = $key_manager->generate_dek();
+			$encrypted = $key_manager->encrypt_dek( $dek );
 
 			$decrypted = $key_manager->decrypt_dek(
 				$encrypted['encrypted_dek'],

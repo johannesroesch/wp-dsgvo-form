@@ -46,7 +46,7 @@ class Activator {
 	public static function maybe_upgrade(): void {
 		$stored_version = get_option( 'wpdsgvo_db_version', '0' );
 
-		if ( $stored_version === WPDSGVO_VERSION ) {
+		if ( WPDSGVO_VERSION === $stored_version ) {
 			return;
 		}
 
@@ -119,30 +119,32 @@ class Activator {
 
 		// WP-CLI without --user flag returns 0 → fall back to first admin for audit attribution.
 		if ( 0 === $granted_by ) {
-			$admins = get_users( [
-				'role'    => 'administrator',
-				'number'  => 1,
-				'orderby' => 'ID',
-				'order'   => 'ASC',
-				'fields'  => 'ID',
-			] );
+			$admins = get_users(
+				array(
+					'role'    => 'administrator',
+					'number'  => 1,
+					'orderby' => 'ID',
+					'order'   => 'ASC',
+					'fields'  => 'ID',
+				)
+			);
 			if ( ! empty( $admins ) ) {
 				$granted_by = (int) $admins[0];
 			}
 		}
 
-		$role_cap_map = [
-			'wp_dsgvo_form_reader' => [
+		$role_cap_map = array(
+			'wp_dsgvo_form_reader'     => array(
 				'dsgvo_form_view_submissions',
 				'dsgvo_form_recipient',
-			],
-			'wp_dsgvo_form_supervisor' => [
+			),
+			'wp_dsgvo_form_supervisor' => array(
 				'dsgvo_form_view_submissions',
 				'dsgvo_form_view_all_submissions',
 				'dsgvo_form_export',
 				'dsgvo_form_recipient',
-			],
-		];
+			),
+		);
 
 		foreach ( $role_cap_map as $role_slug => $caps ) {
 			self::migrate_users_from_role( $role_slug, $caps, $capability_manager, $granted_by );
@@ -173,12 +175,14 @@ class Activator {
 		$offset     = 0;
 
 		do {
-			$users = get_users( [
-				'role'   => $role_slug,
-				'number' => $batch_size,
-				'offset' => $offset,
-				'fields' => 'ID',
-			] );
+			$users = get_users(
+				array(
+					'role'   => $role_slug,
+					'number' => $batch_size,
+					'offset' => $offset,
+					'fields' => 'ID',
+				)
+			);
 
 			foreach ( $users as $user_id ) {
 				foreach ( $caps as $cap ) {
@@ -186,8 +190,9 @@ class Activator {
 				}
 			}
 
-			$offset += $batch_size;
-		} while ( count( $users ) === $batch_size );
+			$user_count = count( $users );
+			$offset    += $batch_size;
+		} while ( $user_count === $batch_size );
 	}
 
 	/**
@@ -366,8 +371,8 @@ class Activator {
 			'wp_dsgvo_form_reader',
 			__( 'DSGVO-Formular Empfaenger', 'wp-dsgvo-form' ),
 			array(
-				'read'                             => true,
-				'dsgvo_form_view_submissions'       => true,
+				'read'                        => true,
+				'dsgvo_form_view_submissions' => true,
 			)
 		);
 
@@ -376,10 +381,10 @@ class Activator {
 			'wp_dsgvo_form_supervisor',
 			__( 'DSGVO-Formular Supervisor', 'wp-dsgvo-form' ),
 			array(
-				'read'                                 => true,
-				'dsgvo_form_view_submissions'           => true,
-				'dsgvo_form_view_all_submissions'       => true,
-				'dsgvo_form_export'                     => true,
+				'read'                            => true,
+				'dsgvo_form_view_submissions'     => true,
+				'dsgvo_form_view_all_submissions' => true,
+				'dsgvo_form_export'               => true,
 			)
 		);
 

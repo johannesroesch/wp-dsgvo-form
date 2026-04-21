@@ -31,12 +31,12 @@ class CapabilityManager {
 	 *
 	 * @var string[]
 	 */
-	private const ALLOWED_CONTEXTS = [
+	private const ALLOWED_CONTEXTS = array(
 		'manual',
 		'migration',
 		'auto_grant',
 		'auto_revoke',
-	];
+	);
 
 	/**
 	 * Audit logger instance.

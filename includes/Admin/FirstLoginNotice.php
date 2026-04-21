@@ -70,9 +70,9 @@ class FirstLoginNotice {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_menu', [ $this, 'register_page' ] );
-		add_action( 'current_screen', [ $this, 'maybe_redirect_to_notice' ], 5 );
-		add_action( 'admin_post_' . self::NONCE_ACTION, [ $this, 'handle_acknowledgment' ] );
+		add_action( 'admin_menu', array( $this, 'register_page' ) );
+		add_action( 'current_screen', array( $this, 'maybe_redirect_to_notice' ), 5 );
+		add_action( 'admin_post_' . self::NONCE_ACTION, array( $this, 'handle_acknowledgment' ) );
 	}
 
 	/**
@@ -89,7 +89,7 @@ class FirstLoginNotice {
 			'',
 			'read',
 			self::PAGE_SLUG,
-			[ $this, 'render_acknowledge_page' ]
+			array( $this, 'render_acknowledge_page' )
 		);
 	}
 
@@ -113,7 +113,7 @@ class FirstLoginNotice {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
 
-		if ( $page === self::PAGE_SLUG ) {
+		if ( self::PAGE_SLUG === $page ) {
 			return;
 		}
 
@@ -211,17 +211,17 @@ class FirstLoginNotice {
 			wp_die(
 				esc_html__( 'Sicherheitspruefung fehlgeschlagen.', 'wp-dsgvo-form' ),
 				esc_html__( 'Fehler', 'wp-dsgvo-form' ),
-				[ 'response' => 403 ]
+				array( 'response' => 403 )
 			);
 		}
 
 		$user_id = get_current_user_id();
 
-		if ( $user_id === 0 ) {
+		if ( 0 === $user_id ) {
 			wp_die(
 				esc_html__( 'Sie muessen angemeldet sein.', 'wp-dsgvo-form' ),
 				esc_html__( 'Fehler', 'wp-dsgvo-form' ),
-				[ 'response' => 403 ]
+				array( 'response' => 403 )
 			);
 		}
 
@@ -230,7 +230,7 @@ class FirstLoginNotice {
 			wp_die(
 				esc_html__( 'Bitte bestaetigen Sie den Datenschutzhinweis.', 'wp-dsgvo-form' ),
 				esc_html__( 'Fehler', 'wp-dsgvo-form' ),
-				[ 'response' => 400 ]
+				array( 'response' => 400 )
 			);
 		}
 
@@ -270,7 +270,7 @@ class FirstLoginNotice {
 	 * @return bool True if the user must acknowledge before proceeding.
 	 */
 	public static function needs_acknowledgment( int $user_id ): bool {
-		if ( $user_id === 0 ) {
+		if ( 0 === $user_id ) {
 			return false;
 		}
 
@@ -344,7 +344,7 @@ class FirstLoginNotice {
 		if ( '' === $admin_email ) {
 			$admin_email = get_option( 'admin_email' );
 		}
-		$text       .= '<p>' . sprintf(
+		$text .= '<p>' . sprintf(
 			/* translators: 1: site name, 2: admin email */
 			esc_html__( 'Verantwortlicher: %1$s (Kontakt: %2$s)', 'wp-dsgvo-form' ),
 			esc_html( $site_name ),

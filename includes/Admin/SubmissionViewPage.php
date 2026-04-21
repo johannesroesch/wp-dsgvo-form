@@ -49,7 +49,7 @@ class SubmissionViewPage {
 
 		$submission = Submission::find( $submission_id );
 
-		if ( $submission === null ) {
+		if ( null === $submission ) {
 			wp_die( esc_html__( 'Einsendung nicht gefunden.', 'wp-dsgvo-form' ) );
 		}
 
@@ -78,13 +78,13 @@ class SubmissionViewPage {
 
 		$form = Form::find( $submission->form_id );
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			wp_die( esc_html__( 'Zugehoeriges Formular nicht gefunden.', 'wp-dsgvo-form' ) );
 		}
 
-		$fields        = Field::find_by_form_id( $form->id );
-		$decrypted     = $this->decrypt_submission( $submission, $form );
-		$back_url      = admin_url( 'admin.php?page=' . AdminMenu::MENU_SLUG . '-submissions' );
+		$fields    = Field::find_by_form_id( $form->id );
+		$decrypted = $this->decrypt_submission( $submission, $form );
+		$back_url  = admin_url( 'admin.php?page=' . AdminMenu::MENU_SLUG . '-submissions' );
 
 		?>
 		<div class="wrap">
@@ -167,7 +167,7 @@ class SubmissionViewPage {
 		<div class="postbox">
 			<h2 class="hndle"><?php esc_html_e( 'Formulardaten', 'wp-dsgvo-form' ); ?></h2>
 			<div class="inside">
-				<?php if ( $data === null ) : ?>
+				<?php if ( null === $data ) : ?>
 					<div class="notice notice-error inline">
 						<p>
 							<?php esc_html_e( 'Entschluesselung fehlgeschlagen. Pruefen Sie den Encryption Key in wp-config.php.', 'wp-dsgvo-form' ); ?>
@@ -177,9 +177,11 @@ class SubmissionViewPage {
 					<table class="widefat striped">
 						<tbody>
 							<?php foreach ( $fields as $field ) : ?>
-								<?php if ( 'static' === $field->field_type ) {
+								<?php
+								if ( 'static' === $field->field_type ) {
 									continue;
-								} ?>
+								}
+								?>
 								<tr>
 									<th scope="row" style="width:30%;">
 										<?php echo esc_html( $field->label ); ?>
@@ -292,7 +294,7 @@ class SubmissionViewPage {
 								$consent_version_record = ConsentVersion::find( $submission->consent_version_id );
 							}
 							?>
-							<?php if ( $consent_version_record !== null ) : ?>
+							<?php if ( null !== $consent_version_record ) : ?>
 								<tr>
 									<th><?php esc_html_e( 'Einwilligungstext', 'wp-dsgvo-form' ); ?></th>
 									<td>
@@ -332,7 +334,7 @@ class SubmissionViewPage {
 	 */
 	private function render_actions_box( Submission $submission ): void {
 		// SEC-FINDING-08: Restrict is available to all viewers; unrestrict requires elevated privilege.
-		$can_unrestrict = current_user_can( 'dsgvo_form_view_all_submissions' );
+		$can_unrestrict       = current_user_can( 'dsgvo_form_view_all_submissions' );
 		$show_restrict_button = ! $submission->is_restricted || $can_unrestrict;
 		?>
 		<div class="postbox">
@@ -387,7 +389,7 @@ class SubmissionViewPage {
 
 				<?php if ( current_user_can( 'dsgvo_form_export' ) && ! $submission->is_restricted ) : ?>
 					<?php
-					$export_url = wp_nonce_url(
+					$export_url     = wp_nonce_url(
 						admin_url(
 							sprintf(
 								'admin.php?page=%s-submissions&action=view&submission_id=%d&do=export&format=json',
@@ -441,7 +443,7 @@ class SubmissionViewPage {
 			Submission::set_restricted( $submission_id, true );
 
 			// SEC-AUDIT-01: Log restrict action (Art. 18 DSGVO).
-			$submission   = Submission::find( $submission_id );
+			$submission = Submission::find( $submission_id );
 			$this->audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'restricted' );
 
 			add_settings_error(
@@ -459,7 +461,7 @@ class SubmissionViewPage {
 			Submission::set_restricted( $submission_id, false );
 
 			// SEC-AUDIT-01: Log unrestrict action (Art. 18 DSGVO).
-			$submission   = Submission::find( $submission_id );
+			$submission = Submission::find( $submission_id );
 			$this->audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'unrestricted' );
 
 			add_settings_error(
@@ -501,7 +503,7 @@ class SubmissionViewPage {
 
 		$submission = Submission::find( $submission_id );
 
-		if ( $submission === null ) {
+		if ( null === $submission ) {
 			wp_die( esc_html__( 'Einsendung nicht gefunden.', 'wp-dsgvo-form' ), 404 );
 		}
 
@@ -520,14 +522,14 @@ class SubmissionViewPage {
 
 		$form = Form::find( $submission->form_id );
 
-		if ( $form === null ) {
+		if ( null === $form ) {
 			wp_die( esc_html__( 'Zugehoeriges Formular nicht gefunden.', 'wp-dsgvo-form' ), 404 );
 		}
 
 		// Decrypt submission data.
 		$decrypted = $this->decrypt_submission( $submission, $form );
 
-		if ( $decrypted === null ) {
+		if ( null === $decrypted ) {
 			wp_die( esc_html__( 'Entschluesselung fehlgeschlagen. Export nicht moeglich.', 'wp-dsgvo-form' ), 500 );
 		}
 
@@ -561,7 +563,7 @@ class SubmissionViewPage {
 	 * @return array<string, mixed> Export-ready data.
 	 */
 	private function build_export_data( array $decrypted, array $fields, Submission $submission, Form $form ): array {
-		$field_data = [];
+		$field_data = array();
 
 		foreach ( $fields as $field ) {
 			if ( 'static' === $field->field_type ) {
@@ -577,11 +579,11 @@ class SubmissionViewPage {
 			$field_data[ $field->label ] = $value;
 		}
 
-		return [
+		return array(
 			'form_title'   => $form->title,
 			'submitted_at' => $submission->submitted_at,
 			'fields'       => $field_data,
-		];
+		);
 	}
 
 	/**
@@ -625,18 +627,18 @@ class SubmissionViewPage {
 		echo "\xEF\xBB\xBF";
 
 		// Header row (static labels — no user data, safe from injection).
-		fputcsv( $output, [ 'Feld', 'Wert' ] );
+		fputcsv( $output, array( 'Feld', 'Wert' ) );
 
 		// Metadata rows.
-		fputcsv( $output, [ 'Formular', self::sanitize_csv_value( $data['form_title'] ) ] );
-		fputcsv( $output, [ 'Eingegangen', self::sanitize_csv_value( $data['submitted_at'] ) ] );
+		fputcsv( $output, array( 'Formular', self::sanitize_csv_value( $data['form_title'] ) ) );
+		fputcsv( $output, array( 'Eingegangen', self::sanitize_csv_value( $data['submitted_at'] ) ) );
 
 		// Field data rows.
 		foreach ( $data['fields'] as $label => $value ) {
 			if ( is_array( $value ) ) {
 				$value = implode( ', ', $value );
 			}
-			fputcsv( $output, [ self::sanitize_csv_value( $label ), self::sanitize_csv_value( (string) $value ) ] );
+			fputcsv( $output, array( self::sanitize_csv_value( $label ), self::sanitize_csv_value( (string) $value ) ) );
 		}
 
 		fclose( $output ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- php://output stream, not filesystem
@@ -654,11 +656,11 @@ class SubmissionViewPage {
 	 * @return string Sanitized value safe for CSV.
 	 */
 	private static function sanitize_csv_value( string $value ): string {
-		if ( $value === '' ) {
+		if ( '' === $value ) {
 			return $value;
 		}
 
-		if ( in_array( $value[0], [ '=', '+', '-', '@', "\t", "\r" ], true ) ) {
+		if ( in_array( $value[0], array( '=', '+', '-', '@', "\t", "\r" ), true ) ) {
 			return "'" . $value;
 		}
 

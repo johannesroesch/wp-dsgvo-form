@@ -26,8 +26,8 @@ use WpDsgvoForm\Encryption\KeyManager;
  */
 class ServiceContainer {
 
-	private ?EncryptionService $encryption       = null;
-	private ?AuditLogger $audit_logger           = null;
+	private ?EncryptionService $encryption         = null;
+	private ?AuditLogger $audit_logger             = null;
 	private ?CapabilityManager $capability_manager = null;
 
 	/**
@@ -36,7 +36,7 @@ class ServiceContainer {
 	 * @return EncryptionService
 	 */
 	public function encryption(): EncryptionService {
-		if ( $this->encryption === null ) {
+		if ( null === $this->encryption ) {
 			$this->encryption = new EncryptionService( new KeyManager() );
 		}
 
@@ -49,7 +49,7 @@ class ServiceContainer {
 	 * @return AuditLogger
 	 */
 	public function audit_logger(): AuditLogger {
-		if ( $this->audit_logger === null ) {
+		if ( null === $this->audit_logger ) {
 			$this->audit_logger = new AuditLogger();
 		}
 
@@ -64,7 +64,7 @@ class ServiceContainer {
 	 * @return CapabilityManager
 	 */
 	public function capability_manager(): CapabilityManager {
-		if ( $this->capability_manager === null ) {
+		if ( null === $this->capability_manager ) {
 			$this->capability_manager = new CapabilityManager( $this->audit_logger() );
 		}
 

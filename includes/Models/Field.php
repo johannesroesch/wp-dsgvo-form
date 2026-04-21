@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Models;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Field model — CRUD for the dsgvo_fields table.
@@ -16,7 +16,7 @@ class Field {
 	/**
 	 * Allowed field types matching ARCHITECTURE.md §2.2.
 	 */
-	public const ALLOWED_TYPES = [
+	public const ALLOWED_TYPES = array(
 		'text',
 		'email',
 		'tel',
@@ -27,41 +27,41 @@ class Field {
 		'date',
 		'file',
 		'static',
-	];
+	);
 
 	/**
 	 * Allowed field width values for grid layout (FEP-01).
 	 */
-	public const ALLOWED_WIDTHS = [
+	public const ALLOWED_WIDTHS = array(
 		'full',
 		'half',
 		'third',
-	];
+	);
 
-	public int $id               = 0;
-	public int $form_id          = 0;
-	public string $field_type    = 'text';
-	public string $label         = '';
-	public string $name          = '';
-	public string $placeholder   = '';
-	public bool $is_required     = false;
+	public int $id             = 0;
+	public int $form_id        = 0;
+	public string $field_type  = 'text';
+	public string $label       = '';
+	public string $name        = '';
+	public string $placeholder = '';
+	public bool $is_required   = false;
 	/**
 	 * @var array<int, string>|null
 	 */
-	public ?array $options       = null;
+	public ?array $options = null;
 	/**
 	 * @var array<string, mixed>|null
 	 */
 	public ?array $validation_rules = null;
-	public string $static_content = '';
+	public string $static_content   = '';
 	/**
 	 * @var array<string, mixed>|null
 	 */
-	public ?array $file_config   = null;
-	public string $css_class     = '';
-	public string $width         = 'full';
-	public int $sort_order       = 0;
-	public string $created_at    = '';
+	public ?array $file_config = null;
+	public string $css_class   = '';
+	public string $width       = 'full';
+	public int $sort_order     = 0;
+	public string $created_at  = '';
 
 	/**
 	 * Returns the full table name with WordPress prefix.
@@ -83,7 +83,7 @@ class Field {
 			ARRAY_A
 		);
 
-		if ( $row === null ) {
+		if ( null === $row ) {
 			return null;
 		}
 
@@ -107,7 +107,7 @@ class Field {
 			ARRAY_A
 		);
 
-		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+		return array_map( array( self::class, 'from_row' ), $rows ? $rows : array() );
 	}
 
 	/**
@@ -123,10 +123,10 @@ class Field {
 		$table = self::get_table_name();
 		$data  = $this->to_db_array();
 
-		if ( $this->id === 0 ) {
+		if ( 0 === $this->id ) {
 			$wpdb->insert( $table, $data, self::get_formats( $data ) );
 
-			if ( $wpdb->insert_id === 0 ) {
+			if ( 0 === $wpdb->insert_id ) {
 				throw new \RuntimeException( 'Failed to insert field: ' . esc_html( $wpdb->last_error ) );
 			}
 
@@ -135,9 +135,9 @@ class Field {
 			$wpdb->update(
 				$table,
 				$data,
-				[ 'id' => $this->id ],
+				array( 'id' => $this->id ),
 				self::get_formats( $data ),
-				[ '%d' ]
+				array( '%d' )
 			);
 		}
 
@@ -157,13 +157,13 @@ class Field {
 
 		global $wpdb;
 		$table  = self::get_table_name();
-		$result = $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
+		$result = $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
 
-		if ( $field !== null && $field->form_id > 0 ) {
+		if ( null !== $field && $field->form_id > 0 ) {
 			Form::invalidate_cache( $field->form_id );
 		}
 
-		return $result !== false;
+		return false !== $result;
 	}
 
 	/**
@@ -198,13 +198,13 @@ class Field {
 		foreach ( $field_ids as $index => $field_id ) {
 			$wpdb->update(
 				$table,
-				[ 'sort_order' => $index ],
-				[
+				array( 'sort_order' => $index ),
+				array(
 					'id'      => (int) $field_id,
 					'form_id' => $form_id,
-				],
-				[ '%d' ],
-				[ '%d', '%d' ]
+				),
+				array( '%d' ),
+				array( '%d', '%d' )
 			);
 		}
 
@@ -219,7 +219,7 @@ class Field {
 	 * @return array<int, string>
 	 */
 	public function get_options(): array {
-		return $this->options ?? [];
+		return $this->options ?? array();
 	}
 
 	/**
@@ -228,7 +228,7 @@ class Field {
 	 * @return array<string, mixed>
 	 */
 	public function get_validation_rules(): array {
-		return $this->validation_rules ?? [];
+		return $this->validation_rules ?? array();
 	}
 
 	/**
@@ -237,7 +237,7 @@ class Field {
 	 * @return array<string, mixed>
 	 */
 	public function get_file_config(): array {
-		return $this->file_config ?? [];
+		return $this->file_config ?? array();
 	}
 
 	/**
@@ -305,7 +305,7 @@ class Field {
 	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
-		return [
+		return array(
 			'form_id'          => $this->form_id,
 			'field_type'       => $this->field_type,
 			'label'            => $this->label,
@@ -319,7 +319,7 @@ class Field {
 			'css_class'        => $this->css_class,
 			'width'            => $this->width,
 			'sort_order'       => $this->sort_order,
-		];
+		);
 	}
 
 	/**
@@ -328,7 +328,7 @@ class Field {
 	 * @return array<mixed>|null
 	 */
 	private static function decode_json( ?string $value ): ?array {
-		if ( $value === null || $value === '' ) {
+		if ( null === $value || '' === $value ) {
 			return null;
 		}
 
@@ -343,7 +343,7 @@ class Field {
 	 * @param array<int|string, mixed>|null $value Value to encode.
 	 */
 	private static function encode_json( ?array $value ): ?string {
-		if ( $value === null || $value === [] ) {
+		if ( null === $value || array() === $value ) {
 			return null;
 		}
 
@@ -357,7 +357,7 @@ class Field {
 	 * @return string[]
 	 */
 	private static function get_formats( array $data ): array {
-		$formats = [];
+		$formats = array();
 		foreach ( $data as $value ) {
 			if ( is_int( $value ) ) {
 				$formats[] = '%d';

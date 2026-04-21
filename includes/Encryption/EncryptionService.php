@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Encryption;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * AES-256-GCM encryption service for the DSGVO Form plugin.
@@ -37,7 +37,7 @@ class EncryptionService {
 	/**
 	 * @param KeyManager $key_manager Key management service.
 	 */
-	public function __construct(KeyManager $key_manager) {
+	public function __construct( KeyManager $key_manager ) {
 		$this->key_manager = $key_manager;
 	}
 
@@ -50,11 +50,11 @@ class EncryptionService {
 	 * @return bool True if encryption can be performed.
 	 */
 	public function is_available(): bool {
-		if (!$this->key_manager->is_kek_available()) {
+		if ( ! $this->key_manager->is_kek_available() ) {
 			return false;
 		}
 
-		if (!in_array(self::CIPHER_METHOD, openssl_get_cipher_methods(), true)) {
+		if ( ! in_array( self::CIPHER_METHOD, openssl_get_cipher_methods(), true ) ) {
 			return false;
 		}
 
@@ -72,10 +72,10 @@ class EncryptionService {
 	 * @return array{ciphertext: string, iv: string, tag: string} Base64-encoded values.
 	 * @throws \RuntimeException If encryption fails.
 	 */
-	public function encrypt(string $plaintext, string $key): array {
-		$this->validate_key($key);
+	public function encrypt( string $plaintext, string $key ): array {
+		$this->validate_key( $key );
 
-		$iv  = random_bytes(self::IV_LENGTH);
+		$iv  = random_bytes( self::IV_LENGTH );
 		$tag = '';
 
 		$ciphertext = openssl_encrypt(
@@ -89,15 +89,15 @@ class EncryptionService {
 			self::TAG_LENGTH
 		);
 
-		if ($ciphertext === false) {
-			throw new \RuntimeException('Encryption failed: ' . esc_html( (string) openssl_error_string() ));
+		if ( false === $ciphertext ) {
+			throw new \RuntimeException( 'Encryption failed: ' . esc_html( (string) openssl_error_string() ) );
 		}
 
-		return [
-			'ciphertext' => base64_encode($ciphertext),
-			'iv'         => base64_encode($iv),
-			'tag'        => base64_encode($tag),
-		];
+		return array(
+			'ciphertext' => base64_encode( $ciphertext ),
+			'iv'         => base64_encode( $iv ),
+			'tag'        => base64_encode( $tag ),
+		);
 	}
 
 	/**
@@ -118,27 +118,27 @@ class EncryptionService {
 		string $tag_base64,
 		string $key
 	): string {
-		$this->validate_key($key);
+		$this->validate_key( $key );
 
-		$ciphertext = base64_decode($ciphertext_base64, true);
-		$iv         = base64_decode($iv_base64, true);
-		$tag        = base64_decode($tag_base64, true);
+		$ciphertext = base64_decode( $ciphertext_base64, true );
+		$iv         = base64_decode( $iv_base64, true );
+		$tag        = base64_decode( $tag_base64, true );
 
-		if ($ciphertext === false || $iv === false || $tag === false) {
-			throw new \RuntimeException('Invalid base64 encoding in encrypted data.');
+		if ( false === $ciphertext || false === $iv || false === $tag ) {
+			throw new \RuntimeException( 'Invalid base64 encoding in encrypted data.' );
 		}
 
-		if (strlen($iv) !== self::IV_LENGTH) {
+		if ( strlen( $iv ) !== self::IV_LENGTH ) {
 			throw new \RuntimeException(
 				'Invalid IV length: expected ' . (int) self::IV_LENGTH
-				. ' bytes, got ' . strlen($iv) . '.'
+				. ' bytes, got ' . strlen( $iv ) . '.'
 			);
 		}
 
-		if (strlen($tag) !== self::TAG_LENGTH) {
+		if ( strlen( $tag ) !== self::TAG_LENGTH ) {
 			throw new \RuntimeException(
 				'Invalid authentication tag length: expected ' . (int) self::TAG_LENGTH
-				. ' bytes, got ' . strlen($tag) . '.'
+				. ' bytes, got ' . strlen( $tag ) . '.'
 			);
 		}
 
@@ -151,7 +151,7 @@ class EncryptionService {
 			$tag
 		);
 
-		if ($plaintext === false) {
+		if ( false === $plaintext ) {
 			throw new \RuntimeException(
 				'Decryption failed. The key may be incorrect or the data '
 				. 'may have been tampered with.'
@@ -178,16 +178,16 @@ class EncryptionService {
 		string $encrypted_dek_base64,
 		string $dek_iv_base64
 	): array {
-		$dek  = $this->key_manager->decrypt_dek($encrypted_dek_base64, $dek_iv_base64);
-		$json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+		$dek  = $this->key_manager->decrypt_dek( $encrypted_dek_base64, $dek_iv_base64 );
+		$json = json_encode( $data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
 
-		$result = $this->encrypt($json, $dek);
+		$result = $this->encrypt( $json, $dek );
 
-		return [
+		return array(
 			'encrypted_data' => $result['ciphertext'],
 			'iv'             => $result['iv'],
 			'auth_tag'       => $result['tag'],
-		];
+		);
 	}
 
 	/**
@@ -208,13 +208,13 @@ class EncryptionService {
 		string $encrypted_dek_base64,
 		string $dek_iv_base64
 	): array {
-		$dek  = $this->key_manager->decrypt_dek($encrypted_dek_base64, $dek_iv_base64);
-		$json = $this->decrypt($encrypted_data_base64, $iv_base64, $auth_tag_base64, $dek);
+		$dek  = $this->key_manager->decrypt_dek( $encrypted_dek_base64, $dek_iv_base64 );
+		$json = $this->decrypt( $encrypted_data_base64, $iv_base64, $auth_tag_base64, $dek );
 
-		$data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+		$data = json_decode( $json, true, 512, JSON_THROW_ON_ERROR );
 
-		if (!is_array($data)) {
-			throw new \RuntimeException('Decrypted submission data is not a valid JSON object.');
+		if ( ! is_array( $data ) ) {
+			throw new \RuntimeException( 'Decrypted submission data is not a valid JSON object.' );
 		}
 
 		return $data;
@@ -242,16 +242,16 @@ class EncryptionService {
 		);
 
 		$file_dek  = $this->key_manager->generate_dek();
-		$encrypted = $this->encrypt($file_contents, $file_dek);
+		$encrypted = $this->encrypt( $file_contents, $file_dek );
 
-		$encrypted_file_dek = $this->encrypt_raw_key($file_dek, $form_dek);
+		$encrypted_file_dek = $this->encrypt_raw_key( $file_dek, $form_dek );
 
-		return [
+		return array(
 			'encrypted_content' => $encrypted['ciphertext'],
 			'iv'                => $encrypted['iv'],
 			'tag'               => $encrypted['tag'],
 			'encrypted_key'     => $encrypted_file_dek,
-		];
+		);
 	}
 
 	/**
@@ -278,9 +278,9 @@ class EncryptionService {
 			$form_dek_iv_base64
 		);
 
-		$file_dek = $this->decrypt_raw_key($encrypted_key_base64, $form_dek);
+		$file_dek = $this->decrypt_raw_key( $encrypted_key_base64, $form_dek );
 
-		return $this->decrypt($encrypted_content_base64, $iv_base64, $tag_base64, $file_dek);
+		return $this->decrypt( $encrypted_content_base64, $iv_base64, $tag_base64, $file_dek );
 	}
 
 	/**
@@ -291,8 +291,8 @@ class EncryptionService {
 	 * @param string $email The email address to hash.
 	 * @return string Hex-encoded HMAC-SHA256 hash.
 	 */
-	public function calculate_email_lookup_hash(string $email): string {
-		return $this->key_manager->calculate_lookup_hash($email);
+	public function calculate_email_lookup_hash( string $email ): string {
+		return $this->key_manager->calculate_lookup_hash( $email );
 	}
 
 	/**
@@ -314,10 +314,10 @@ class EncryptionService {
 	 * @return string Base64-encoded packed blob (iv + tag + ciphertext).
 	 * @throws \RuntimeException If encryption fails.
 	 */
-	private function encrypt_raw_key(string $key_to_encrypt, string $wrapping_key): string {
-		$this->validate_key($wrapping_key);
+	private function encrypt_raw_key( string $key_to_encrypt, string $wrapping_key ): string {
+		$this->validate_key( $wrapping_key );
 
-		$iv  = random_bytes(self::IV_LENGTH);
+		$iv  = random_bytes( self::IV_LENGTH );
 		$tag = '';
 
 		$ciphertext = openssl_encrypt(
@@ -331,11 +331,11 @@ class EncryptionService {
 			self::TAG_LENGTH
 		);
 
-		if ($ciphertext === false) {
-			throw new \RuntimeException('Key encryption failed: ' . esc_html( (string) openssl_error_string() ));
+		if ( false === $ciphertext ) {
+			throw new \RuntimeException( 'Key encryption failed: ' . esc_html( (string) openssl_error_string() ) );
 		}
 
-		return base64_encode($iv . $tag . $ciphertext);
+		return base64_encode( $iv . $tag . $ciphertext );
 	}
 
 	/**
@@ -346,23 +346,23 @@ class EncryptionService {
 	 * @return string Raw decrypted key bytes.
 	 * @throws \RuntimeException If decryption fails.
 	 */
-	private function decrypt_raw_key(string $packed_base64, string $wrapping_key): string {
-		$this->validate_key($wrapping_key);
+	private function decrypt_raw_key( string $packed_base64, string $wrapping_key ): string {
+		$this->validate_key( $wrapping_key );
 
-		$packed = base64_decode($packed_base64, true);
+		$packed = base64_decode( $packed_base64, true );
 
-		if ($packed === false) {
-			throw new \RuntimeException('Invalid base64 encoding in encrypted key.');
+		if ( false === $packed ) {
+			throw new \RuntimeException( 'Invalid base64 encoding in encrypted key.' );
 		}
 
 		$min_length = self::IV_LENGTH + self::TAG_LENGTH + 1;
-		if (strlen($packed) < $min_length) {
-			throw new \RuntimeException('Encrypted key data is too short.');
+		if ( strlen( $packed ) < $min_length ) {
+			throw new \RuntimeException( 'Encrypted key data is too short.' );
 		}
 
-		$iv         = substr($packed, 0, self::IV_LENGTH);
-		$tag        = substr($packed, self::IV_LENGTH, self::TAG_LENGTH);
-		$ciphertext = substr($packed, self::IV_LENGTH + self::TAG_LENGTH);
+		$iv         = substr( $packed, 0, self::IV_LENGTH );
+		$tag        = substr( $packed, self::IV_LENGTH, self::TAG_LENGTH );
+		$ciphertext = substr( $packed, self::IV_LENGTH + self::TAG_LENGTH );
 
 		$key = openssl_decrypt(
 			$ciphertext,
@@ -373,7 +373,7 @@ class EncryptionService {
 			$tag
 		);
 
-		if ($key === false) {
+		if ( false === $key ) {
 			throw new \RuntimeException(
 				'Key decryption failed. The wrapping key may be incorrect '
 				. 'or the data may have been tampered with.'
@@ -389,11 +389,11 @@ class EncryptionService {
 	 * @param string $key Raw key bytes.
 	 * @throws \RuntimeException If key length is incorrect.
 	 */
-	private function validate_key(string $key): void {
-		if (strlen($key) !== self::KEY_LENGTH) {
+	private function validate_key( string $key ): void {
+		if ( strlen( $key ) !== self::KEY_LENGTH ) {
 			throw new \RuntimeException(
 				'Encryption key must be exactly ' . (int) self::KEY_LENGTH . ' bytes (256 bits), '
-				. 'got ' . strlen($key) . '.'
+				. 'got ' . strlen( $key ) . '.'
 			);
 		}
 	}

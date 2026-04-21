@@ -48,12 +48,12 @@ class RecipientPage {
 	 * Registers all hooks for the recipient area.
 	 */
 	public function register(): void {
-		add_action( 'init', [ $this, 'register_rewrite_rules' ] );
-		add_filter( 'query_vars', [ $this, 'register_query_vars' ] );
-		add_action( 'template_redirect', [ $this, 'handle_request' ] );
+		add_action( 'init', array( $this, 'register_rewrite_rules' ) );
+		add_filter( 'query_vars', array( $this, 'register_query_vars' ) );
+		add_action( 'template_redirect', array( $this, 'handle_request' ) );
 
 		// UX-Concept §2.1: Hide admin bar for plugin roles.
-		add_action( 'init', [ $this, 'maybe_hide_admin_bar' ] );
+		add_action( 'init', array( $this, 'maybe_hide_admin_bar' ) );
 	}
 
 	/**
@@ -109,7 +109,7 @@ class RecipientPage {
 			wp_die(
 				esc_html__( 'Sie haben keinen Zugriff auf den Einsendungs-Bereich.', 'wp-dsgvo-form' ),
 				esc_html__( 'Zugriff verweigert', 'wp-dsgvo-form' ),
-				[ 'response' => 403 ]
+				array( 'response' => 403 )
 			);
 		}
 
@@ -225,10 +225,10 @@ class RecipientPage {
 			return;
 		}
 
-		$form_names = [];
+		$form_names = array();
 		foreach ( $form_ids as $form_id ) {
 			$form = Form::find( $form_id );
-			if ( $form !== null ) {
+			if ( null !== $form ) {
 				$form_names[] = $form->title;
 			}
 		}
@@ -266,7 +266,7 @@ class RecipientPage {
 	<meta charset="<?php bloginfo( 'charset' ); ?>">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title><?php echo esc_html( $title . ' — ' . get_bloginfo( 'name' ) ); ?></title>
-	<?php wp_head(); ?>
+		<?php wp_head(); ?>
 	<style>
 		.dsgvo-recipient {
 			max-width: 1100px;
@@ -344,7 +344,7 @@ class RecipientPage {
 
 		<?php $content_callback(); ?>
 	</div>
-	<?php wp_footer(); ?>
+		<?php wp_footer(); ?>
 </body>
 </html>
 		<?php

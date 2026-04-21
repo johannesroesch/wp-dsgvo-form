@@ -70,8 +70,8 @@ class PrivacyHandler {
 	 * @return void
 	 */
 	public function register(): void {
-		add_filter( 'wp_privacy_personal_data_exporters', [ $this, 'register_exporter' ] );
-		add_filter( 'wp_privacy_personal_data_erasers', [ $this, 'register_eraser' ] );
+		add_filter( 'wp_privacy_personal_data_exporters', array( $this, 'register_exporter' ) );
+		add_filter( 'wp_privacy_personal_data_erasers', array( $this, 'register_eraser' ) );
 	}
 
 	/**
@@ -81,10 +81,10 @@ class PrivacyHandler {
 	 * @return array<string, mixed> Modified exporters.
 	 */
 	public function register_exporter( array $exporters ): array {
-		$exporters['wp-dsgvo-form'] = [
+		$exporters['wp-dsgvo-form'] = array(
 			'exporter_friendly_name' => self::PLUGIN_NAME,
-			'callback'               => [ $this, 'export_personal_data' ],
-		];
+			'callback'               => array( $this, 'export_personal_data' ),
+		);
 
 		return $exporters;
 	}
@@ -96,10 +96,10 @@ class PrivacyHandler {
 	 * @return array<string, mixed> Modified erasers.
 	 */
 	public function register_eraser( array $erasers ): array {
-		$erasers['wp-dsgvo-form'] = [
+		$erasers['wp-dsgvo-form'] = array(
 			'eraser_friendly_name' => self::PLUGIN_NAME,
-			'callback'             => [ $this, 'erase_personal_data' ],
-		];
+			'callback'             => array( $this, 'erase_personal_data' ),
+		);
 
 		return $erasers;
 	}
@@ -128,56 +128,56 @@ class PrivacyHandler {
 		$offset = ( $page - 1 ) * self::BATCH_SIZE;
 		$batch  = Submission::find_by_email_lookup_hash_paginated( $lookup_hash, self::BATCH_SIZE, $offset );
 
-		$export_items = [];
+		$export_items = array();
 
 		foreach ( $batch as $submission ) {
 			$form = Form::find( $submission->form_id );
 
-			if ( $form === null ) {
+			if ( null === $form ) {
 				continue;
 			}
 
 			$data = $this->decrypt_submission_safe( $submission, $form );
 
-			$export_data = [];
+			$export_data = array();
 
 			foreach ( $data as $field_name => $field_value ) {
-				$export_data[] = [
+				$export_data[] = array(
 					'name'  => $field_name,
 					'value' => is_string( $field_value ) ? $field_value : wp_json_encode( $field_value ),
-				];
+				);
 			}
 
 			// Add metadata fields.
-			$export_data[] = [
+			$export_data[] = array(
 				'name'  => __( 'Formular', 'wp-dsgvo-form' ),
 				'value' => $form->title,
-			];
-			$export_data[] = [
+			);
+			$export_data[] = array(
 				'name'  => __( 'Eingereicht am', 'wp-dsgvo-form' ),
 				'value' => $submission->submitted_at,
-			];
+			);
 
-			if ( $submission->consent_timestamp !== null ) {
-				$export_data[] = [
+			if ( null !== $submission->consent_timestamp ) {
+				$export_data[] = array(
 					'name'  => __( 'Einwilligung erteilt am', 'wp-dsgvo-form' ),
 					'value' => $submission->consent_timestamp,
-				];
+				);
 			}
 
 			// DPO-SOLL-F02: Include consent version and locale in export.
-			if ( $submission->consent_text_version !== null ) {
-				$export_data[] = [
+			if ( null !== $submission->consent_text_version ) {
+				$export_data[] = array(
 					'name'  => __( 'Einwilligungstext-Version', 'wp-dsgvo-form' ),
 					'value' => $submission->consent_text_version,
-				];
+				);
 			}
 
-			if ( $submission->consent_locale !== null ) {
-				$export_data[] = [
+			if ( null !== $submission->consent_locale ) {
+				$export_data[] = array(
 					'name'  => __( 'Einwilligungs-Sprache', 'wp-dsgvo-form' ),
 					'value' => $submission->consent_locale,
-				];
+				);
 			}
 
 			// Art. 15 DSGVO: Include file attachment metadata in export.
@@ -185,7 +185,7 @@ class PrivacyHandler {
 
 			if ( ! empty( $files ) ) {
 				foreach ( $files as $index => $file ) {
-					$export_data[] = [
+					$export_data[] = array(
 						'name'  => sprintf(
 							/* translators: %d: file number */
 							__( 'Dateianhang #%d', 'wp-dsgvo-form' ),
@@ -198,23 +198,23 @@ class PrivacyHandler {
 							$file->mime_type,
 							size_format( (int) $file->file_size )
 						),
-					];
+					);
 				}
 			}
 
-			$export_items[] = [
+			$export_items[] = array(
 				'group_id'          => 'wp-dsgvo-form-submissions',
 				'group_label'       => __( 'Formulareinsendungen', 'wp-dsgvo-form' ),
 				'group_description' => __( 'Ueber Kontaktformulare uebermittelte Daten.', 'wp-dsgvo-form' ),
 				'item_id'           => 'submission-' . $submission->id,
 				'data'              => $export_data,
-			];
+			);
 		}
 
-		return [
+		return array(
 			'data' => $export_items,
 			'done' => ( $offset + self::BATCH_SIZE ) >= $total,
-		];
+		);
 	}
 
 	/**
@@ -247,13 +247,13 @@ class PrivacyHandler {
 
 		$items_removed  = 0;
 		$items_retained = false;
-		$messages       = [];
+		$messages       = array();
 
 		foreach ( $batch as $submission ) {
 			// Art. 18 DSGVO: Do not delete restricted submissions (SEC-DSGVO-13).
 			if ( $submission->is_restricted ) {
 				$items_retained = true;
-				$messages[] = sprintf(
+				$messages[]     = sprintf(
 					/* translators: %d: submission ID */
 					__( 'Einsendung #%d ist eingeschraenkt (Art. 18 DSGVO) und wurde nicht geloescht.', 'wp-dsgvo-form' ),
 					$submission->id
@@ -276,7 +276,7 @@ class PrivacyHandler {
 				++$items_removed;
 			} else {
 				$items_retained = true;
-				$messages[] = sprintf(
+				$messages[]     = sprintf(
 					/* translators: %d: submission ID */
 					__( 'Einsendung #%d konnte nicht geloescht werden.', 'wp-dsgvo-form' ),
 					$submission->id
@@ -286,12 +286,12 @@ class PrivacyHandler {
 
 		// Done when: no submissions left OR nothing was deleted this batch
 		// (all restricted/failed — re-fetching offset=0 would loop forever).
-		return [
+		return array(
 			'items_removed'  => $items_removed,
 			'items_retained' => $items_retained,
 			'messages'       => $messages,
-			'done'           => empty( $batch ) || $items_removed === 0,
-		];
+			'done'           => empty( $batch ) || 0 === $items_removed,
+		);
 	}
 
 	/**
@@ -309,13 +309,9 @@ class PrivacyHandler {
 		try {
 			return $submission->decrypt_data( $this->encryption, $form );
 		} catch ( \RuntimeException $e ) {
-			return [
-				__( 'Hinweis', 'wp-dsgvo-form' ) => __(
-					'Die Daten dieser Einsendung konnten nicht entschluesselt werden. '
-					. 'Bitte wenden Sie sich an den Website-Administrator.',
-					'wp-dsgvo-form'
-				),
-			];
+			return array(
+				__( 'Hinweis', 'wp-dsgvo-form' ) => __( 'Die Daten dieser Einsendung konnten nicht entschluesselt werden. Bitte wenden Sie sich an den Website-Administrator.', 'wp-dsgvo-form' ),
+			);
 		}
 	}
 }
