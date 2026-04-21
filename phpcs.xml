@@ -16,12 +16,12 @@
     <arg value="sp"/>
 
     <!-- WordPress Standards (Quality-Expert MUSS) -->
+    <!-- WordPress-Extra includes Core + Security rules in WPCS 3.0 -->
     <rule ref="WordPress-Extra">
         <!-- Allow PSR-4 file naming for namespaced classes -->
         <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
         <exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
     </rule>
-    <rule ref="WordPress-Security"/>
 
     <!-- PHP Compatibility (Quality-Expert MUSS) -->
     <rule ref="PHPCompatibilityWP"/>

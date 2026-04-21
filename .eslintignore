@@ -1,0 +1,9 @@
+# Build output
+build/
+
+# Minified third-party scripts
+public/js/captcha.min.js
+
+# Dependencies
+vendor/
+node_modules/
