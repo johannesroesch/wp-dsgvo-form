@@ -204,6 +204,10 @@ jobs:
           key: composer-${{ hashFiles('composer.json') }}
           restore-keys: composer-
       - run: composer install --prefer-dist --no-progress
+      - name: Create WordPress stubs for tests
+        run: |
+          mkdir -p /tmp/wordpress/wp-admin/includes
+          echo '<?php if ( ! function_exists( "dbDelta" ) ) { function dbDelta( $queries = "", $execute = true ) { return array(); } }' > /tmp/wordpress/wp-admin/includes/upgrade.php
       - run: composer test -- --coverage-clover=coverage.xml
       - uses: codecov/codecov-action@v4
         if: matrix.php-version == '8.2'
