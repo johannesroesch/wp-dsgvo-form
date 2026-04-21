@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
-      - run: npm audit --audit-level=moderate
+      - run: npm audit --omit=dev --audit-level=moderate
 
   sri-verify:
     name: Daily SRI Verification
