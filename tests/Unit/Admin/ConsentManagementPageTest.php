@@ -164,6 +164,10 @@ class ConsentManagementPageTest extends TestCase {
 
 		$wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
 		$wpdb->shouldReceive( 'get_results' )->andReturn( $rows );
+		$wpdb->shouldReceive( 'get_col' )->byDefault()->andReturn(
+			array_unique( array_column( $rows, 'locale' ) )
+		);
+		$wpdb->shouldReceive( 'get_var' )->byDefault()->andReturn( (string) count( $rows ) );
 
 		if ( $current !== null ) {
 			$wpdb->shouldReceive( 'get_row' )->andReturn( [

@@ -8,4 +8,12 @@ module.exports = {
 		wp: 'readonly',
 		dsgvoFormAdmin: 'readonly',
 	},
+	overrides: [
+		{
+			files: [ '**/test/**/*.js', '**/*.test.js' ],
+			env: {
+				jest: true,
+			},
+		},
+	],
 };

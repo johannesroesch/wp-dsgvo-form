@@ -18,6 +18,7 @@ use WpDsgvoForm\Models\Field;
 use WpDsgvoForm\Models\Form;
 use WpDsgvoForm\Models\Submission;
 use WpDsgvoForm\Notification\NotificationService;
+use WpDsgvoForm\Security\IpResolver;
 use WpDsgvoForm\Upload\FileHandler;
 use WpDsgvoForm\Validation\FieldValidator;
 
@@ -49,24 +50,37 @@ class SubmitEndpoint {
 	 */
 	private const HONEYPOT_FIELD = 'website_url';
 
+	/**
+	 * Maximum submissions per IP per window (SEC-SOLL-03).
+	 */
+	private const RATE_LIMIT_MAX = 5;
+
+	/**
+	 * Rate-limit window in seconds (SEC-SOLL-03).
+	 */
+	private const RATE_LIMIT_WINDOW = 300;
+
 	private EncryptionService $encryption;
 	private CaptchaVerifier $captcha;
 	private FieldValidator $validator;
 	private NotificationService $notification;
 	private FileHandler $file_handler;
+	private IpResolver $ip_resolver;
 
 	public function __construct(
 		EncryptionService $encryption,
 		CaptchaVerifier $captcha,
 		FieldValidator $validator,
 		NotificationService $notification,
-		FileHandler $file_handler
+		FileHandler $file_handler,
+		?IpResolver $ip_resolver = null
 	) {
 		$this->encryption   = $encryption;
 		$this->captcha      = $captcha;
 		$this->validator    = $validator;
 		$this->notification = $notification;
 		$this->file_handler = $file_handler;
+		$this->ip_resolver  = $ip_resolver ?? new IpResolver();
 	}
 
 	/**
@@ -116,6 +130,13 @@ class SubmitEndpoint {
 				__( 'Das Formular wurde nicht gefunden oder ist inaktiv.', 'wp-dsgvo-form' ),
 				[ 'status' => 404 ]
 			);
+		}
+
+		// ----- 0.5. RATE-LIMIT (SEC-SOLL-03: IP-based throttling) ----- //
+		$rate_error = $this->check_rate_limit( $form_id );
+
+		if ( is_wp_error( $rate_error ) ) {
+			return $rate_error;
 		}
 
 		// ----- 1. NONCE (CSRF protection, SEC-CSRF-01/02) ----- //
@@ -260,9 +281,9 @@ class SubmitEndpoint {
 	 * looking up the latest version at submit time. This ensures the
 	 * recorded version matches what the user actually saw (Art. 7 Abs. 1).
 	 *
-	 * @param Form  $form   The form configuration.
-	 * @param array $params The submitted parameters.
-	 * @return array|\WP_Error Consent metadata on success, WP_Error on failure.
+	 * @param Form                 $form   The form configuration.
+	 * @param array<string, mixed> $params The submitted parameters.
+	 * @return array<string, mixed>|\WP_Error Consent metadata on success, WP_Error on failure.
 	 *
 	 * @privacy-relevant SEC-DSGVO-04, SEC-DSGVO-06, DPO-FINDING-13, DPO-FINDING-14
 	 */
@@ -376,7 +397,7 @@ class SubmitEndpoint {
 	 * @param \WP_REST_Request $request The incoming request.
 	 * @param Form             $form    The form configuration.
 	 * @param Field[]          $fields  The field definitions.
-	 * @return array|\WP_Error Array of file results or WP_Error.
+	 * @return array<int, array<string, mixed>>|\WP_Error Array of file results or WP_Error.
 	 */
 	private function process_file_uploads( \WP_REST_Request $request, Form $form, array $fields ) {
 		$file_results = [];
@@ -438,7 +459,7 @@ class SubmitEndpoint {
 	/**
 	 * Parses allowed MIME types from field configuration.
 	 *
-	 * @param array $file_config The field's file configuration.
+	 * @param array<string, mixed> $file_config The field's file configuration.
 	 * @return array<string, string> Map of extension => MIME type.
 	 */
 	private function parse_allowed_mimes( array $file_config ): array {
@@ -471,10 +492,10 @@ class SubmitEndpoint {
 	/**
 	 * Builds a Submission model from validated and encrypted data.
 	 *
-	 * @param Form   $form            The form configuration.
-	 * @param array  $encrypted       Encrypted data components.
-	 * @param array  $consent_result  Consent metadata from verify_consent().
-	 * @param array  $sanitized_data  Sanitized field values (for lookup hash).
+	 * @param Form                 $form            The form configuration.
+	 * @param array<string, mixed> $encrypted       Encrypted data components.
+	 * @param array<string, mixed> $consent_result  Consent metadata from verify_consent().
+	 * @param array<string, mixed> $sanitized_data  Sanitized field values (for lookup hash).
 	 * @return Submission Populated submission model (not yet saved).
 	 *
 	 * @privacy-relevant SEC-ENC-13/14 — Lookup hash for data subject requests.
@@ -525,8 +546,8 @@ class SubmitEndpoint {
 	/**
 	 * Saves file records associated with a submission.
 	 *
-	 * @param int   $submission_id The saved submission ID.
-	 * @param array $file_results  Array of file upload results from process_file_uploads().
+	 * @param int                                   $submission_id The saved submission ID.
+	 * @param array<int, array<string, mixed>> $file_results  Array of file upload results from process_file_uploads().
 	 */
 	private function save_file_records( int $submission_id, array $file_results ): void {
 		if ( empty( $file_results ) ) {
@@ -564,7 +585,7 @@ class SubmitEndpoint {
 	 *
 	 * Used for generating the HMAC-SHA256 lookup hash (SEC-ENC-13).
 	 *
-	 * @param array $data Sanitized field values.
+	 * @param array<string, mixed> $data Sanitized field values.
 	 * @return string|null The first email address found, or null.
 	 */
 	private function find_email_in_data( array $data ): ?string {
@@ -575,5 +596,49 @@ class SubmitEndpoint {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Checks IP-based rate limit for form submissions (SEC-SOLL-03).
+	 *
+	 * Uses WordPress transients for storage. Key format: dsgvo_rate_{form_id}_{ip_hash}.
+	 * IP is hashed (SHA-256, truncated) to avoid storing raw IPs (DSGVO: IP = personal data).
+	 *
+	 * @param int $form_id The form ID.
+	 * @return \WP_Error|null WP_Error if rate-limited, null if allowed.
+	 */
+	private function check_rate_limit( int $form_id ): ?\WP_Error {
+		$ip = $this->get_client_ip();
+
+		if ( $ip === '' ) {
+			return null; // Cannot determine IP — fail-open to avoid blocking legitimate users.
+		}
+
+		// SEC-SOLL-03: Hash the IP (DSGVO: no raw IP in transient key).
+		$ip_hash       = substr( hash( 'sha256', $ip . wp_salt( 'nonce' ) ), 0, 16 );
+		$transient_key = 'dsgvo_rate_' . $form_id . '_' . $ip_hash;
+
+		$current = (int) get_transient( $transient_key );
+
+		if ( $current >= self::RATE_LIMIT_MAX ) {
+			return new \WP_Error(
+				'rate_limited',
+				__( 'Zu viele Einsendungen. Bitte versuchen Sie es in einigen Minuten erneut.', 'wp-dsgvo-form' ),
+				[ 'status' => 429 ]
+			);
+		}
+
+		set_transient( $transient_key, $current + 1, self::RATE_LIMIT_WINDOW );
+
+		return null;
+	}
+
+	/**
+	 * Returns the client IP address (SEC-KANN-01: Trusted Proxy support).
+	 *
+	 * @return string IP address or empty string if undetermined.
+	 */
+	private function get_client_ip(): string {
+		return $this->ip_resolver->resolve() ?? '';
 	}
 }

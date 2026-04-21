@@ -22,6 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 define( 'WPDSGVO_VERSION', '1.1.0' );
 define( 'WPDSGVO_CAPTCHA_SRI', 'sha384-vdnF+DWZHDg9l97VaOzx4lwxRcInsl09kH0DrPLCp2HQSrq8wLLjVx4zQ+mjwgZU' );
+define( 'WPDSGVO_FORM_HANDLER_SRI', 'sha384-drWkcndfUjtCDNZCdSRfErBO9Jg2R8opDNlU7S/dD0kl1O0lzJ59bXwUo5xb5CTp' );
 define( 'WPDSGVO_CAPTCHA_URL', 'https://captcha.repaircafe-bruchsal.de' );
 define( 'WPDSGVO_PLUGIN_FILE', __FILE__ );
 define( 'WPDSGVO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );

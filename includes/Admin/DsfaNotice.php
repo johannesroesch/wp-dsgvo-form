@@ -117,15 +117,21 @@ class DsfaNotice {
 		$form_table       = Form::get_table_name();
 		$submission_table = Submission::get_table_name();
 
+		// SEC-SOLL-01: Defense-in-depth — use prepare() even without user input.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-		$form_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$form_table}`" );
+		$form_count = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM `{$form_table}` WHERE 1 = %d", 1 )
+		);
 
 		if ( $form_count > self::FORM_THRESHOLD ) {
 			return true;
 		}
 
+		// SEC-SOLL-01: Defense-in-depth — use prepare() even without user input.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-		$submission_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$submission_table}`" );
+		$submission_count = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM `{$submission_table}` WHERE 1 = %d", 1 )
+		);
 
 		return $submission_count > self::SUBMISSION_THRESHOLD;
 	}

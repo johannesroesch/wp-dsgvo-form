@@ -55,7 +55,7 @@ class FieldValidator {
 	 * SEC-VAL-02: Whitelist approach — only configured fields accepted,
 	 * unknown fields are silently discarded.
 	 *
-	 * @param array   $submitted_data Submitted field values (field_name => value).
+	 * @param array<string, mixed> $submitted_data Submitted field values (field_name => value).
 	 * @param Field[] $fields         Configured field definitions from the database.
 	 * @return array{sanitized: array<string, mixed>, errors: array<string, string>}
 	 *         Sanitized values and any validation errors keyed by field name.
@@ -152,6 +152,10 @@ class FieldValidator {
 
 	/**
 	 * Validates a text field (SEC-VAL-06).
+	 *
+	 * @param Field $field The field definition.
+	 * @param mixed $value The submitted value.
+	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_text( Field $field, $value ): array {
 		$value = (string) $value;
@@ -181,6 +185,10 @@ class FieldValidator {
 
 	/**
 	 * Validates an email field (SEC-VAL-04).
+	 *
+	 * @param Field $field The field definition.
+	 * @param mixed $value The submitted value.
+	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_email( Field $field, $value ): array {
 		$value     = (string) $value;
@@ -202,6 +210,10 @@ class FieldValidator {
 
 	/**
 	 * Validates a phone field (SEC-VAL-05).
+	 *
+	 * @param Field $field The field definition.
+	 * @param mixed $value The submitted value.
+	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_phone( Field $field, $value ): array {
 		$value = (string) $value;
@@ -222,6 +234,10 @@ class FieldValidator {
 
 	/**
 	 * Validates a textarea field (SEC-VAL-06).
+	 *
+	 * @param Field $field The field definition.
+	 * @param mixed $value The submitted value.
+	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_textarea( Field $field, $value ): array {
 		$value = (string) $value;
@@ -247,6 +263,10 @@ class FieldValidator {
 	 * Validates a checkbox field (SEC-VAL-07).
 	 *
 	 * Checkbox accepts an array of selected values, validated against allowed options.
+	 *
+	 * @param Field $field The field definition.
+	 * @param mixed $value The submitted value.
+	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_checkbox( Field $field, $value ): array {
 		$allowed = $field->get_options();
@@ -276,6 +296,10 @@ class FieldValidator {
 
 	/**
 	 * Validates a radio field (SEC-VAL-07).
+	 *
+	 * @param Field $field The field definition.
+	 * @param mixed $value The submitted value.
+	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_radio( Field $field, $value ): array {
 		$value   = (string) $value;
@@ -297,6 +321,10 @@ class FieldValidator {
 
 	/**
 	 * Validates a select field (SEC-VAL-07).
+	 *
+	 * @param Field $field The field definition.
+	 * @param mixed $value The submitted value.
+	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_select( Field $field, $value ): array {
 		// Select uses the same logic as radio.
@@ -305,6 +333,10 @@ class FieldValidator {
 
 	/**
 	 * Validates a date field (SEC-VAL-08).
+	 *
+	 * @param Field $field The field definition.
+	 * @param mixed $value The submitted value.
+	 * @return array{value: mixed, error: string|null}
 	 */
 	private function validate_date( Field $field, $value ): array {
 		$value = (string) $value;
@@ -406,6 +438,8 @@ class FieldValidator {
 
 	/**
 	 * Checks if a value is empty (null, empty string, empty array).
+	 *
+	 * @param mixed $value The value to check.
 	 */
 	private function is_empty_value( $value ): bool {
 		if ( $value === null ) {

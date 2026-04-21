@@ -17,6 +17,7 @@ defined( 'ABSPATH' ) || exit;
 use WpDsgvoForm\Auth\AccessControl;
 use WpDsgvoForm\Audit\AuditLogger;
 use WpDsgvoForm\Models\Form;
+use WpDsgvoForm\Models\Recipient;
 use WpDsgvoForm\Models\Submission;
 
 /**
@@ -33,9 +34,11 @@ class SubmissionListView {
 	private const PER_PAGE   = 20;
 
 	private AccessControl $access_control;
+	private AuditLogger $audit_logger;
 
-	public function __construct( AccessControl $access_control ) {
+	public function __construct( AccessControl $access_control, AuditLogger $audit_logger ) {
 		$this->access_control = $access_control;
+		$this->audit_logger   = $audit_logger;
 	}
 
 	/**
@@ -48,15 +51,14 @@ class SubmissionListView {
 
 		// SEC-AUDIT-01: Log supervisor list access.
 		if ( $is_supervisor ) {
-			$audit_logger = new AuditLogger();
-			$audit_logger->log( $user_id, 'view', null, null, 'recipient_list_view' );
+			$this->audit_logger->log( $user_id, 'view', null, null, 'recipient_list_view' );
 		}
 
 		$accessible_forms = $this->get_accessible_forms( $user_id, $is_supervisor );
 
 		// Filter parameters from GET.
-		$filter_form_id = absint( $_GET['form_id'] ?? 0 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$filter_status  = sanitize_text_field( wp_unslash( $_GET['status'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$filter_form_id = absint( $_GET['form_id'] ?? 0 ); // nosemgrep: echoed-request — absint() + selected()/esc_url() escapen den Wert // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$filter_status  = sanitize_text_field( wp_unslash( $_GET['status'] ?? '' ) ); // nosemgrep: echoed-request — sanitize_text_field() + selected()/esc_url() escapen den Wert // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$current_page   = max( 1, absint( $_GET['paged'] ?? 1 ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		// Verify form access for filter.
@@ -127,7 +129,7 @@ class SubmissionListView {
 	private function get_assigned_forms( int $user_id ): array {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'dsgvo_form_recipients';
+		$table = Recipient::get_table_name();
 
 		// SEC-SQL-01: Prepared statement.
 		$form_ids = $wpdb->get_col(

@@ -12,7 +12,9 @@ namespace WpDsgvoForm\Recipient;
 defined( 'ABSPATH' ) || exit;
 
 use WpDsgvoForm\Auth\AccessControl;
-use WpDsgvoForm\Audit\AuditLogger;
+use WpDsgvoForm\Models\Form;
+use WpDsgvoForm\Models\Recipient;
+use WpDsgvoForm\ServiceContainer;
 
 /**
  * Registers the recipient-facing submissions viewer.
@@ -35,11 +37,11 @@ class RecipientPage {
 	private const ID_VAR        = 'dsgvo_submission_id';
 
 	private AccessControl $access_control;
-	private AuditLogger $audit_logger;
+	private ServiceContainer $container;
 
-	public function __construct( AccessControl $access_control, AuditLogger $audit_logger ) {
+	public function __construct( AccessControl $access_control, ServiceContainer $container ) {
 		$this->access_control = $access_control;
-		$this->audit_logger   = $audit_logger;
+		$this->container      = $container;
 	}
 
 	/**
@@ -95,7 +97,7 @@ class RecipientPage {
 			return;
 		}
 
-		// Auth check: must be logged in with a plugin role.
+		// Auth check: must be logged in with plugin access (capability or legacy role).
 		if ( ! is_user_logged_in() ) {
 			wp_safe_redirect( wp_login_url( home_url( '/' . self::ENDPOINT_BASE . '/' ) ) );
 			exit;
@@ -103,7 +105,7 @@ class RecipientPage {
 
 		$user_id = get_current_user_id();
 
-		if ( ! $this->access_control->has_plugin_role( $user_id ) && ! $this->access_control->is_admin( $user_id ) ) {
+		if ( ! $this->access_control->has_plugin_access( $user_id ) && ! $this->access_control->is_admin( $user_id ) ) {
 			wp_die(
 				esc_html__( 'Sie haben keinen Zugriff auf den Einsendungs-Bereich.', 'wp-dsgvo-form' ),
 				esc_html__( 'Zugriff verweigert', 'wp-dsgvo-form' ),
@@ -115,7 +117,7 @@ class RecipientPage {
 		if ( \WpDsgvoForm\Admin\FirstLoginNotice::needs_acknowledgment( $user_id ) ) {
 			$notice = new \WpDsgvoForm\Admin\FirstLoginNotice(
 				$this->access_control,
-				$this->audit_logger
+				$this->container->audit_logger()
 			);
 			$this->render_page_template(
 				__( 'Datenschutzhinweis', 'wp-dsgvo-form' ),
@@ -145,7 +147,9 @@ class RecipientPage {
 	}
 
 	/**
-	 * Hides the admin bar for plugin role users (UX-Concept §2.1).
+	 * Hides the admin bar for plugin-only users (UX-Concept §2.1).
+	 *
+	 * Editors/Authors with plugin capabilities keep the admin bar.
 	 */
 	public function maybe_hide_admin_bar(): void {
 		if ( ! is_user_logged_in() ) {
@@ -154,7 +158,11 @@ class RecipientPage {
 
 		$user_id = get_current_user_id();
 
-		if ( $this->access_control->has_plugin_role( $user_id ) && ! $this->access_control->is_admin( $user_id ) ) {
+		// Hide admin bar only for plugin-only users (no edit_posts).
+		if ( $this->access_control->has_plugin_access( $user_id )
+			&& ! $this->access_control->is_admin( $user_id )
+			&& ! user_can( $user_id, 'edit_posts' )
+		) {
 			show_admin_bar( false );
 		}
 	}
@@ -165,10 +173,11 @@ class RecipientPage {
 	 * @param int $user_id Current user ID.
 	 */
 	private function render_list_view( int $user_id ): void {
-		$list_view = new SubmissionListView( $this->access_control );
+		$list_view = new SubmissionListView( $this->access_control, $this->container->audit_logger() );
 		$this->render_page_template(
 			__( 'Einsendungen', 'wp-dsgvo-form' ),
 			function () use ( $list_view, $user_id ): void {
+				$this->render_access_hint( $user_id );
 				$list_view->render( $user_id );
 			}
 		);
@@ -181,13 +190,60 @@ class RecipientPage {
 	 * @param int $submission_id Submission to display.
 	 */
 	private function render_detail_view( int $user_id, int $submission_id ): void {
-		$detail_view = new SubmissionDetailView( $this->access_control );
+		$detail_view = new SubmissionDetailView( $this->access_control, $this->container->encryption(), $this->container->audit_logger() );
 		$this->render_page_template(
 			__( 'Einsendung anzeigen', 'wp-dsgvo-form' ),
 			function () use ( $detail_view, $user_id, $submission_id ): void {
 				$detail_view->render( $user_id, $submission_id );
 			}
 		);
+	}
+
+	/**
+	 * Renders an access level hint for the current user.
+	 *
+	 * UX recommendation: Shows the user their access level and assigned forms.
+	 *
+	 * @param int $user_id Current user ID.
+	 */
+	private function render_access_hint( int $user_id ): void {
+		if ( $this->access_control->is_admin( $user_id ) ) {
+			return;
+		}
+
+		if ( $this->access_control->is_supervisor( $user_id ) ) {
+			echo '<div class="dsgvo-recipient__access-hint" style="padding:0.5rem 1rem;margin-bottom:1rem;background:#f0f6fc;border-left:4px solid #2271b1;font-size:0.9rem;">';
+			echo esc_html__( 'Ihr Zugriff: Supervisor — alle Formulare', 'wp-dsgvo-form' );
+			echo '</div>';
+			return;
+		}
+
+		// Reader: show assigned form names.
+		$form_ids = Recipient::get_form_ids_for_user( $user_id );
+
+		if ( empty( $form_ids ) ) {
+			return;
+		}
+
+		$form_names = [];
+		foreach ( $form_ids as $form_id ) {
+			$form = Form::find( $form_id );
+			if ( $form !== null ) {
+				$form_names[] = $form->title;
+			}
+		}
+
+		if ( empty( $form_names ) ) {
+			return;
+		}
+
+		echo '<div class="dsgvo-recipient__access-hint" style="padding:0.5rem 1rem;margin-bottom:1rem;background:#f0f6fc;border-left:4px solid #2271b1;font-size:0.9rem;">';
+		printf(
+			/* translators: %s: comma-separated list of form names */
+			esc_html__( 'Ihr Zugriff: Leser fuer Formular %s', 'wp-dsgvo-form' ),
+			esc_html( implode( ', ', $form_names ) )
+		);
+		echo '</div>';
 	}
 
 	/**

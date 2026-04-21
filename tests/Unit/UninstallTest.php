@@ -66,6 +66,7 @@ class UninstallTest extends TestCase {
 			'wp_upload_dir'            => array( 'basedir' => '/tmp/wp-uploads' ),
 			'wp_delete_file'           => null,
 			'wp_clear_scheduled_hook'  => 0,
+			'get_users'                => array(),
 		);
 
 		foreach ( $defaults as $func => $return ) {
@@ -408,7 +409,7 @@ class UninstallTest extends TestCase {
 
 		require self::UNINSTALL_FILE;
 
-		$this->assertCount( 2, $metadata_calls, 'delete_metadata should be called twice.' );
+		$this->assertCount( 3, $metadata_calls, 'delete_metadata should be called three times.' );
 
 		// Privacy notice acknowledgment (UX-REC-02).
 		$this->assertSame( 'user', $metadata_calls[0]['type'] );
@@ -420,5 +421,10 @@ class UninstallTest extends TestCase {
 		$this->assertSame( 'user', $metadata_calls[1]['type'] );
 		$this->assertSame( 'wpdsgvo_dsfa_notice_dismissed', $metadata_calls[1]['meta_key'] );
 		$this->assertTrue( $metadata_calls[1]['delete_all'] );
+
+		// Capability migration notice dismissed (KANN-ARCH-01).
+		$this->assertSame( 'user', $metadata_calls[2]['type'] );
+		$this->assertSame( 'wpdsgvo_cap_migration_notice_dismissed', $metadata_calls[2]['meta_key'] );
+		$this->assertTrue( $metadata_calls[2]['delete_all'] );
 	}
 }

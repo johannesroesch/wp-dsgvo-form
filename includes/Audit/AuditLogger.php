@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Audit;
 
+use WpDsgvoForm\Security\IpResolver;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -40,6 +42,10 @@ class AuditLogger {
 		'delete',
 		'restrict',
 		'privacy_notice_acknowledged',
+		'kek_rotation',
+		'kek_rotation_rehash',
+		'capability_granted',
+		'capability_revoked',
 	];
 
 	/**
@@ -51,6 +57,20 @@ class AuditLogger {
 	 * Days after which audit entries are deleted (SEC-AUDIT-03).
 	 */
 	private const ENTRY_RETENTION_DAYS = 365;
+
+	/**
+	 * IP address resolver (SEC-KANN-01: Trusted Proxy support).
+	 *
+	 * @var IpResolver
+	 */
+	private IpResolver $ip_resolver;
+
+	/**
+	 * @param IpResolver|null $ip_resolver Optional resolver; defaults to new instance.
+	 */
+	public function __construct( ?IpResolver $ip_resolver = null ) {
+		$this->ip_resolver = $ip_resolver ?? new IpResolver();
+	}
 
 	/**
 	 * Logs an access event to the audit table.
@@ -113,7 +133,7 @@ class AuditLogger {
 	/**
 	 * Retrieves audit log entries with optional filters.
 	 *
-	 * @param array $filters {
+	 * @param array<string, mixed> $filters {
 	 *     Optional filters.
 	 *     @type int    $user_id       Filter by user ID.
 	 *     @type string $action        Filter by action type.
@@ -178,7 +198,7 @@ class AuditLogger {
 	/**
 	 * Counts audit log entries matching the given filters.
 	 *
-	 * @param array $filters Same filters as get_logs().
+	 * @param array<string, mixed> $filters Same filters as get_logs().
 	 * @return int Total count of matching entries.
 	 */
 	public function count_logs( array $filters = [] ): int {
@@ -300,23 +320,13 @@ class AuditLogger {
 	/**
 	 * Returns the client IP address, sanitized.
 	 *
-	 * Uses REMOTE_ADDR only — does NOT trust X-Forwarded-For
-	 * or similar headers (SEC-AUDIT-02: admin's actual IP).
+	 * Delegates to IpResolver which supports trusted proxy
+	 * configuration (SEC-KANN-01). When no trusted proxies are
+	 * configured, only REMOTE_ADDR is used (SEC-AUDIT-02).
 	 *
 	 * @return string|null The IP address, or null if unavailable.
 	 */
 	private function get_client_ip(): ?string {
-		if ( empty( $_SERVER['REMOTE_ADDR'] ) ) {
-			return null;
-		}
-
-		$ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
-
-		// Validate as IP address (IPv4 or IPv6).
-		if ( false === filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-			return null;
-		}
-
-		return $ip;
+		return $this->ip_resolver->resolve();
 	}
 }

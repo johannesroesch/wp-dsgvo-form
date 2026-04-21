@@ -1,7 +1,7 @@
 /**
  * DSGVO Form Gutenberg Block — Registration.
  *
- * @package wp-dsgvo-form
+ * @package
  */
 
 import { registerBlockType } from '@wordpress/blocks';

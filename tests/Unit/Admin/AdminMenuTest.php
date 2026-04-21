@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace WpDsgvoForm\Tests\Unit\Admin;
 
 use WpDsgvoForm\Admin\AdminMenu;
+use WpDsgvoForm\ServiceContainer;
 use WpDsgvoForm\Tests\TestCase;
 use Brain\Monkey\Actions;
 use Brain\Monkey\Functions;
@@ -26,12 +27,24 @@ class AdminMenuTest extends TestCase {
 	 */
 	private array $original_get = array();
 
+	private ServiceContainer $container;
+
 	/**
 	 * @inheritDoc
 	 */
 	protected function setUp(): void {
 		parent::setUp();
 		$this->original_get = $_GET;
+		$this->container    = \Mockery::mock( ServiceContainer::class );
+		$this->container->shouldReceive( 'encryption' )->byDefault()->andReturn(
+			\Mockery::mock( \WpDsgvoForm\Encryption\EncryptionService::class )
+		);
+		$this->container->shouldReceive( 'audit_logger' )->byDefault()->andReturn(
+			\Mockery::mock( \WpDsgvoForm\Audit\AuditLogger::class )
+		);
+		$this->container->shouldReceive( 'capability_manager' )->byDefault()->andReturn(
+			\Mockery::mock( \WpDsgvoForm\Auth\CapabilityManager::class )
+		);
 	}
 
 	/**
@@ -124,7 +137,7 @@ class AdminMenuTest extends TestCase {
 		Actions\expectAdded( 'admin_menu' )->once();
 		Actions\expectAdded( 'admin_enqueue_scripts' )->once();
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->register_hooks();
 	}
 
@@ -149,7 +162,7 @@ class AdminMenuTest extends TestCase {
 		Functions\expect( 'add_submenu_page' )
 			->andReturn( 'submenu_hook' );
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->register_menus();
 
 		$this->assertSame( 'dsgvo_form_manage', $captured_capability );
@@ -177,7 +190,7 @@ class AdminMenuTest extends TestCase {
 				}
 			);
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->register_menus();
 
 		$this->assertContains( 'dsgvo-form', $submenu_slugs );
@@ -207,7 +220,7 @@ class AdminMenuTest extends TestCase {
 				}
 			);
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->register_menus();
 
 		$this->assertSame(
@@ -226,7 +239,7 @@ class AdminMenuTest extends TestCase {
 		Functions\expect( 'wp_enqueue_script' )->never();
 		Functions\expect( 'wp_enqueue_style' )->never();
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->enqueue_assets( 'edit-post' );
 	}
 
@@ -239,7 +252,7 @@ class AdminMenuTest extends TestCase {
 		Functions\expect( 'wp_enqueue_script' )->never();
 		Functions\expect( 'wp_enqueue_style' )->never();
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->enqueue_assets( 'edit.php' );
 	}
 
@@ -255,7 +268,7 @@ class AdminMenuTest extends TestCase {
 		Functions\expect( 'wp_enqueue_script' )->never();
 		Functions\expect( 'wp_enqueue_style' )->never();
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->enqueue_assets( 'toplevel_page_dsgvo-form' );
 	}
 
@@ -286,7 +299,7 @@ class AdminMenuTest extends TestCase {
 		$_GET['action']  = 'edit';
 		$_GET['form_id'] = '5';
 
-		$menu   = new AdminMenu();
+		$menu   = new AdminMenu( $this->container );
 		$output = $this->capture_render( array( $menu, 'render_form_list_page' ) );
 
 		$this->assertStringContainsString( 'form-table', $output );
@@ -312,7 +325,7 @@ class AdminMenuTest extends TestCase {
 
 		unset( $_GET['action'] );
 
-		$menu   = new AdminMenu();
+		$menu   = new AdminMenu( $this->container );
 		$output = $this->capture_render( array( $menu, 'render_form_list_page' ) );
 
 		$this->assertStringContainsString( 'Formulare', $output );
@@ -351,7 +364,7 @@ class AdminMenuTest extends TestCase {
 
 		$this->expectException( \RuntimeException::class );
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->render_submission_list_page();
 	}
 
@@ -374,7 +387,7 @@ class AdminMenuTest extends TestCase {
 
 		Actions\expectAdded( 'load-toplevel_page_dsgvo-form' )->once();
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->register_menus();
 	}
 
@@ -386,7 +399,7 @@ class AdminMenuTest extends TestCase {
 
 		$_GET['action'] = 'list';
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->handle_form_page_load();
 
 		// No exception, no side effects — method returns silently.
@@ -399,7 +412,7 @@ class AdminMenuTest extends TestCase {
 	public function test_handle_form_page_load_skips_when_action_not_set(): void {
 		unset( $_GET['action'] );
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->handle_form_page_load();
 
 		$this->assertTrue( true );
@@ -425,7 +438,7 @@ class AdminMenuTest extends TestCase {
 		$_GET['form_id']           = '0';
 		$_SERVER['REQUEST_METHOD'] = 'GET'; // so maybe_save_and_redirect returns early.
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->handle_form_page_load();
 
 		// Shared FormEditPage instance set — render_form_list_page should reuse it.
@@ -485,7 +498,7 @@ class AdminMenuTest extends TestCase {
 		$_GET['action']  = 'EDIT\\';
 		$_GET['form_id'] = '0';
 
-		$menu   = new AdminMenu();
+		$menu   = new AdminMenu( $this->container );
 		$output = $this->capture_render( array( $menu, 'render_form_list_page' ) );
 
 		// sanitize_key('EDIT\\') → 'edit' → routes to FormEditPage.
@@ -521,7 +534,7 @@ class AdminMenuTest extends TestCase {
 		// Action that sanitizes to something that doesn't match any route.
 		$_GET['action'] = '../../etc/passwd';
 
-		$menu   = new AdminMenu();
+		$menu   = new AdminMenu( $this->container );
 		$output = $this->capture_render( array( $menu, 'render_form_list_page' ) );
 
 		// Falls through to default form list page (no edit/consent/view match).
@@ -560,7 +573,7 @@ class AdminMenuTest extends TestCase {
 		$wpdb->shouldReceive( 'get_results' )->andReturn( array() );
 		$GLOBALS['wpdb'] = $wpdb;
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->handle_form_page_load();
 
 		// If sanitize_key works, 'EDIT' → 'edit' → FormEditPage created.
@@ -615,7 +628,7 @@ class AdminMenuTest extends TestCase {
 		$this->expectException( \RuntimeException::class );
 		$this->expectExceptionMessage( 'wp_die: export not found' );
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->handle_submission_page_load();
 	}
 
@@ -657,7 +670,7 @@ class AdminMenuTest extends TestCase {
 
 		$this->expectException( \RuntimeException::class );
 
-		$menu = new AdminMenu();
+		$menu = new AdminMenu( $this->container );
 		$menu->render_submission_list_page();
 	}
 }

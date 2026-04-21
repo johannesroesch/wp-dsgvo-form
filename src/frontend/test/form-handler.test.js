@@ -4,10 +4,8 @@
  * Covers: buildPayload, inline validation, CAPTCHA flow,
  * form submission, error handling, nonce/consent remap.
  *
- * @package wp-dsgvo-form
+ * @package
  */
-
-/* globals global */
 
 describe( 'form-handler.js', () => {
 	let form;
@@ -34,39 +32,76 @@ describe( 'form-handler.js', () => {
 		} = options;
 
 		let html = '<form class="dsgvo-form" data-locale="' + locale + '">';
-		html += '<input type="hidden" name="dsgvo_form_id" value="' + formId + '">';
-		html += '<input type="hidden" name="_dsgvo_nonce" value="' + nonce + '">';
+		html +=
+			'<input type="hidden" name="dsgvo_form_id" value="' + formId + '">';
+		html +=
+			'<input type="hidden" name="_dsgvo_nonce" value="' + nonce + '">';
 
 		if ( hasHoneypot ) {
-			html += '<div class="dsgvo-form__hp"><input type="text" name="website_url" value=""></div>';
+			html +=
+				'<div class="dsgvo-form__hp"><input type="text" name="website_url" value=""></div>';
 		}
 
 		for ( const field of fields ) {
 			html += '<div class="dsgvo-form__field">';
 			if ( field.type === 'textarea' ) {
-				html += '<textarea name="' + field.name + '"' +
-					( field.required ? ' required' : '' ) + '>' +
-					( field.value || '' ) + '</textarea>';
+				html +=
+					'<textarea name="' +
+					field.name +
+					'"' +
+					( field.required ? ' required' : '' ) +
+					'>' +
+					( field.value || '' ) +
+					'</textarea>';
 			} else if ( field.type === 'select' ) {
-				html += '<select name="' + field.name + '"' +
-					( field.required ? ' required' : '' ) + '>';
-				for ( const opt of ( field.options || [] ) ) {
-					html += '<option value="' + opt + '"' +
-						( opt === field.value ? ' selected' : '' ) + '>' + opt + '</option>';
+				html +=
+					'<select name="' +
+					field.name +
+					'"' +
+					( field.required ? ' required' : '' ) +
+					'>';
+				for ( const opt of field.options || [] ) {
+					html +=
+						'<option value="' +
+						opt +
+						'"' +
+						( opt === field.value ? ' selected' : '' ) +
+						'>' +
+						opt +
+						'</option>';
 				}
 				html += '</select>';
 			} else if ( field.type === 'checkbox' && field.multi ) {
-				for ( const opt of ( field.options || [] ) ) {
-					const checked = ( field.value || [] ).includes( opt ) ? ' checked' : '';
-					html += '<input type="checkbox" name="' + field.name + '[]" value="' + opt + '"' + checked + '>';
+				for ( const opt of field.options || [] ) {
+					const checked = ( field.value || [] ).includes( opt )
+						? ' checked'
+						: '';
+					html +=
+						'<input type="checkbox" name="' +
+						field.name +
+						'[]" value="' +
+						opt +
+						'"' +
+						checked +
+						'>';
 				}
 			} else {
-				html += '<input type="' + ( field.type || 'text' ) + '"' +
-					' name="' + field.name + '"' +
-					' value="' + ( field.value || '' ) + '"' +
+				html +=
+					'<input type="' +
+					( field.type || 'text' ) +
+					'"' +
+					' name="' +
+					field.name +
+					'"' +
+					' value="' +
+					( field.value || '' ) +
+					'"' +
 					( field.required ? ' required' : '' ) +
 					( field.accept ? ' accept="' + field.accept + '"' : '' ) +
-					( field.maxSize ? ' data-max-size="' + field.maxSize + '"' : '' ) + '>';
+					( field.maxSize
+						? ' data-max-size="' + field.maxSize + '"'
+						: '' ) +
+					'>';
 			}
 			html += '<div class="dsgvo-form__error"></div>';
 			html += '</div>';
@@ -74,21 +109,28 @@ describe( 'form-handler.js', () => {
 
 		if ( hasConsent ) {
 			html += '<div class="dsgvo-form__field--consent">';
-			html += '<input type="checkbox" name="dsgvo_consent" value="1"' +
-				( consentChecked ? ' checked' : '' ) + '>';
-			html += '<input type="hidden" name="dsgvo_consent_version" value="2.1">';
+			html +=
+				'<input type="checkbox" name="dsgvo_consent" value="1"' +
+				( consentChecked ? ' checked' : '' ) +
+				'>';
+			html +=
+				'<input type="hidden" name="dsgvo_consent_version" value="2.1">';
 			html += '<div class="dsgvo-form__error"></div>';
 			html += '</div>';
 		}
 
 		if ( hasCaptcha ) {
 			html += '<div class="dsgvo-form__captcha">';
-			html += '<input type="hidden" name="captcha_token" value="' + captchaToken + '">';
+			html +=
+				'<input type="hidden" name="captcha_token" value="' +
+				captchaToken +
+				'">';
 			html += '</div>';
 		}
 
 		html += '<div class="dsgvo-form__submit">';
-		html += '<button type="submit" class="dsgvo-form__button">Absenden</button>';
+		html +=
+			'<button type="submit" class="dsgvo-form__button">Absenden</button>';
 		html += '</div>';
 		html += '<div class="dsgvo-form__status"></div>';
 		html += '</form>';
@@ -111,7 +153,9 @@ describe( 'form-handler.js', () => {
 	}
 
 	function submitForm() {
-		form.dispatchEvent( new Event( 'submit', { bubbles: true, cancelable: true } ) );
+		form.dispatchEvent(
+			new Event( 'submit', { bubbles: true, cancelable: true } )
+		);
 	}
 
 	function blurField( input ) {
@@ -319,8 +363,12 @@ describe( 'form-handler.js', () => {
 			blurField( input );
 
 			expect( input.getAttribute( 'aria-invalid' ) ).toBe( 'true' );
-			const errorEl = input.closest( '.dsgvo-form__field' ).querySelector( '.dsgvo-form__error' );
-			expect( errorEl.textContent ).toBe( 'Dieses Feld ist erforderlich.' );
+			const errorEl = input
+				.closest( '.dsgvo-form__field' )
+				.querySelector( '.dsgvo-form__error' );
+			expect( errorEl.textContent ).toBe(
+				'Dieses Feld ist erforderlich.'
+			);
 		} );
 
 		it( 'clears error on input when field was marked invalid', () => {
@@ -342,7 +390,9 @@ describe( 'form-handler.js', () => {
 
 		it( 'rejects invalid email on blur', () => {
 			createForm( {
-				fields: [ { name: 'email', type: 'email', value: 'not-an-email' } ],
+				fields: [
+					{ name: 'email', type: 'email', value: 'not-an-email' },
+				],
 			} );
 			loadHandler();
 
@@ -354,7 +404,9 @@ describe( 'form-handler.js', () => {
 
 		it( 'accepts valid email on blur', () => {
 			createForm( {
-				fields: [ { name: 'email', type: 'email', value: 'user@example.com' } ],
+				fields: [
+					{ name: 'email', type: 'email', value: 'user@example.com' },
+				],
 			} );
 			loadHandler();
 
@@ -378,7 +430,9 @@ describe( 'form-handler.js', () => {
 
 		it( 'accepts valid phone number on blur', () => {
 			createForm( {
-				fields: [ { name: 'phone', type: 'tel', value: '+49 7251 12345' } ],
+				fields: [
+					{ name: 'phone', type: 'tel', value: '+49 7251 12345' },
+				],
 			} );
 			loadHandler();
 
@@ -427,9 +481,13 @@ describe( 'form-handler.js', () => {
 			const input = form.querySelector( 'input[name="name"]' );
 			blurField( input );
 
-			const errorEl = input.closest( '.dsgvo-form__field' ).querySelector( '.dsgvo-form__error' );
+			const errorEl = input
+				.closest( '.dsgvo-form__field' )
+				.querySelector( '.dsgvo-form__error' );
 			expect( errorEl.id ).toBeTruthy();
-			expect( input.getAttribute( 'aria-describedby' ) ).toBe( errorEl.id );
+			expect( input.getAttribute( 'aria-describedby' ) ).toBe(
+				errorEl.id
+			);
 		} );
 	} );
 
@@ -483,9 +541,13 @@ describe( 'form-handler.js', () => {
 			submitForm();
 
 			expect( global.fetch ).not.toHaveBeenCalled();
-			const captchaError = form.querySelector( '.dsgvo-form__captcha .dsgvo-form__error' );
+			const captchaError = form.querySelector(
+				'.dsgvo-form__captcha .dsgvo-form__error'
+			);
 			expect( captchaError ).not.toBeNull();
-			expect( captchaError.textContent ).toBe( 'Bitte loesen Sie das CAPTCHA.' );
+			expect( captchaError.textContent ).toBe(
+				'Bitte loesen Sie das CAPTCHA.'
+			);
 		} );
 
 		it( 'allows submit when captcha_token is present', () => {
@@ -518,7 +580,9 @@ describe( 'form-handler.js', () => {
 
 			submitForm();
 
-			const errorEl = form.querySelector( '.dsgvo-form__captcha .dsgvo-form__error' );
+			const errorEl = form.querySelector(
+				'.dsgvo-form__captcha .dsgvo-form__error'
+			);
 			expect( errorEl.getAttribute( 'role' ) ).toBe( 'alert' );
 		} );
 	} );
@@ -595,7 +659,9 @@ describe( 'form-handler.js', () => {
 
 		it( 'does not submit when validation fails', () => {
 			createForm( {
-				fields: [ { name: 'email', type: 'email', value: '', required: true } ],
+				fields: [
+					{ name: 'email', type: 'email', value: '', required: true },
+				],
 				consentChecked: true,
 			} );
 			loadHandler();
@@ -641,7 +707,10 @@ describe( 'form-handler.js', () => {
 			global.fetch.mockResolvedValue( {
 				ok: false,
 				status: 422,
-				json: () => Promise.resolve( { message: 'Validierung fehlgeschlagen' } ),
+				json: () =>
+					Promise.resolve( {
+						message: 'Validierung fehlgeschlagen',
+					} ),
 			} );
 
 			submitForm();
@@ -665,12 +734,13 @@ describe( 'form-handler.js', () => {
 			global.fetch.mockResolvedValue( {
 				ok: false,
 				status: 422,
-				json: () => Promise.resolve( {
-					message: 'Fehler',
-					data: {
-						errors: { email: 'E-Mail bereits registriert' },
-					},
-				} ),
+				json: () =>
+					Promise.resolve( {
+						message: 'Fehler',
+						data: {
+							errors: { email: 'E-Mail bereits registriert' },
+						},
+					} ),
 			} );
 
 			submitForm();
@@ -693,7 +763,8 @@ describe( 'form-handler.js', () => {
 
 			global.fetch.mockResolvedValue( {
 				ok: true,
-				json: () => Promise.reject( new TypeError( 'Failed to parse' ) ),
+				json: () =>
+					Promise.reject( new TypeError( 'Failed to parse' ) ),
 			} );
 
 			submitForm();

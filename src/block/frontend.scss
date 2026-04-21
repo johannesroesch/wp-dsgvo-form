@@ -42,17 +42,19 @@
 	font-size: inherit;
 	font-family: inherit;
 	line-height: 1.5;
-
-	&:focus {
-		border-color: var(--dsgvo-form-accent);
-		box-shadow: 0 0 0 1px var(--dsgvo-form-accent);
-		outline: none;
-	}
 }
 
 .dsgvo-form__textarea {
 	resize: vertical;
 	min-height: 100px;
+}
+
+.dsgvo-form__input:focus,
+.dsgvo-form__textarea:focus,
+.dsgvo-form__select:focus {
+	border-color: var(--dsgvo-form-accent);
+	box-shadow: 0 0 0 1px var(--dsgvo-form-accent);
+	outline: none;
 }
 
 .dsgvo-form__field--consent {
@@ -135,13 +137,13 @@
 		pointer-events: none;
 
 		&::after {
-			content: '';
+			content: "";
 			display: inline-block;
 			width: 0.875em;
 			height: 0.875em;
 			margin-left: 0.5em;
 			border: 2px solid transparent;
-			border-top-color: currentColor;
+			border-top-color: currentcolor;
 			border-radius: 50%;
 			animation: dsgvo-spin 0.6s linear infinite;
 		}
@@ -160,6 +162,7 @@
 
 // Error state: highlight invalid input fields (WCAG 2.1 AA).
 .dsgvo-form__field--error {
+
 	.dsgvo-form__input,
 	.dsgvo-form__textarea,
 	.dsgvo-form__select {
@@ -169,6 +172,7 @@
 }
 
 .dsgvo-form__status {
+
 	&:not(:empty) {
 		padding: 0.75rem 1rem;
 		border-radius: var(--dsgvo-form-border-radius);
@@ -193,5 +197,8 @@
 }
 
 @keyframes dsgvo-spin {
-	to { transform: rotate(360deg); }
+
+	to {
+		transform: rotate(360deg);
+	}
 }

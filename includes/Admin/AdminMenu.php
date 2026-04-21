@@ -13,9 +13,7 @@ declare(strict_types=1);
 namespace WpDsgvoForm\Admin;
 
 use WpDsgvoForm\Api\SubmissionDeleter;
-use WpDsgvoForm\Audit\AuditLogger;
-use WpDsgvoForm\Encryption\EncryptionService;
-use WpDsgvoForm\Encryption\KeyManager;
+use WpDsgvoForm\ServiceContainer;
 use WpDsgvoForm\Upload\FileHandler;
 
 defined( 'ABSPATH' ) || exit;
@@ -45,6 +43,18 @@ class AdminMenu {
 	 * @var FormEditPage|null
 	 */
 	private ?FormEditPage $form_edit_page = null;
+
+	/**
+	 * Shared service container (KANN-ARCH-01).
+	 */
+	private ServiceContainer $container;
+
+	/**
+	 * @param ServiceContainer $container Shared service container.
+	 */
+	public function __construct( ServiceContainer $container ) {
+		$this->container = $container;
+	}
 
 	/**
 	 * Register WordPress hooks.
@@ -178,7 +188,7 @@ class AdminMenu {
 	public function handle_submission_page_load(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing only, no state change
 		if ( isset( $_GET['action'] ) && 'view' === sanitize_key( wp_unslash( $_GET['action'] ) ) && isset( $_GET['do'] ) && 'export' === sanitize_key( wp_unslash( $_GET['do'] ) ) ) {
-			( new SubmissionViewPage() )->handle_export();
+			( new SubmissionViewPage( $this->container->encryption(), $this->container->audit_logger() ) )->handle_export();
 		}
 	}
 
@@ -212,17 +222,14 @@ class AdminMenu {
 	public function render_submission_list_page(): void {
 		// Delegate to detail view when viewing a single submission.
 		if ( isset( $_GET['action'] ) && 'view' === sanitize_key( wp_unslash( $_GET['action'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			( new SubmissionViewPage() )->render();
+			( new SubmissionViewPage( $this->container->encryption(), $this->container->audit_logger() ) )->render();
 			return;
 		}
 
-		$key_manager  = new KeyManager();
-		$encryption   = new EncryptionService( $key_manager );
-		$file_handler = new FileHandler( $encryption );
+		$file_handler = new FileHandler( $this->container->encryption() );
 		$deleter      = new SubmissionDeleter( $file_handler );
-		$audit_logger = new AuditLogger();
 
-		( new SubmissionListPage( $deleter, $audit_logger ) )->render();
+		( new SubmissionListPage( $deleter, $this->container->audit_logger() ) )->render();
 	}
 
 	/**
@@ -231,7 +238,7 @@ class AdminMenu {
 	 * @return void
 	 */
 	public function render_recipient_list_page(): void {
-		( new RecipientListPage() )->render();
+		( new RecipientListPage( $this->container->capability_manager(), $this->container->audit_logger() ) )->render();
 	}
 
 	/**
@@ -249,10 +256,7 @@ class AdminMenu {
 	 * @return void
 	 */
 	public function render_subject_search_page(): void {
-		$key_manager  = new KeyManager();
-		$encryption   = new EncryptionService( $key_manager );
-		$audit_logger = new AuditLogger();
-
-		( new DataSubjectSearchPage( $encryption, $audit_logger ) )->render();
+		( new DataSubjectSearchPage( $this->container->encryption(), $this->container->audit_logger() ) )->render();
 	}
+
 }

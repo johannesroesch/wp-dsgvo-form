@@ -290,6 +290,11 @@ class ConsentFlowTest extends TestCase
 		// Mock WordPress i18n.
 		Functions\when( '__' )->returnArg();
 
+		// Rate-limiting WP function stubs (SEC-SOLL-03).
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'wp_salt' )->justReturn( 'test-salt' );
+
 		// CAPTCHA mock that MUST NOT be called — consent fails first.
 		$captcha = \Mockery::mock( CaptchaVerifier::class );
 		$captcha->shouldReceive( 'is_enabled_for_form' )->andReturn( true );

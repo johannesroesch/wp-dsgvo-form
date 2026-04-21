@@ -38,6 +38,15 @@ class AccessControl
 	];
 
 	/**
+	 * Capability for DSGVO-compliant recipient access.
+	 *
+	 * Replaces role-based check with capability-based check.
+	 * Users with this capability are recognized as plugin users
+	 * for login redirect, admin-bar restrictions, and access control.
+	 */
+	public const RECIPIENT_CAPABILITY = 'dsgvo_form_recipient';
+
+	/**
 	 * Checks whether a user can view a specific form's submissions.
 	 *
 	 * SEC-AUTH-DSGVO-03: Admin → full access, Supervisor → all forms (logged),
@@ -142,22 +151,45 @@ class AccessControl
 	}
 
 	/**
-	 * Checks whether a user has one of the plugin's custom roles.
+	 * Checks whether a user has plugin access (capability or legacy role).
+	 *
+	 * Dual-check: Returns true if the user has the dsgvo_form_recipient
+	 * capability OR one of the legacy plugin roles. This enables a gradual
+	 * migration from role-based to capability-based access control.
 	 *
 	 * Used to determine if login redirect and admin-bar restrictions apply.
+	 *
+	 * @param int $user_id The WordPress user ID.
+	 * @return bool True if the user has plugin access.
+	 */
+	public function has_plugin_access( int $user_id ): bool {
+		// New capability-based check.
+		if ( user_can( $user_id, self::RECIPIENT_CAPABILITY ) ) {
+			return true;
+		}
+
+		// Legacy role-based check for backward compatibility.
+		$user = get_userdata( $user_id );
+
+		if ( ! $user ) {
+			return false;
+		}
+
+		return ! empty( array_intersect( self::PLUGIN_ROLES, $user->roles ) );
+	}
+
+	/**
+	 * Checks whether a user has one of the plugin's custom roles.
+	 *
+	 * @deprecated 1.2.0 Use has_plugin_access() instead.
 	 *
 	 * @param int $user_id The WordPress user ID.
 	 * @return bool True if the user has a plugin role.
 	 */
 	public function has_plugin_role(int $user_id): bool
 	{
-		$user = get_userdata($user_id);
-
-		if (!$user) {
-			return false;
-		}
-
-		return !empty(array_intersect(self::PLUGIN_ROLES, $user->roles));
+		_deprecated_function( __METHOD__, '1.2.0', 'AccessControl::has_plugin_access()' );
+		return $this->has_plugin_access( $user_id );
 	}
 
 	/**

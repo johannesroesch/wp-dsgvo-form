@@ -12,6 +12,9 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm;
 
+use WpDsgvoForm\Audit\AuditLogger;
+use WpDsgvoForm\Auth\CapabilityManager;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -49,12 +52,15 @@ class Activator {
 
 		self::create_tables();
 		self::migrate_consent_locale_default();
+		self::migrate_capabilities();
 
 		// Remove deprecated CAPTCHA settings (Task #278 — now hardcoded as WPDSGVO_CAPTCHA_URL constant).
 		delete_option( 'wpdsgvo_captcha_provider' );
 		delete_option( 'wpdsgvo_captcha_base_url' );
 		delete_option( 'wpdsgvo_captcha_sitekey' );
 		delete_option( 'wpdsgvo_captcha_sri_hash' );
+
+		update_option( 'wpdsgvo_db_version', WPDSGVO_VERSION );
 	}
 
 	/**
@@ -76,6 +82,112 @@ class Activator {
 				'de_DE'
 			)
 		);
+	}
+
+	/**
+	 * Migrates role-based users to capability-based access.
+	 *
+	 * Separate version guard (wpdsgvo_cap_migration_version) to decouple
+	 * capability migration from schema upgrades. Idempotent — safe to re-run.
+	 *
+	 * Phase 1: Register new capabilities (dsgvo_form_recipient on admin role).
+	 * Phase 2: Map existing role users to user-level capabilities:
+	 *   - wp_dsgvo_form_reader    → dsgvo_form_view_submissions + dsgvo_form_recipient
+	 *   - wp_dsgvo_form_supervisor → view_submissions + view_all_submissions + export + recipient
+	 *   - delete_submissions is NOT migrated (SEC-ARCH-03: admin-only)
+	 *
+	 * DPO-SOLL-F06: All grants are audit-logged via CapabilityManager.
+	 *
+	 * @return void
+	 */
+	private static function migrate_capabilities(): void {
+		$cap_version = get_option( 'wpdsgvo_cap_migration_version', '0' );
+
+		if ( version_compare( $cap_version, '1', '>=' ) ) {
+			return;
+		}
+
+		// Phase 1: Ensure dsgvo_form_recipient cap exists on admin role.
+		$admin_role = get_role( 'administrator' );
+		if ( $admin_role ) {
+			$admin_role->add_cap( 'dsgvo_form_recipient' );
+		}
+
+		// Phase 2: Migrate role-based users to user-level capabilities.
+		$capability_manager = new CapabilityManager( new AuditLogger() );
+		$granted_by         = get_current_user_id();
+
+		// WP-CLI without --user flag returns 0 → fall back to first admin for audit attribution.
+		if ( 0 === $granted_by ) {
+			$admins = get_users( [
+				'role'    => 'administrator',
+				'number'  => 1,
+				'orderby' => 'ID',
+				'order'   => 'ASC',
+				'fields'  => 'ID',
+			] );
+			if ( ! empty( $admins ) ) {
+				$granted_by = (int) $admins[0];
+			}
+		}
+
+		$role_cap_map = [
+			'wp_dsgvo_form_reader' => [
+				'dsgvo_form_view_submissions',
+				'dsgvo_form_recipient',
+			],
+			'wp_dsgvo_form_supervisor' => [
+				'dsgvo_form_view_submissions',
+				'dsgvo_form_view_all_submissions',
+				'dsgvo_form_export',
+				'dsgvo_form_recipient',
+			],
+		];
+
+		foreach ( $role_cap_map as $role_slug => $caps ) {
+			self::migrate_users_from_role( $role_slug, $caps, $capability_manager, $granted_by );
+		}
+
+		update_option( 'wpdsgvo_cap_migration_version', '1' );
+	}
+
+	/**
+	 * Migrates all users of a given role to user-level capabilities.
+	 *
+	 * Processes in batches of 100 to avoid memory issues on large sites (PERF-SOLL).
+	 * Uses CapabilityManager for audit-logged capability grants (DPO-SOLL-F06).
+	 *
+	 * @param string             $role_slug          Role to migrate from.
+	 * @param string[]           $caps               Capabilities to grant to each user.
+	 * @param CapabilityManager  $capability_manager Audited capability manager.
+	 * @param int                $granted_by         User ID performing the migration.
+	 * @return void
+	 */
+	private static function migrate_users_from_role(
+		string $role_slug,
+		array $caps,
+		CapabilityManager $capability_manager,
+		int $granted_by
+	): void {
+		$batch_size = 100;
+		$offset     = 0;
+
+		do {
+			$users = get_users( [
+				'role'   => $role_slug,
+				'number' => $batch_size,
+				'offset' => $offset,
+				'fields' => 'ID',
+			] );
+
+			foreach ( $users as $user_id ) {
+				foreach ( $caps as $cap ) {
+					$capability_manager->grant( (int) $user_id, $cap, $granted_by, 'migration' );
+				}
+			}
+
+			$offset += $batch_size;
+		} while ( count( $users ) === $batch_size );
 	}
 
 	/**
@@ -195,6 +307,7 @@ class Activator {
 				form_id bigint(20) unsigned NOT NULL,
 				user_id bigint(20) unsigned NOT NULL,
 				notify_email tinyint(1) NOT NULL DEFAULT 1,
+				access_level varchar(20) NOT NULL DEFAULT 'reader',
 				role_justification text DEFAULT NULL,
 				created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),

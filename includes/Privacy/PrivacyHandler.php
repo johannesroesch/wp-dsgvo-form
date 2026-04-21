@@ -77,8 +77,8 @@ class PrivacyHandler {
 	/**
 	 * Adds the plugin's data exporter to the WordPress exporter list.
 	 *
-	 * @param array $exporters Existing exporters.
-	 * @return array Modified exporters.
+	 * @param array<string, mixed> $exporters Existing exporters.
+	 * @return array<string, mixed> Modified exporters.
 	 */
 	public function register_exporter( array $exporters ): array {
 		$exporters['wp-dsgvo-form'] = [
@@ -92,8 +92,8 @@ class PrivacyHandler {
 	/**
 	 * Adds the plugin's data eraser to the WordPress eraser list.
 	 *
-	 * @param array $erasers Existing erasers.
-	 * @return array Modified erasers.
+	 * @param array<string, mixed> $erasers Existing erasers.
+	 * @return array<string, mixed> Modified erasers.
 	 */
 	public function register_eraser( array $erasers ): array {
 		$erasers['wp-dsgvo-form'] = [
@@ -115,7 +115,7 @@ class PrivacyHandler {
 	 *
 	 * @param string $email_address The data subject's email address.
 	 * @param int    $page          Batch page number (1-based).
-	 * @return array{data: array, done: bool} WordPress exporter response.
+	 * @return array{data: array<int, mixed>, done: bool} WordPress exporter response.
 	 *
 	 * @privacy-relevant Art. 15 DSGVO — Auskunftsrecht
 	 * @security-critical SEC-ENC-09 — On-the-fly decryption

@@ -1462,4 +1462,192 @@ class FormEditPageTest extends TestCase {
 
 		$this->assertNull( $form->locale_override, 'Missing locale_mode must default to null (auto).' );
 	}
+
+	// ──────────────────────────────────────────────────
+	// UX-I18N-03: Locale warning div — inline warning
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * Helper: renders render_page() with a Form via Reflection and returns HTML.
+	 *
+	 * @param Form $form   Form object.
+	 * @param array $fields Optional field list.
+	 * @return string Rendered HTML output.
+	 */
+	private function render_page_output( \WpDsgvoForm\Models\Form $form, array $fields = [] ): string {
+		$page   = new FormEditPage();
+		$method = new \ReflectionMethod( $page, 'render_page' );
+		$method->setAccessible( true );
+
+		ob_start();
+		$method->invoke( $page, 'Formular bearbeiten', $form, $fields );
+		return ob_get_clean();
+	}
+
+	/**
+	 * @test
+	 * UX-I18N-03: Locale warning div is rendered for existing consent form.
+	 */
+	public function test_locale_warning_rendered_for_existing_consent_form(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'wp_json_encode' )->alias(
+			function ( $data ): string {
+				return (string) json_encode( $data, JSON_HEX_TAG | JSON_HEX_AMP );
+			}
+		);
+		Functions\when( 'apply_filters' )->alias(
+			function ( string $tag, $value ) {
+				return $value;
+			}
+		);
+
+		$wpdb         = Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$wpdb->shouldReceive( 'get_col' )->andReturn( [ 'de_DE', 'en_US' ] );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		$form              = new \WpDsgvoForm\Models\Form();
+		$form->id          = 5;
+		$form->title       = 'Kontaktformular';
+		$form->legal_basis = 'consent';
+
+		$output = $this->render_page_output( $form );
+
+		$this->assertStringContainsString( 'id="dsgvo-locale-warning"', $output );
+		$this->assertStringContainsString( 'data-locales=', $output );
+		$this->assertStringContainsString( 'data-labels=', $output );
+		$this->assertStringContainsString( 'data-template=', $output );
+		$this->assertStringContainsString( 'notice-warning', $output );
+		$this->assertStringContainsString( 'display:none', $output );
+	}
+
+	/**
+	 * @test
+	 * UX-I18N-03: Locale warning div is NOT rendered for new form (id=0).
+	 */
+	public function test_locale_warning_not_rendered_for_new_form(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'wp_json_encode' )->alias(
+			function ( $data ): string {
+				return (string) json_encode( $data, JSON_HEX_TAG | JSON_HEX_AMP );
+			}
+		);
+		Functions\when( 'apply_filters' )->alias(
+			function ( string $tag, $value ) {
+				return $value;
+			}
+		);
+
+		$form              = new \WpDsgvoForm\Models\Form();
+		$form->id          = 0;
+		$form->title       = 'Neues Formular';
+		$form->legal_basis = 'consent';
+
+		$output = $this->render_page_output( $form );
+
+		$this->assertStringNotContainsString( 'id="dsgvo-locale-warning"', $output );
+	}
+
+	/**
+	 * @test
+	 * UX-I18N-03: Locale warning div is NOT rendered for non-consent form.
+	 */
+	public function test_locale_warning_not_rendered_for_non_consent_form(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'wp_json_encode' )->alias(
+			function ( $data ): string {
+				return (string) json_encode( $data, JSON_HEX_TAG | JSON_HEX_AMP );
+			}
+		);
+		Functions\when( 'apply_filters' )->alias(
+			function ( string $tag, $value ) {
+				return $value;
+			}
+		);
+
+		$form              = new \WpDsgvoForm\Models\Form();
+		$form->id          = 5;
+		$form->title       = 'Kontaktformular';
+		$form->legal_basis = 'legitimate_interest';
+
+		$output = $this->render_page_output( $form );
+
+		$this->assertStringNotContainsString( 'id="dsgvo-locale-warning"', $output );
+	}
+
+	/**
+	 * @test
+	 * UX-I18N-03: data-locales contains the locales returned by get_locales_with_versions.
+	 */
+	public function test_locale_warning_data_locales_contains_db_values(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'wp_json_encode' )->alias(
+			function ( $data ): string {
+				return (string) json_encode( $data, JSON_HEX_TAG | JSON_HEX_AMP );
+			}
+		);
+		Functions\when( 'apply_filters' )->alias(
+			function ( string $tag, $value ) {
+				return $value;
+			}
+		);
+
+		$wpdb         = Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$wpdb->shouldReceive( 'get_col' )->andReturn( [ 'de_DE', 'fr_FR' ] );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		$form              = new \WpDsgvoForm\Models\Form();
+		$form->id          = 3;
+		$form->title       = 'Test';
+		$form->legal_basis = 'consent';
+
+		$output = $this->render_page_output( $form );
+
+		// data-locales should contain JSON-encoded array with de_DE and fr_FR.
+		$this->assertStringContainsString( 'de_DE', $output );
+		$this->assertStringContainsString( 'fr_FR', $output );
+	}
+
+	/**
+	 * @test
+	 * UX-I18N-03: data-template contains the warning message with %s placeholder.
+	 */
+	public function test_locale_warning_data_template_has_placeholder(): void {
+		$this->stub_page_functions();
+
+		Functions\when( 'wp_json_encode' )->alias(
+			function ( $data ): string {
+				return (string) json_encode( $data, JSON_HEX_TAG | JSON_HEX_AMP );
+			}
+		);
+		Functions\when( 'apply_filters' )->alias(
+			function ( string $tag, $value ) {
+				return $value;
+			}
+		);
+
+		$wpdb         = Mockery::mock( 'wpdb' );
+		$wpdb->prefix = 'wp_';
+		$wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$wpdb->shouldReceive( 'get_col' )->andReturn( [] );
+		$GLOBALS['wpdb'] = $wpdb;
+
+		$form              = new \WpDsgvoForm\Models\Form();
+		$form->id          = 1;
+		$form->title       = 'Test';
+		$form->legal_basis = 'consent';
+
+		$output = $this->render_page_output( $form );
+
+		// data-template should contain %s placeholder and reference "Consent-Verwaltung".
+		$this->assertStringContainsString( '%s', $output );
+		$this->assertStringContainsString( 'Consent-Verwaltung', $output );
+	}
 }

@@ -11,6 +11,7 @@ namespace WpDsgvoForm\Tests\Unit\Recipient;
 
 use WpDsgvoForm\Auth\AccessControl;
 use WpDsgvoForm\Audit\AuditLogger;
+use WpDsgvoForm\Encryption\EncryptionService;
 use WpDsgvoForm\Models\Form;
 use WpDsgvoForm\Models\Field;
 use WpDsgvoForm\Models\Submission;
@@ -27,6 +28,8 @@ use Mockery;
 class SubmissionDetailViewTest extends TestCase {
 
 	private AccessControl $access_control;
+	private EncryptionService $encryption;
+	private AuditLogger $audit_logger;
 	private SubmissionDetailView $view;
 	private object $wpdb;
 
@@ -36,7 +39,10 @@ class SubmissionDetailViewTest extends TestCase {
 		$this->access_control = Mockery::mock( AccessControl::class );
 		$this->access_control->shouldReceive( 'is_supervisor' )->byDefault()->andReturn( false );
 		$this->access_control->shouldReceive( 'is_admin' )->byDefault()->andReturn( false );
-		$this->view           = new SubmissionDetailView( $this->access_control );
+		$this->encryption     = Mockery::mock( EncryptionService::class );
+		$this->audit_logger   = Mockery::mock( AuditLogger::class );
+		$this->audit_logger->shouldReceive( 'log' )->byDefault()->andReturn( true );
+		$this->view           = new SubmissionDetailView( $this->access_control, $this->encryption, $this->audit_logger );
 
 		$this->wpdb         = Mockery::mock( 'wpdb' );
 		$this->wpdb->prefix = 'wp_';

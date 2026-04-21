@@ -123,7 +123,7 @@ class DataSubjectSearchPage {
 							<input type="email"
 								name="subject_email"
 								id="subject_email"
-								value="<?php echo esc_attr( $email ); ?>"
+								value="<?php echo esc_attr( $email ); // nosemgrep: echoed-request — sanitize_email() + esc_attr() escapen den Wert ?>"
 								class="regular-text"
 								required>
 						</td>

@@ -25,6 +25,7 @@ use Mockery;
 class SubmissionListViewTest extends TestCase {
 
 	private AccessControl $access_control;
+	private AuditLogger $audit_logger;
 	private SubmissionListView $view;
 	private object $wpdb;
 
@@ -32,7 +33,9 @@ class SubmissionListViewTest extends TestCase {
 		parent::setUp();
 
 		$this->access_control = Mockery::mock( AccessControl::class );
-		$this->view           = new SubmissionListView( $this->access_control );
+		$this->audit_logger   = Mockery::mock( AuditLogger::class );
+		$this->audit_logger->shouldReceive( 'log' )->byDefault()->andReturn( true );
+		$this->view           = new SubmissionListView( $this->access_control, $this->audit_logger );
 
 		$this->wpdb         = Mockery::mock( 'wpdb' );
 		$this->wpdb->prefix = 'wp_';
@@ -102,8 +105,8 @@ class SubmissionListViewTest extends TestCase {
 		$this->access_control->shouldReceive( 'is_admin' )
 			->with( 42 )->andReturn( false );
 
-		// AuditLogger::log expects wpdb insert.
-		$this->wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+		// AuditLogger::log should be called for supervisor access.
+		$this->audit_logger->shouldReceive( 'log' )->once()->andReturn( true );
 		Functions\when( 'current_time' )->justReturn( '2026-01-01 00:00:00' );
 		Functions\when( 'wp_unslash' )->returnArg();
 

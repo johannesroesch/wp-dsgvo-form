@@ -340,6 +340,8 @@ class Form {
 
 	/**
 	 * Creates a Form instance from a database row.
+	 *
+	 * @param array<string, mixed> $row Database row.
 	 */
 	private static function from_row( array $row ): self {
 		$form                  = new self();
@@ -370,6 +372,8 @@ class Form {
 	 * Converts editable form properties to an associative array for DB operations.
 	 *
 	 * Excludes id, timestamps (managed by MySQL), and encrypted_dek/dek_iv (set on insert only).
+	 *
+	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
 		$data = [

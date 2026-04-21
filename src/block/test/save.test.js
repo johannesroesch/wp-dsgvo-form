@@ -1,7 +1,7 @@
 /**
  * Tests for Save component.
  *
- * @package wp-dsgvo-form
+ * @package
  */
 
 import Save from '../save';

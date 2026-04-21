@@ -44,6 +44,7 @@ class DsfaNoticeTest extends TestCase {
 		$wpdb->prefix = 'wp_';
 
 		// get_var is called first for forms, then (if needed) for submissions.
+		$wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
 		$wpdb->shouldReceive( 'get_var' )
 			->andReturn( (string) $form_count, (string) $submission_count );
 

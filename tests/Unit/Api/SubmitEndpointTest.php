@@ -62,6 +62,16 @@ class SubmitEndpointTest extends TestCase {
 		// Default mocks for WordPress functions.
 		Functions\when( '__' )->returnArg( 1 );
 
+		// Rate-limiting WP function stubs (SEC-SOLL-03).
+		Functions\when( 'sanitize_text_field' )->returnArg( 1 );
+		Functions\when( 'wp_unslash' )->returnArg( 1 );
+		Functions\when( 'wp_salt' )->justReturn( 'test-salt' );
+		Functions\when( 'get_option' )->justReturn( '' );
+		Functions\when( 'sanitize_key' )->returnArg( 1 );
+
+		// Default: no REMOTE_ADDR → rate-limit fail-open (empty IP).
+		unset( $_SERVER['REMOTE_ADDR'] );
+
 		// Mock wpdb for Submission/Form models.
 		$wpdb         = Mockery::mock( 'wpdb' );
 		$wpdb->prefix = 'wp_';
@@ -941,5 +951,176 @@ class SubmitEndpointTest extends TestCase {
 		$this->assertArrayNotHasKey( 'consent_version_id', $captured_data );
 		$this->assertArrayNotHasKey( 'consent_timestamp', $captured_data );
 		$this->assertArrayNotHasKey( 'consent_locale', $captured_data );
+	}
+
+	// ──────────────────────────────────────────────────
+	// SEC-SOLL-03: Rate-Limiting (IP-based throttling)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * @security-relevant SEC-SOLL-03 — Rate-limit returns 429 after exceeding max submissions.
+	 */
+	public function test_rate_limit_returns_429_after_exceeding_max(): void {
+		$this->encryption->shouldReceive( 'is_available' )->andReturn( true );
+
+		$form = $this->make_form();
+		Functions\when( 'get_transient' )->alias( function ( string $key ) use ( $form ) {
+			// Form cache returns the form.
+			if ( str_starts_with( $key, 'dsgvo_form_' ) ) {
+				return $form;
+			}
+			// Rate-limit transient: already at max (5).
+			return 5;
+		} );
+
+		$_SERVER['REMOTE_ADDR'] = '192.168.1.100';
+
+		$request = $this->make_request( [ 'form_id' => 1 ] );
+		$result  = $this->endpoint->handle_submission( $request );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'rate_limited', $result->get_error_code() );
+		$this->assertSame( 429, $result->get_error_data()['status'] );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant SEC-SOLL-03 — Submissions below rate-limit are allowed.
+	 *
+	 * Uses reflection on check_rate_limit() to verify under-threshold returns null.
+	 */
+	public function test_rate_limit_allows_under_threshold(): void {
+		$_SERVER['REMOTE_ADDR'] = '192.168.1.100';
+
+		Functions\when( 'get_transient' )->justReturn( 2 ); // 2 requests so far (under limit of 5).
+		Functions\when( 'set_transient' )->justReturn( true );
+
+		$method = new \ReflectionMethod( SubmitEndpoint::class, 'check_rate_limit' );
+		$result = $method->invoke( $this->endpoint, 1 );
+
+		// Under limit → null (allowed).
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant SEC-SOLL-03 — Empty IP fails open (no blocking).
+	 */
+	public function test_rate_limit_fail_open_when_ip_empty(): void {
+		// No REMOTE_ADDR set.
+		unset( $_SERVER['REMOTE_ADDR'] );
+
+		$this->setup_successful_flow( [ 'legal_basis' => 'contract' ] );
+
+		$request = $this->make_request( [
+			'form_id'  => 1,
+			'_wpnonce' => 'valid',
+			'fields'   => [ 'name' => 'Test' ],
+		] );
+		$result = $this->endpoint->handle_submission( $request );
+
+		// Should succeed — no rate-limiting when IP undetermined.
+		$this->assertInstanceOf( \WP_REST_Response::class, $result );
+		$this->assertSame( 201, $result->get_status() );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant SEC-SOLL-03 — IP hash uses form_id for isolation.
+	 *
+	 * Uses reflection on check_rate_limit() to avoid Brain\Monkey stub conflicts.
+	 */
+	public function test_rate_limit_uses_per_form_transient_key(): void {
+		$_SERVER['REMOTE_ADDR'] = '10.0.0.1';
+
+		$transient_key_used = null;
+		Functions\when( 'get_transient' )->alias( function ( string $key ) use ( &$transient_key_used ) {
+			$transient_key_used = $key;
+			return 0; // Under limit.
+		} );
+		Functions\when( 'set_transient' )->justReturn( true );
+
+		$method = new \ReflectionMethod( SubmitEndpoint::class, 'check_rate_limit' );
+		$method->invoke( $this->endpoint, 42 );
+
+		// Transient key must include form_id 42.
+		$this->assertNotNull( $transient_key_used );
+		$this->assertStringContainsString( '_42_', $transient_key_used, 'Rate-limit transient key must include form_id.' );
+	}
+
+	/**
+	 * @test
+	 * @privacy-relevant SEC-SOLL-03 — IP is hashed (not stored raw) in transient key.
+	 *
+	 * Uses reflection on check_rate_limit() to inspect the generated transient key.
+	 */
+	public function test_rate_limit_hashes_ip_in_transient_key(): void {
+		$_SERVER['REMOTE_ADDR'] = '203.0.113.50';
+
+		$transient_key_used = null;
+		Functions\when( 'get_transient' )->alias( function ( string $key ) use ( &$transient_key_used ) {
+			$transient_key_used = $key;
+			return 0;
+		} );
+		Functions\when( 'set_transient' )->justReturn( true );
+
+		$method = new \ReflectionMethod( SubmitEndpoint::class, 'check_rate_limit' );
+		$method->invoke( $this->endpoint, 1 );
+
+		// Raw IP must NOT appear in the transient key — DSGVO privacy.
+		$this->assertNotNull( $transient_key_used );
+		$this->assertStringNotContainsString( '203.0.113.50', $transient_key_used );
+
+		// Key must contain a hex hash substring (SHA-256 truncated to 16 chars).
+		$parts = explode( '_', $transient_key_used );
+		$hash_part = end( $parts );
+		$this->assertMatchesRegularExpression( '/^[0-9a-f]{16}$/', $hash_part, 'IP must be hashed to 16-char hex.' );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant SEC-SOLL-03 — Rate-limit counter is incremented on each request.
+	 *
+	 * Uses reflection on check_rate_limit() to verify counter increment logic.
+	 */
+	public function test_rate_limit_increments_counter(): void {
+		$_SERVER['REMOTE_ADDR'] = '10.0.0.5';
+
+		$saved_value = null;
+		Functions\when( 'get_transient' )->justReturn( 3 ); // Current count = 3.
+		Functions\when( 'set_transient' )->alias( function ( string $key, $value ) use ( &$saved_value ): bool {
+			$saved_value = $value;
+			return true;
+		} );
+
+		$method = new \ReflectionMethod( SubmitEndpoint::class, 'check_rate_limit' );
+		$result = $method->invoke( $this->endpoint, 1 );
+
+		// Rate-limit not exceeded (3 < 5) → returns null.
+		$this->assertNull( $result );
+		// Counter must be incremented from 3 to 4.
+		$this->assertSame( 4, $saved_value, 'Counter must be incremented from 3 to 4.' );
+	}
+
+	/**
+	 * @test
+	 * @security-relevant SEC-SOLL-03 — Invalid IP format fails open.
+	 */
+	public function test_rate_limit_fail_open_for_invalid_ip(): void {
+		$_SERVER['REMOTE_ADDR'] = 'not-an-ip';
+
+		$this->setup_successful_flow( [ 'legal_basis' => 'contract' ] );
+
+		$request = $this->make_request( [
+			'form_id'  => 1,
+			'_wpnonce' => 'valid',
+			'fields'   => [ 'name' => 'Test' ],
+		] );
+		$result = $this->endpoint->handle_submission( $request );
+
+		// filter_var fails → empty string → fail-open.
+		$this->assertInstanceOf( \WP_REST_Response::class, $result );
+		$this->assertSame( 201, $result->get_status() );
 	}
 }

@@ -1,9 +1,10 @@
 <?php
 /**
- * Login redirect and admin isolation for plugin roles.
+ * Login redirect and admin isolation for plugin-only users.
  *
- * Restricts wp_dsgvo_form_reader and wp_dsgvo_form_supervisor
- * to the submissions page — no WordPress Dashboard access.
+ * Restricts users with plugin access but without standard WP capabilities
+ * (edit_posts) to the submissions page — no WordPress Dashboard access.
+ * Editors/Authors with additional plugin capabilities keep Dashboard access.
  *
  * @package WpDsgvoForm
  */
@@ -15,11 +16,11 @@ namespace WpDsgvoForm\Auth;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Handles login redirects and admin area restrictions for plugin roles.
+ * Handles login redirects and admin area restrictions for plugin-only users.
  *
- * Plugin roles (Reader, Supervisor) are redirected to the submissions
- * page after login and blocked from accessing other admin pages.
- * The admin bar is stripped down to show only essential items.
+ * Plugin-only users (those with plugin capabilities but without edit_posts)
+ * are redirected to the submissions page after login and blocked from
+ * accessing other admin pages. The admin bar is stripped down to essential items.
  *
  * Security requirements: SEC-AUTH-06 through SEC-AUTH-09, SEC-AUTH-12.
  */
@@ -87,9 +88,10 @@ class LoginRedirect {
 	}
 
 	/**
-	 * Redirects plugin roles to the submissions page after login.
+	 * Redirects plugin-only users to the submissions page after login.
 	 *
-	 * SEC-AUTH-06: Plugin roles must NOT see the WordPress Dashboard.
+	 * SEC-AUTH-06: Plugin-only users must NOT see the WordPress Dashboard.
+	 * Editors/Authors with additional plugin capabilities keep Dashboard access.
 	 *
 	 * @param string           $redirect_to The default redirect URL.
 	 * @param string           $request     The requested redirect URL (from login form).
@@ -101,7 +103,7 @@ class LoginRedirect {
 			return $redirect_to;
 		}
 
-		if ( ! $this->access_control->has_plugin_role( $user->ID ) ) {
+		if ( ! $this->is_plugin_only_user( $user->ID ) ) {
 			return $redirect_to;
 		}
 
@@ -109,9 +111,10 @@ class LoginRedirect {
 	}
 
 	/**
-	 * Reduces auth cookie expiration for plugin roles.
+	 * Reduces auth cookie expiration for plugin-only users.
 	 *
-	 * SEC-AUTH-12: 2-hour session timeout for Reader and Supervisor.
+	 * SEC-AUTH-12: 2-hour session timeout for plugin-only users.
+	 * Editors/Authors with additional plugin capabilities keep default expiration.
 	 *
 	 * @param int  $expiration Default expiration in seconds.
 	 * @param int  $user_id    User ID.
@@ -119,7 +122,7 @@ class LoginRedirect {
 	 * @return int Filtered expiration in seconds.
 	 */
 	public function handle_cookie_expiration( int $expiration, int $user_id, bool $remember ): int {
-		if ( ! $this->access_control->has_plugin_role( $user_id ) ) {
+		if ( ! $this->is_plugin_only_user( $user_id ) ) {
 			return $expiration;
 		}
 
@@ -223,25 +226,44 @@ class LoginRedirect {
 	}
 
 	/**
-	 * Checks whether the current user is a restricted plugin role.
-	 *
-	 * A user is restricted if they have a plugin role but are NOT an admin.
+	 * Checks whether the current user is a restricted plugin-only user.
 	 *
 	 * @return bool True if the current user should be restricted.
 	 */
 	private function is_restricted_user(): bool {
-		$user_id = get_current_user_id();
+		return $this->is_plugin_only_user( get_current_user_id() );
+	}
 
+	/**
+	 * Checks whether a user is a plugin-only user (capability-based).
+	 *
+	 * A plugin-only user has plugin access (dsgvo_form_recipient or legacy
+	 * plugin role) but no standard WordPress capabilities like edit_posts.
+	 * Editors/Authors with additional plugin capabilities keep Dashboard access.
+	 *
+	 * SEC-AUTH-06/12: Plugin-only users get restricted backend (no Dashboard,
+	 * 2h cookie, stripped admin bar).
+	 *
+	 * @param int $user_id The WordPress user ID.
+	 * @return bool True if the user is plugin-only and should be restricted.
+	 */
+	private function is_plugin_only_user( int $user_id ): bool {
 		if ( 0 === $user_id ) {
 			return false;
 		}
 
-		// Admins are never restricted, even if they also have a plugin role.
+		// Admins are never restricted, even if they also have plugin access.
 		if ( $this->access_control->is_admin( $user_id ) ) {
 			return false;
 		}
 
-		return $this->access_control->has_plugin_role( $user_id );
+		// Editors/Authors keep Dashboard access (edit_posts is a core WP capability).
+		if ( user_can( $user_id, 'edit_posts' ) ) {
+			return false;
+		}
+
+		// Capability-based: user must have plugin access (dual-check).
+		return $this->access_control->has_plugin_access( $user_id );
 	}
 
 	/**

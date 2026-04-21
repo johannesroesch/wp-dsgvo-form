@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Wichtig:** Für Team-Struktur, Rollen, Zuständigkeiten und Kommunikationsregeln siehe [TEAM.md](TEAM.md) — dieses Dokument muss bei Teamarbeit immer mitgelesen werden.
+
 ## Projekt-Übersicht
 
 WordPress-Plugin für DSGVO-konforme Formulare mit verschlüsselter Datenspeicherung, konfigurierbare Admin-UI, Gutenberg-Block und eigenem CAPTCHA-Service.
@@ -159,6 +161,6 @@ Das Plugin registriert zwei Custom Roles (WP-typische Syntax: Plugin-Slug als Pr
 
 **Agent-Koordination:** Nur `team-lead` darf Agents spawnen — ausschließlich mit expliziter Zustimmung des Auftraggebers. `team-lead` kommuniziert mit dem Team **ausschließlich über `project-lead`** per SendMessage — auch wenn der Auftraggeber explizit bittet, dem Team etwas mitzuteilen. `project-lead` hat keine Schreibrechte auf Code, Tests oder Infrastruktur.
 
-**Kommunikationsfluss:** Team-Mitglieder kommunizieren projektbezogene Themen ausschließlich mit `project-lead` — kein Direktkontakt zu `team-lead`. `project-lead` sammelt den gesamten Projektfortschritt, steuert das Projekt und hält `team-lead` auf dem Laufenden. Direktkontakt zum `team-lead` ist nur bei team-organisatorischen Themen erlaubt.
+**Kommunikationsfluss:** `project-lead` muss über alle Aktivitäten im Team Bescheid wissen. Wenn `project-lead` einen Task an mehrere Mitglieder gemeinsam vergibt, dürfen die Beteiligten in Bezug auf diesen Task direkt miteinander kommunizieren. Alle Teammitglieder dürfen den `architect` und die Experts jederzeit in deren Zuständigkeitsgebiet konsultieren, wenn es die eigene Arbeit verbessert oder notwendig ist. Direktkontakt zum `team-lead` ist nur bei team-organisatorischen Themen erlaubt.
 
 **Analyse-Verbot:** Weder `team-lead` noch `project-lead` führen technische Analysen durch (Code-Lesen, Root-Cause-Analyse, Schema-Prüfung etc.). Das ist ausschließlich Aufgabe der jeweiligen Team-Mitglieder (Developer, Tester, Experts, Architekt).

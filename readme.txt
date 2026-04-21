@@ -78,6 +78,14 @@ Ja. Seiten mit DSGVO-Formularen sollten vom Seiten-Cache (z.B. WP Super Cache, W
 
 == Changelog ==
 
+= 1.1.0 =
+* Internationalisierung: 6 Sprachen (de_DE, en_US, fr_FR, es_ES, it_IT, sv_SE)
+* FormEditor: Feldbreiten-Konfiguration
+* FirstLoginNotice fuer neue Empfaenger
+* Eraser-Bugs behoben (Pagination-Drift, done-Flag Endlosschleife)
+* Controller-Platzhalter in Einwilligungstemplates (Art. 7 Abs. 2+3 DSGVO)
+* DSFA-Hinweis, CAPTCHA-Settings-Toggle, Cache-Exclusion
+
 = 1.0.7 =
 * WordPress Plugin Checker Fixes (PHPCS, Prefixing, SQL)
 * WordPress Privacy Data Exporter/Eraser (Art. 15 + 17 DSGVO)

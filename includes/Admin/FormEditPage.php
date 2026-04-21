@@ -208,7 +208,7 @@ class FormEditPage {
 	/**
 	 * Extracts and sanitizes all field data from POST.
 	 *
-	 * @return array{ids: int[], types: string[], labels: string[], names: string[], placeholders: string[], required: string[], css_classes: string[], options: array, static: string[], file_config: array}
+	 * @return array{ids: int[], types: string[], labels: string[], names: string[], placeholders: string[], required: string[], css_classes: string[], options: array<int, mixed>, static: string[], file_config: array<string, mixed>}
 	 */
 	private function extract_field_post_data(): array {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in maybe_save_and_redirect()
@@ -235,6 +235,9 @@ class FormEditPage {
 	/**
 	 * Builds a single Field object from POST data at the given index.
 	 *
+	 * @param int                  $form_id   The form ID.
+	 * @param int                  $i         Field index.
+	 * @param array<string, mixed> $post_data All extracted POST data.
 	 * @return Field|null The field, or null if validation fails.
 	 */
 	private function build_field_from_post( int $form_id, int $i, array $post_data ): ?Field {
@@ -278,7 +281,7 @@ class FormEditPage {
 	 * Parses newline-separated options string into a sanitized array.
 	 *
 	 * @param mixed $raw_options Raw options string from POST data.
-	 * @return array|null Parsed options or null if empty.
+	 * @return array<int, string>|null Parsed options or null if empty.
 	 */
 	private function parse_field_options( $raw_options ): ?array {
 		if ( ! is_string( $raw_options ) || trim( $raw_options ) === '' ) {
@@ -296,8 +299,8 @@ class FormEditPage {
 	/**
 	 * Parses file upload configuration from POST data for a given field index.
 	 *
-	 * @param array $post_data All extracted POST data.
-	 * @param int   $index     Field index.
+	 * @param array<string, mixed> $post_data All extracted POST data.
+	 * @param int                   $index     Field index.
 	 * @return array{allowed_types: string[], max_size_mb: int} File configuration.
 	 */
 	private function parse_file_config( array $post_data, int $index ): array {
@@ -321,6 +324,9 @@ class FormEditPage {
 
 	/**
 	 * Deletes fields that were removed from the form.
+	 *
+	 * @param int   $form_id  The form ID.
+	 * @param int[] $keep_ids Field IDs to keep.
 	 */
 	private function delete_removed_fields( int $form_id, array $keep_ids ): void {
 		$existing = Field::find_by_form_id( $form_id );
@@ -486,6 +492,20 @@ class FormEditPage {
 								<p class="description" style="margin-left:24px;">
 									<?php esc_html_e( 'Automatisch: Einwilligungstext wird in der WP-Sprache angezeigt. Fest: immer die gewaehlte Sprache.', 'wp-dsgvo-form' ); ?>
 								</p>
+								<?php
+								// UX-I18N-03: Inline warning when selected locale has no consent text.
+								if ( $form->id > 0 && $form->legal_basis === 'consent' ) :
+									$locales_with_versions = ConsentVersion::get_locales_with_versions( $form->id );
+								?>
+									<div id="dsgvo-locale-warning"
+										data-locales="<?php echo esc_attr( wp_json_encode( $locales_with_versions ) ); ?>"
+										data-labels="<?php echo esc_attr( wp_json_encode( $supported ) ); ?>"
+										data-template="<?php echo esc_attr( __( 'Fuer die gewaehlte Sprache (%s) existiert kein Einwilligungstext. Bitte legen Sie einen unter Consent-Verwaltung an.', 'wp-dsgvo-form' ) ); ?>"
+										class="notice notice-warning inline"
+										style="margin:8px 0 0 24px;display:none;">
+										<p></p>
+									</div>
+								<?php endif; ?>
 							</fieldset>
 						</td>
 					</tr>
@@ -526,6 +546,8 @@ class FormEditPage {
 
 	/**
 	 * Renders the fields section with existing field rows.
+	 *
+	 * @param Field[] $fields Existing field definitions.
 	 */
 	private function render_fields_section( array $fields ): void {
 		?>
@@ -551,6 +573,8 @@ class FormEditPage {
 
 	/**
 	 * Renders the page footer: field template, CSS, JavaScript.
+	 *
+	 * @param Field[] $fields Existing field definitions.
 	 */
 	private function render_page_footer( array $fields ): void {
 		?>
@@ -674,6 +698,12 @@ class FormEditPage {
 
 	/**
 	 * Renders options, static content, and file config sections for a field row.
+	 *
+	 * @param string               $idx         Row index.
+	 * @param string               $type        Field type.
+	 * @param string               $options_str Options string.
+	 * @param string               $static_html Static HTML content.
+	 * @param array<string, mixed> $file_config File upload configuration.
 	 */
 	private function render_field_row_extras( string $idx, string $type, string $options_str, string $static_html, array $file_config ): void {
 		$allowed_types_str = implode( ', ', $file_config['allowed_types'] ?? [] );
@@ -755,15 +785,42 @@ class FormEditPage {
 		})();
 
 		// FEP-03: Locale override toggle — enable/disable dropdown based on radio selection.
+		// UX-I18N-03: Show warning when selected locale has no consent text.
 		(function() {
 			var radios   = document.querySelectorAll('.dsgvo-locale-mode');
 			var dropdown = document.getElementById('dsgvo-locale-override');
+			var warning  = document.getElementById('dsgvo-locale-warning');
 			if (!dropdown || !radios.length) { return; }
+
+			var localesWithVersions = warning ? JSON.parse(warning.getAttribute('data-locales') || '[]') : [];
+			var localeLabels = warning ? JSON.parse(warning.getAttribute('data-labels') || '{}') : {};
+			var warningTemplate = warning ? (warning.getAttribute('data-template') || '') : '';
+
+			function updateWarning() {
+				if (!warning) { return; }
+				var mode = document.querySelector('.dsgvo-locale-mode:checked');
+				if (!mode || mode.value === 'auto') {
+					warning.style.display = 'none';
+					return;
+				}
+				var selected = dropdown.value;
+				if (localesWithVersions.indexOf(selected) !== -1) {
+					warning.style.display = 'none';
+				} else {
+					var label = localeLabels[selected] || selected;
+					warning.querySelector('p').textContent = warningTemplate.replace('%s', label);
+					warning.style.display = '';
+				}
+			}
+
 			radios.forEach(function(radio) {
 				radio.addEventListener('change', function() {
 					dropdown.disabled = (this.value === 'auto');
+					updateWarning();
 				});
 			});
+			dropdown.addEventListener('change', updateWarning);
+			updateWarning();
 		})();
 		</script>
 		<?php

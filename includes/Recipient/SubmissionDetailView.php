@@ -21,7 +21,6 @@ use WpDsgvoForm\Models\Form;
 use WpDsgvoForm\Models\Field;
 use WpDsgvoForm\Models\Submission;
 use WpDsgvoForm\Encryption\EncryptionService;
-use WpDsgvoForm\Encryption\KeyManager;
 
 /**
  * Renders a single submission detail for the recipient area.
@@ -37,11 +36,15 @@ use WpDsgvoForm\Encryption\KeyManager;
 class SubmissionDetailView {
 
 	private AccessControl $access_control;
+	private EncryptionService $encryption;
+	private AuditLogger $audit_logger;
 	private bool $action_performed = false;
 	private string $action_type    = '';
 
-	public function __construct( AccessControl $access_control ) {
+	public function __construct( AccessControl $access_control, EncryptionService $encryption, AuditLogger $audit_logger ) {
 		$this->access_control = $access_control;
+		$this->encryption     = $encryption;
+		$this->audit_logger   = $audit_logger;
 	}
 
 	/**
@@ -75,8 +78,7 @@ class SubmissionDetailView {
 		}
 
 		// SEC-AUDIT-01: Log every submission view.
-		$audit_logger = new AuditLogger();
-		$audit_logger->log( $user_id, 'view', $submission_id, $submission->form_id );
+		$this->audit_logger->log( $user_id, 'view', $submission_id, $submission->form_id );
 
 		// Mark as read on first view.
 		if ( ! $submission->is_read ) {
@@ -133,9 +135,8 @@ class SubmissionDetailView {
 			Submission::set_restricted( $submission_id, true );
 
 			// SEC-AUDIT-01: Log restrict action (Art. 18 DSGVO).
-			$audit_logger = new AuditLogger();
 			$submission   = Submission::find( $submission_id );
-			$audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'restricted' );
+			$this->audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'restricted' );
 
 			$this->action_performed = true;
 			$this->action_type      = 'restrict';
@@ -144,9 +145,8 @@ class SubmissionDetailView {
 			Submission::set_restricted( $submission_id, false );
 
 			// SEC-AUDIT-01: Log unrestrict action (Art. 18 DSGVO).
-			$audit_logger = new AuditLogger();
 			$submission   = Submission::find( $submission_id );
-			$audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'unrestricted' );
+			$this->audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'unrestricted' );
 
 			$this->action_performed = true;
 			$this->action_type      = 'unrestrict';
@@ -166,10 +166,7 @@ class SubmissionDetailView {
 		}
 
 		try {
-			$key_manager = new KeyManager();
-			$encryption  = new EncryptionService( $key_manager );
-
-			return $submission->decrypt_data( $encryption, $form );
+			return $submission->decrypt_data( $this->encryption, $form );
 		} catch ( \Throwable $e ) {
 			return null;
 		}

@@ -19,7 +19,6 @@ use WpDsgvoForm\Models\Form;
 use WpDsgvoForm\Models\Field;
 use WpDsgvoForm\Models\Submission;
 use WpDsgvoForm\Encryption\EncryptionService;
-use WpDsgvoForm\Encryption\KeyManager;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -27,6 +26,14 @@ defined( 'ABSPATH' ) || exit;
  * Displays a single submission detail page.
  */
 class SubmissionViewPage {
+
+	private EncryptionService $encryption;
+	private AuditLogger $audit_logger;
+
+	public function __construct( EncryptionService $encryption, AuditLogger $audit_logger ) {
+		$this->encryption   = $encryption;
+		$this->audit_logger = $audit_logger;
+	}
 
 	/**
 	 * Render the submission detail page.
@@ -58,8 +65,7 @@ class SubmissionViewPage {
 		$this->handle_actions( $submission_id );
 
 		// SEC-AUDIT-01: Log every submission view.
-		$audit_logger = new AuditLogger();
-		$audit_logger->log( $current_user, 'view', $submission_id, $submission->form_id );
+		$this->audit_logger->log( $current_user, 'view', $submission_id, $submission->form_id );
 
 		// Reload submission after possible action (restrict/unrestrict).
 		$submission = Submission::find( $submission_id );
@@ -143,10 +149,7 @@ class SubmissionViewPage {
 		}
 
 		try {
-			$key_manager = new KeyManager();
-			$encryption  = new EncryptionService( $key_manager );
-
-			return $submission->decrypt_data( $encryption, $form );
+			return $submission->decrypt_data( $this->encryption, $form );
 		} catch ( \Throwable $e ) {
 			return null;
 		}
@@ -438,9 +441,8 @@ class SubmissionViewPage {
 			Submission::set_restricted( $submission_id, true );
 
 			// SEC-AUDIT-01: Log restrict action (Art. 18 DSGVO).
-			$audit_logger = new AuditLogger();
 			$submission   = Submission::find( $submission_id );
-			$audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'restricted' );
+			$this->audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'restricted' );
 
 			add_settings_error(
 				'dsgvo_submission_messages',
@@ -457,9 +459,8 @@ class SubmissionViewPage {
 			Submission::set_restricted( $submission_id, false );
 
 			// SEC-AUDIT-01: Log unrestrict action (Art. 18 DSGVO).
-			$audit_logger = new AuditLogger();
 			$submission   = Submission::find( $submission_id );
-			$audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'unrestricted' );
+			$this->audit_logger->log( get_current_user_id(), 'restrict', $submission_id, $submission ? $submission->form_id : null, 'unrestricted' );
 
 			add_settings_error(
 				'dsgvo_submission_messages',
@@ -535,8 +536,7 @@ class SubmissionViewPage {
 		$export_data = $this->build_export_data( $decrypted, $fields, $submission, $form );
 
 		// SEC-AUDIT-01: Log export action.
-		$audit_logger = new AuditLogger();
-		$audit_logger->log( $current_user, 'export', $submission_id, $submission->form_id );
+		$this->audit_logger->log( $current_user, 'export', $submission_id, $submission->form_id );
 
 		// Determine format.
 		$format = sanitize_text_field( wp_unslash( $_GET['format'] ?? 'json' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended

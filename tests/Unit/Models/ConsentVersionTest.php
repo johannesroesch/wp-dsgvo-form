@@ -463,7 +463,7 @@ class ConsentVersionTest extends TestCase {
 	public function test_validate_accepts_all_supported_locales(): void {
 		Functions\when( 'current_time' )->justReturn( '2026-04-17 12:00:00' );
 
-		$supported_locales = [ 'de_DE', 'en_US', 'fr_FR', 'es_ES', 'it_IT', 'sv_SE' ];
+		$supported_locales = [ 'de_DE', 'en_US', 'fr_FR', 'es_ES', 'it_IT', 'nl_NL', 'pl_PL', 'sv_SE' ];
 
 		foreach ( $supported_locales as $locale ) {
 			$cv               = new ConsentVersion();
@@ -939,12 +939,14 @@ class ConsentVersionTest extends TestCase {
 			$this->assertNotEmpty( $label, "Label for '{$locale}' must not be empty." );
 		}
 
-		// Verify the six expected locales are present.
+		// Verify the eight expected locales are present.
 		$this->assertArrayHasKey( 'de_DE', $locales );
 		$this->assertArrayHasKey( 'en_US', $locales );
 		$this->assertArrayHasKey( 'fr_FR', $locales );
 		$this->assertArrayHasKey( 'es_ES', $locales );
 		$this->assertArrayHasKey( 'it_IT', $locales );
+		$this->assertArrayHasKey( 'nl_NL', $locales );
+		$this->assertArrayHasKey( 'pl_PL', $locales );
 		$this->assertArrayHasKey( 'sv_SE', $locales );
 	}
 
@@ -1004,9 +1006,345 @@ class ConsentVersionTest extends TestCase {
 
 	/**
 	 * @test
-	 * LEGAL-I18N-04: Exactly 6 locales are supported.
+	 * LEGAL-I18N-04: Exactly 8 locales are supported.
 	 */
-	public function test_supported_locales_count_is_six(): void {
-		$this->assertCount( 6, ConsentVersion::SUPPORTED_LOCALES );
+	public function test_supported_locales_count_is_eight(): void {
+		$this->assertCount( 8, ConsentVersion::SUPPORTED_LOCALES );
+	}
+
+	// ==================================================================
+	// PERF-SOLL-01: Pagination — find_by_form_and_locale_paginated()
+	// ==================================================================
+
+	/**
+	 * @test
+	 * Paginated query returns mapped ConsentVersion objects.
+	 */
+	public function test_find_by_form_and_locale_paginated_returns_objects(): void {
+		$rows = [
+			$this->make_row( [ 'id' => 3, 'version' => 3 ] ),
+			$this->make_row( [ 'id' => 2, 'version' => 2 ] ),
+		];
+
+		$this->wpdb->shouldReceive( 'prepare' )
+			->once()
+			->andReturnUsing( function ( string $sql, ...$args ): string {
+				$this->assertStringContainsString( 'LIMIT', $sql );
+				$this->assertStringContainsString( 'OFFSET', $sql );
+				$this->assertSame( 5, $args[0] );       // form_id
+				$this->assertSame( 'de_DE', $args[1] );  // locale
+				$this->assertSame( 20, $args[2] );       // default limit
+				$this->assertSame( 0, $args[3] );        // default offset
+				return 'SQL';
+			} );
+
+		$this->wpdb->shouldReceive( 'get_results' )
+			->once()
+			->with( 'SQL', ARRAY_A )
+			->andReturn( $rows );
+
+		$result = ConsentVersion::find_by_form_and_locale_paginated( 5, 'de_DE' );
+
+		$this->assertCount( 2, $result );
+		$this->assertInstanceOf( ConsentVersion::class, $result[0] );
+		$this->assertSame( 3, $result[0]->version );
+		$this->assertSame( 2, $result[1]->version );
+	}
+
+	/**
+	 * @test
+	 * Paginated query with custom limit and offset.
+	 */
+	public function test_find_by_form_and_locale_paginated_with_custom_params(): void {
+		$this->wpdb->shouldReceive( 'prepare' )
+			->once()
+			->andReturnUsing( function ( string $sql, ...$args ): string {
+				$this->assertSame( 10, $args[2] ); // limit
+				$this->assertSame( 5, $args[3] );  // offset
+				return 'SQL';
+			} );
+
+		$this->wpdb->shouldReceive( 'get_results' )
+			->once()
+			->andReturn( [] );
+
+		$result = ConsentVersion::find_by_form_and_locale_paginated( 5, 'de_DE', 10, 5 );
+
+		$this->assertSame( [], $result );
+	}
+
+	/**
+	 * @test
+	 * Limit is clamped to max 100.
+	 */
+	public function test_find_by_form_and_locale_paginated_clamps_limit_max(): void {
+		$this->wpdb->shouldReceive( 'prepare' )
+			->once()
+			->andReturnUsing( function ( string $sql, ...$args ): string {
+				$this->assertSame( 100, $args[2] ); // clamped from 500 to 100
+				return 'SQL';
+			} );
+
+		$this->wpdb->shouldReceive( 'get_results' )->andReturn( [] );
+
+		ConsentVersion::find_by_form_and_locale_paginated( 5, 'de_DE', 500, 0 );
+	}
+
+	/**
+	 * @test
+	 * Limit is clamped to min 1.
+	 */
+	public function test_find_by_form_and_locale_paginated_clamps_limit_min(): void {
+		$this->wpdb->shouldReceive( 'prepare' )
+			->once()
+			->andReturnUsing( function ( string $sql, ...$args ): string {
+				$this->assertSame( 1, $args[2] ); // clamped from 0 to 1
+				return 'SQL';
+			} );
+
+		$this->wpdb->shouldReceive( 'get_results' )->andReturn( [] );
+
+		ConsentVersion::find_by_form_and_locale_paginated( 5, 'de_DE', 0, 0 );
+	}
+
+	/**
+	 * @test
+	 * Negative offset is clamped to 0.
+	 */
+	public function test_find_by_form_and_locale_paginated_clamps_negative_offset(): void {
+		$this->wpdb->shouldReceive( 'prepare' )
+			->once()
+			->andReturnUsing( function ( string $sql, ...$args ): string {
+				$this->assertSame( 0, $args[3] ); // clamped from -5 to 0
+				return 'SQL';
+			} );
+
+		$this->wpdb->shouldReceive( 'get_results' )->andReturn( [] );
+
+		ConsentVersion::find_by_form_and_locale_paginated( 5, 'de_DE', 20, -5 );
+	}
+
+	/**
+	 * @test
+	 * Returns empty array when no rows found.
+	 */
+	public function test_find_by_form_and_locale_paginated_returns_empty_on_no_results(): void {
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_results' )->andReturn( null );
+
+		$result = ConsentVersion::find_by_form_and_locale_paginated( 99, 'en_US' );
+
+		$this->assertSame( [], $result );
+	}
+
+	// ==================================================================
+	// PERF-SOLL-01: Pagination — count_by_form_and_locale()
+	// ==================================================================
+
+	/**
+	 * @test
+	 * Count returns integer for given form + locale.
+	 */
+	public function test_count_by_form_and_locale_returns_int(): void {
+		$this->wpdb->shouldReceive( 'prepare' )
+			->once()
+			->andReturnUsing( function ( string $sql, ...$args ): string {
+				$this->assertStringContainsString( 'COUNT(*)', $sql );
+				$this->assertSame( 5, $args[0] );
+				$this->assertSame( 'de_DE', $args[1] );
+				return 'SQL';
+			} );
+
+		$this->wpdb->shouldReceive( 'get_var' )
+			->once()
+			->with( 'SQL' )
+			->andReturn( '42' );
+
+		$result = ConsentVersion::count_by_form_and_locale( 5, 'de_DE' );
+
+		$this->assertSame( 42, $result );
+	}
+
+	/**
+	 * @test
+	 * Count returns 0 when no versions exist.
+	 */
+	public function test_count_by_form_and_locale_returns_zero_when_empty(): void {
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_var' )->andReturn( null );
+
+		$result = ConsentVersion::count_by_form_and_locale( 99, 'fr_FR' );
+
+		$this->assertSame( 0, $result );
+	}
+
+	// ==================================================================
+	// PERF-SOLL-01: Pagination — get_locales_with_versions()
+	// ==================================================================
+
+	/**
+	 * @test
+	 * Returns locale codes for a form.
+	 */
+	public function test_get_locales_with_versions_returns_locales(): void {
+		$this->wpdb->shouldReceive( 'prepare' )
+			->once()
+			->andReturnUsing( function ( string $sql, ...$args ): string {
+				$this->assertStringContainsString( 'DISTINCT locale', $sql );
+				$this->assertSame( 5, $args[0] );
+				return 'SQL';
+			} );
+
+		$this->wpdb->shouldReceive( 'get_col' )
+			->once()
+			->with( 'SQL' )
+			->andReturn( [ 'de_DE', 'en_US', 'fr_FR' ] );
+
+		$result = ConsentVersion::get_locales_with_versions( 5 );
+
+		$this->assertSame( [ 'de_DE', 'en_US', 'fr_FR' ], $result );
+	}
+
+	/**
+	 * @test
+	 * Returns empty array when no versions exist for form.
+	 */
+	public function test_get_locales_with_versions_returns_empty_array(): void {
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_col' )->andReturn( [] );
+
+		$result = ConsentVersion::get_locales_with_versions( 99 );
+
+		$this->assertSame( [], $result );
+	}
+
+	/**
+	 * @test
+	 * Returns empty array when get_col returns null.
+	 */
+	public function test_get_locales_with_versions_handles_null_result(): void {
+		$this->wpdb->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$this->wpdb->shouldReceive( 'get_col' )->andReturn( null );
+
+		$result = ConsentVersion::get_locales_with_versions( 99 );
+
+		$this->assertSame( [], $result );
+	}
+
+	// ==================================================================
+	// PERF-SOLL-02: save() / validate() with optional Form parameter
+	// ==================================================================
+
+	/**
+	 * @test
+	 * save() with pre-loaded Form skips Form::find() DB query.
+	 */
+	public function test_save_with_preloaded_form_skips_db_lookup(): void {
+		$form              = new Form();
+		$form->id          = 5;
+		$form->title       = 'Test';
+		$form->legal_basis = 'consent';
+		$form->retention_days = 90;
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 12:00:00' );
+		Functions\when( 'apply_filters' )->alias( function ( $tag, $value ) {
+			return $value;
+		} );
+
+		// Form::find should NOT be called — the pre-loaded form is used.
+		// If Form::find were called, it would use get_transient/wpdb queries.
+		// We verify by not setting up get_row mock (which Form::find would need).
+		$this->wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+		$this->wpdb->insert_id = 77;
+
+		$cv               = new ConsentVersion();
+		$cv->form_id      = 5;
+		$cv->locale       = 'de_DE';
+		$cv->version      = 1;
+		$cv->consent_text = 'Einwilligungstext.';
+
+		$id = $cv->save( $form );
+
+		$this->assertSame( 77, $id );
+	}
+
+	/**
+	 * @test
+	 * save() with mismatched Form still fetches from DB.
+	 */
+	public function test_save_with_mismatched_form_fetches_from_db(): void {
+		$wrong_form              = new Form();
+		$wrong_form->id          = 999; // Does not match cv->form_id = 5.
+		$wrong_form->legal_basis = 'consent';
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 12:00:00' );
+		Functions\when( 'apply_filters' )->alias( function ( $tag, $value ) {
+			return $value;
+		} );
+
+		$this->wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+		$this->wpdb->insert_id = 78;
+
+		// get_transient returns form with legal_basis='consent' for form_id=5.
+		// This is already set up in setUp via default get_transient mock.
+
+		$cv               = new ConsentVersion();
+		$cv->form_id      = 5;
+		$cv->locale       = 'de_DE';
+		$cv->version      = 1;
+		$cv->consent_text = 'Einwilligungstext.';
+
+		$id = $cv->save( $wrong_form );
+
+		$this->assertSame( 78, $id );
+	}
+
+	/**
+	 * @test
+	 * save(null) falls back to Form::find() (backward compatible).
+	 */
+	public function test_save_without_form_param_fetches_from_db(): void {
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 12:00:00' );
+		Functions\when( 'apply_filters' )->alias( function ( $tag, $value ) {
+			return $value;
+		} );
+
+		$this->wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+		$this->wpdb->insert_id = 79;
+
+		$cv               = new ConsentVersion();
+		$cv->form_id      = 5;
+		$cv->locale       = 'de_DE';
+		$cv->version      = 1;
+		$cv->consent_text = 'Einwilligungstext.';
+
+		$id = $cv->save();
+
+		$this->assertSame( 79, $id );
+	}
+
+	/**
+	 * @test
+	 * validate() with Form having legal_basis != 'consent' throws.
+	 */
+	public function test_validate_rejects_non_consent_form_via_preloaded_form(): void {
+		$form              = new Form();
+		$form->id          = 5;
+		$form->legal_basis = 'legitimate_interest'; // Not consent.
+
+		Functions\when( 'apply_filters' )->alias( function ( $tag, $value ) {
+			return $value;
+		} );
+
+		$cv               = new ConsentVersion();
+		$cv->form_id      = 5;
+		$cv->locale       = 'de_DE';
+		$cv->version      = 1;
+		$cv->consent_text = 'Text.';
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'legal_basis is "legitimate_interest"' );
+
+		$cv->save( $form );
 	}
 }

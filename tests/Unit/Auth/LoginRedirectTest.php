@@ -75,7 +75,10 @@ class LoginRedirectTest extends TestCase {
 		$user->ID = 5;
 
 		$ac = \Mockery::mock( AccessControl::class );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 5 )->andReturn( true );
+		$ac->shouldReceive( 'is_admin' )->with( 5 )->andReturn( false );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 5 )->andReturn( true );
+
+		Functions\when( 'user_can' )->justReturn( false );
 
 		$redirect = new LoginRedirect( $ac );
 		$result   = $redirect->handle_login_redirect( '/wp-admin/', '', $user );
@@ -92,7 +95,10 @@ class LoginRedirectTest extends TestCase {
 		$user->ID = 10;
 
 		$ac = \Mockery::mock( AccessControl::class );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 10 )->andReturn( false );
+		$ac->shouldReceive( 'is_admin' )->with( 10 )->andReturn( false );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 10 )->andReturn( false );
+
+		Functions\when( 'user_can' )->justReturn( true );
 
 		$redirect = new LoginRedirect( $ac );
 		$result   = $redirect->handle_login_redirect( '/wp-admin/', '', $user );
@@ -120,7 +126,10 @@ class LoginRedirectTest extends TestCase {
 	 */
 	public function test_handle_cookie_expiration_reduces_for_plugin_role(): void {
 		$ac = \Mockery::mock( AccessControl::class );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 5 )->andReturn( true );
+		$ac->shouldReceive( 'is_admin' )->with( 5 )->andReturn( false );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 5 )->andReturn( true );
+
+		Functions\when( 'user_can' )->justReturn( false );
 
 		$redirect = new LoginRedirect( $ac );
 		$result   = $redirect->handle_cookie_expiration( 1209600, 5, true );
@@ -134,7 +143,10 @@ class LoginRedirectTest extends TestCase {
 	 */
 	public function test_handle_cookie_expiration_unchanged_for_regular_user(): void {
 		$ac = \Mockery::mock( AccessControl::class );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 10 )->andReturn( false );
+		$ac->shouldReceive( 'is_admin' )->with( 10 )->andReturn( false );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 10 )->andReturn( false );
+
+		Functions\when( 'user_can' )->justReturn( true );
 
 		$redirect   = new LoginRedirect( $ac );
 		$default    = 1209600;
@@ -149,10 +161,11 @@ class LoginRedirectTest extends TestCase {
 	 */
 	public function test_restrict_admin_menu_removes_pages_for_plugin_role(): void {
 		Functions\when( 'get_current_user_id' )->justReturn( 5 );
+		Functions\when( 'user_can' )->justReturn( false );
 
 		$ac = \Mockery::mock( AccessControl::class );
 		$ac->shouldReceive( 'is_admin' )->with( 5 )->andReturn( false );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 5 )->andReturn( true );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 5 )->andReturn( true );
 
 		$removed_pages = array();
 		Functions\when( 'remove_menu_page' )->alias(
@@ -192,10 +205,11 @@ class LoginRedirectTest extends TestCase {
 	 */
 	public function test_restrict_admin_bar_removes_nodes_for_plugin_role(): void {
 		Functions\when( 'get_current_user_id' )->justReturn( 5 );
+		Functions\when( 'user_can' )->justReturn( false );
 
 		$ac = \Mockery::mock( AccessControl::class );
 		$ac->shouldReceive( 'is_admin' )->with( 5 )->andReturn( false );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 5 )->andReturn( true );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 5 )->andReturn( true );
 
 		// Use Mockery to track remove_node calls.
 		$admin_bar    = \Mockery::mock( 'WP_Admin_Bar' );
@@ -226,10 +240,11 @@ class LoginRedirectTest extends TestCase {
 		Functions\when( 'get_current_user_id' )->justReturn( 5 );
 		Functions\when( 'sanitize_text_field' )->returnArg();
 		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'user_can' )->justReturn( false );
 
 		$ac = \Mockery::mock( AccessControl::class );
 		$ac->shouldReceive( 'is_admin' )->with( 5 )->andReturn( false );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 5 )->andReturn( true );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 5 )->andReturn( true );
 
 		$screen     = \WP_Screen::get( 'dsgvo-form-submissions' );
 
@@ -252,6 +267,7 @@ class LoginRedirectTest extends TestCase {
 		Functions\when( 'get_current_user_id' )->justReturn( 5 );
 		Functions\when( 'sanitize_text_field' )->returnArg();
 		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'user_can' )->justReturn( false );
 		Functions\when( 'admin_url' )->alias(
 			function ( string $path = '' ): string {
 				return 'https://example.com/wp-admin/' . $path;
@@ -260,7 +276,7 @@ class LoginRedirectTest extends TestCase {
 
 		$ac = \Mockery::mock( AccessControl::class );
 		$ac->shouldReceive( 'is_admin' )->with( 5 )->andReturn( false );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 5 )->andReturn( true );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 5 )->andReturn( true );
 
 		$screen = \WP_Screen::get( 'profile' );
 
@@ -288,10 +304,11 @@ class LoginRedirectTest extends TestCase {
 		);
 		Functions\when( 'sanitize_text_field' )->returnArg();
 		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'user_can' )->justReturn( false );
 
 		$ac = \Mockery::mock( AccessControl::class );
 		$ac->shouldReceive( 'is_admin' )->with( 5 )->andReturn( false );
-		$ac->shouldReceive( 'has_plugin_role' )->with( 5 )->andReturn( true );
+		$ac->shouldReceive( 'has_plugin_access' )->with( 5 )->andReturn( true );
 
 		$screen = \WP_Screen::get( 'dashboard' );
 

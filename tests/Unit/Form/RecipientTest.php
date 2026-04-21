@@ -372,4 +372,219 @@ class RecipientTest extends TestCase {
 
 		$this->assertSame( 'wp_dsgvo_form_recipients', Recipient::get_table_name() );
 	}
+
+	// ──────────────────────────────────────────────────
+	// ACCESS_LEVEL constants
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 */
+	public function test_access_level_reader_constant(): void {
+		$this->assertSame( 'reader', Recipient::ACCESS_LEVEL_READER );
+	}
+
+	/**
+	 * @test
+	 */
+	public function test_access_level_supervisor_constant(): void {
+		$this->assertSame( 'supervisor', Recipient::ACCESS_LEVEL_SUPERVISOR );
+	}
+
+	// ──────────────────────────────────────────────────
+	// access_level validation
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * Invalid access_level throws RuntimeException.
+	 */
+	public function test_save_throws_on_invalid_access_level(): void {
+		$this->mock_wpdb();
+
+		$recipient               = new Recipient();
+		$recipient->form_id      = 1;
+		$recipient->user_id      = 5;
+		$recipient->access_level = 'admin';
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'Invalid access_level' );
+
+		$recipient->save();
+	}
+
+	/**
+	 * @test
+	 * Valid access_level "reader" passes validation.
+	 */
+	public function test_save_accepts_reader_access_level(): void {
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldReceive( 'get_var' )->once()->andReturn( '0' );
+		$wpdb->insert_id = 15;
+		$wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+
+		$recipient               = new Recipient();
+		$recipient->form_id      = 1;
+		$recipient->user_id      = 5;
+		$recipient->access_level = 'reader';
+
+		$id = $recipient->save();
+
+		$this->assertSame( 15, $id );
+	}
+
+	/**
+	 * @test
+	 * Valid access_level "supervisor" passes validation.
+	 */
+	public function test_save_accepts_supervisor_access_level(): void {
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldReceive( 'get_var' )->once()->andReturn( '0' );
+		$wpdb->insert_id = 16;
+		$wpdb->shouldReceive( 'insert' )->once()->andReturn( 1 );
+
+		$recipient               = new Recipient();
+		$recipient->form_id      = 1;
+		$recipient->user_id      = 5;
+		$recipient->access_level = 'supervisor';
+
+		$id = $recipient->save();
+
+		$this->assertSame( 16, $id );
+	}
+
+	// ──────────────────────────────────────────────────
+	// count_by_user_id (DPO-MUSS-F16)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * count_by_user_id returns correct count.
+	 */
+	public function test_count_by_user_id_returns_assignment_count(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_var' )
+			->once()
+			->andReturn( '3' );
+
+		$this->assertSame( 3, Recipient::count_by_user_id( 5 ) );
+	}
+
+	/**
+	 * @test
+	 * count_by_user_id returns 0 for user without assignments.
+	 */
+	public function test_count_by_user_id_returns_zero_for_unassigned_user(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_var' )
+			->once()
+			->andReturn( '0' );
+
+		$this->assertSame( 0, Recipient::count_by_user_id( 99 ) );
+	}
+
+	// ──────────────────────────────────────────────────
+	// role_justification — from_row and to_db_array
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * role_justification is included in to_db_array when non-empty.
+	 */
+	public function test_save_includes_role_justification_in_insert(): void {
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldReceive( 'get_var' )->once()->andReturn( '0' );
+		$wpdb->insert_id = 20;
+
+		$inserted_data = null;
+
+		$wpdb->shouldReceive( 'insert' )
+			->once()
+			->andReturnUsing(
+				function ( string $table, array $data ) use ( &$inserted_data ): int {
+					$inserted_data = $data;
+					return 1;
+				}
+			);
+
+		$recipient                     = new Recipient();
+		$recipient->form_id            = 1;
+		$recipient->user_id            = 5;
+		$recipient->access_level       = 'supervisor';
+		$recipient->role_justification = 'Datenschutzbeauftragter';
+
+		$recipient->save();
+
+		$this->assertArrayHasKey( 'role_justification', $inserted_data );
+		$this->assertSame( 'Datenschutzbeauftragter', $inserted_data['role_justification'] );
+	}
+
+	/**
+	 * @test
+	 * role_justification is NOT included when empty.
+	 */
+	public function test_save_excludes_empty_role_justification(): void {
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldReceive( 'get_var' )->once()->andReturn( '0' );
+		$wpdb->insert_id = 21;
+
+		$inserted_data = null;
+
+		$wpdb->shouldReceive( 'insert' )
+			->once()
+			->andReturnUsing(
+				function ( string $table, array $data ) use ( &$inserted_data ): int {
+					$inserted_data = $data;
+					return 1;
+				}
+			);
+
+		$recipient                     = new Recipient();
+		$recipient->form_id            = 1;
+		$recipient->user_id            = 5;
+		$recipient->role_justification = '';
+
+		$recipient->save();
+
+		$this->assertArrayNotHasKey( 'role_justification', $inserted_data );
+	}
+
+	/**
+	 * @test
+	 * from_row correctly maps access_level field.
+	 */
+	public function test_find_by_form_id_maps_access_level(): void {
+		$wpdb = $this->mock_wpdb();
+
+		$wpdb->shouldReceive( 'get_results' )
+			->once()
+			->andReturn( [
+				[
+					'id'                 => 1,
+					'form_id'            => 3,
+					'user_id'            => 10,
+					'notify_email'       => 1,
+					'access_level'       => 'supervisor',
+					'role_justification' => 'DSGVO-Koordinator',
+					'created_at'         => '2026-04-20 10:00:00',
+				],
+			] );
+
+		$results = Recipient::find_by_form_id( 3 );
+
+		$this->assertSame( 'supervisor', $results[0]->access_level );
+		$this->assertSame( 'DSGVO-Koordinator', $results[0]->role_justification );
+	}
+
+	/**
+	 * @test
+	 * Default access_level is 'reader'.
+	 */
+	public function test_default_access_level_is_reader(): void {
+		$recipient = new Recipient();
+
+		$this->assertSame( 'reader', $recipient->access_level );
+	}
 }

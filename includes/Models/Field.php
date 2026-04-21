@@ -45,9 +45,18 @@ class Field {
 	public string $name          = '';
 	public string $placeholder   = '';
 	public bool $is_required     = false;
+	/**
+	 * @var array<int, string>|null
+	 */
 	public ?array $options       = null;
+	/**
+	 * @var array<string, mixed>|null
+	 */
 	public ?array $validation_rules = null;
 	public string $static_content = '';
+	/**
+	 * @var array<string, mixed>|null
+	 */
 	public ?array $file_config   = null;
 	public string $css_class     = '';
 	public string $width         = 'full';
@@ -266,6 +275,8 @@ class Field {
 
 	/**
 	 * Creates a Field instance from a database row.
+	 *
+	 * @param array<string, mixed> $row Database row.
 	 */
 	private static function from_row( array $row ): self {
 		$field                   = new self();
@@ -290,6 +301,8 @@ class Field {
 
 	/**
 	 * Converts field properties to an associative array for DB operations.
+	 *
+	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
 		return [
@@ -326,6 +339,8 @@ class Field {
 
 	/**
 	 * Encodes an array to JSON for DB storage, or null if empty.
+	 *
+	 * @param array<int|string, mixed>|null $value Value to encode.
 	 */
 	private static function encode_json( ?array $value ): ?string {
 		if ( $value === null || $value === [] ) {

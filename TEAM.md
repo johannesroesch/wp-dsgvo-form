@@ -114,6 +114,8 @@ Experts beraten den Architekten und informieren den Project Lead über ihre Find
 - Stellt sicher dass keine personenbezogenen Daten in Build-Logs landen
 - Wartet auf Architektur-Freigabe bevor er mit der Arbeit beginnt
 - **Darf Git-Commits und Tags eigenständig pushen** — keine Einzelgenehmigung pro Push nötig
+- **Überwacht GitHub Actions** — bei Findings werden diese zur Einplanung an `project-lead` gemeldet. Release-Blocker müssen mit Priorität bearbeitet werden, sofern sie nicht bereits in Arbeit oder so geplant sind.
+- **CI-Pipeline muss grün sein bevor ein Build erzeugt werden darf** — kein Build bei roten Pipelines
 
 ### Status Board
 **Agent:** `wp-dsgvo-form-status-board`
@@ -179,12 +181,16 @@ Datenschutzrelevanter Code (Encryption, Datenlöschung, Rollenprüfungen, Audit-
 
 ## Kommunikationsprinzipien
 
-- **Team → project-lead:** Alle projektbezogenen Themen (Fortschritt, Blocker, Findings, Reviews) werden ausschließlich mit `project-lead` besprochen — kein Direktkontakt zu `team-lead`
+- **Team → project-lead:** Alle projektbezogenen Themen (Fortschritt, Blocker, Findings, Reviews) werden mit `project-lead` besprochen. `project-lead` muss über **alle Aktivitäten im Team** Bescheid wissen.
+- **Direkte Zusammenarbeit bei gemeinsamen Tasks:** Wenn `project-lead` einen Task an mehrere Mitglieder gemeinsam vergibt, dürfen die beteiligten Mitglieder **in Bezug auf diesen Task direkt miteinander kommunizieren**. `project-lead` bleibt über den Fortschritt informiert.
+- **Konsultation von Architect & Experts:** Alle Teammitglieder dürfen den `architect` und die Experts **jederzeit in deren Zuständigkeitsgebiet konsultieren**, wenn es die eigene Arbeit verbessert oder notwendig ist. Eine Freigabe durch `project-lead` ist dafür nicht erforderlich.
+- **Priorisierung durch project-lead:** `project-lead` darf Aufgaben priorisieren — auch quer hereinkommende Tasks nach hinten schieben oder pausieren. Er **muss** aber alle an der jeweiligen Konversation/Task beteiligten Mitglieder darüber informieren.
 - **Team → team-lead:** Nur bei team-organisatorischen Themen erlaubt (z.B. Regeländerungen, Team-Struktur)
 - **project-lead → team-lead:** Hält `team-lead` proaktiv über gesamten Projektfortschritt, Status und Blocker auf dem Laufenden — **meldet insbesondere aktive/inaktive Agents umgehend**, damit team-lead stets weiß welche Agents verfügbar sind
 - **Änderungen → Architect & Experts:** Über alle Produktivcode-Änderungen müssen `architect` und alle Experts informiert werden. Sie reichen Findings über `project-lead` in den Backlog ein. Nur `security-expert` hat Veto-Recht.
 - **team-lead → Team:** Ausschließlich über `project-lead` per SendMessage — auch auf explizite Anweisung des Auftraggebers kein Direktkontakt
 - Experts informieren `project-lead` **und** `architect` über ihre Findings
+- **Aus allen Findings müssen immer Tasks erstellt werden** — kein Finding darf nur als Notiz existieren. `project-lead` ist dafür verantwortlich, dass jedes Finding als Task erfasst wird.
 - Entwickler informieren Tester nach jeder abgeschlossenen Implementierung
 - Alle sicherheits- oder datenschutzrelevanten Fragen werden an `security-expert` oder `dpo` eskaliert
 - Bei Konflikten zwischen Expert-Findings entscheidet der `architect`

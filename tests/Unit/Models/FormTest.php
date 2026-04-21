@@ -727,10 +727,10 @@ class FormTest extends TestCase {
 	public function test_validate_rejects_unsupported_locale_override(): void {
 		$form                  = new Form();
 		$form->title           = 'Bad Override';
-		$form->locale_override = 'nl_NL';
+		$form->locale_override = 'ja_JP';
 
 		$this->expectException( \RuntimeException::class );
-		$this->expectExceptionMessage( 'Locale override "nl_NL" is not in the supported locales list' );
+		$this->expectExceptionMessage( 'Locale override "ja_JP" is not in the supported locales list' );
 
 		$form->save();
 	}

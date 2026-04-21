@@ -71,11 +71,11 @@ class FileHandler
 	 * SEC-FILE-01: Uses wp_handle_upload() for the initial upload.
 	 * SEC-FILE-07: Encrypts file before final storage.
 	 *
-	 * @param array  $file                      $_FILES entry for this upload.
-	 * @param int    $form_id                    The form ID (for directory structure).
-	 * @param string $encrypted_form_dek_base64  Base64-encoded encrypted form DEK.
-	 * @param string $form_dek_iv_base64         Base64-encoded form DEK IV.
-	 * @param array  $allowed_mimes              Allowed MIME types (default: pdf, jpg, jpeg, png).
+	 * @param array<string, mixed>  $file                      $_FILES entry for this upload.
+	 * @param int                    $form_id                    The form ID (for directory structure).
+	 * @param string                 $encrypted_form_dek_base64  Base64-encoded encrypted form DEK.
+	 * @param string                 $form_dek_iv_base64         Base64-encoded form DEK IV.
+	 * @param array<string, string>  $allowed_mimes              Allowed MIME types (default: pdf, jpg, jpeg, png).
 	 * @param int    $max_size                   Max file size in bytes (default: 5 MB).
 	 * @return array{
 	 *     file_path: string,
@@ -365,7 +365,7 @@ class FileHandler
 	 * Packs encrypted file components into a single binary blob for disk storage.
 	 *
 	 * Format: ciphertext + iv (12 bytes) + tag (16 bytes).
-	 * Matches the format used by FileEncryptor::pack_for_storage().
+	 * SOLL-ARCH-07: Single source of truth for pack/unpack logic.
 	 *
 	 * @param array{encrypted_content: string, iv: string, tag: string} $encrypted
 	 *     Base64-encoded encryption result from EncryptionService::encrypt_file().
@@ -417,8 +417,7 @@ class FileHandler
 	/**
 	 * Validates that the upload did not encounter PHP-level errors.
 	 *
-	 * @param array $file $_FILES entry.
-	 * @throws \RuntimeException If an upload error occurred.
+	 * @param array<string, mixed> $file $_FILES entry.
 	 */
 	private function validate_upload_error(array $file): void
 	{
@@ -447,9 +446,8 @@ class FileHandler
 	 *
 	 * SEC-FILE-03: Enforce configurable max size with hard limit.
 	 *
-	 * @param array $file     $_FILES entry.
-	 * @param int   $max_size Maximum allowed size in bytes.
-	 * @throws \RuntimeException If file exceeds the limit.
+	 * @param array<string, mixed> $file     $_FILES entry.
+	 * @param int                  $max_size Maximum allowed size in bytes.
 	 */
 	private function validate_file_size(array $file, int $max_size): void
 	{
@@ -515,7 +513,7 @@ class FileHandler
 	 *
 	 * @param string $tmp_path       Temporary file path.
 	 * @param string $filename       Sanitized filename.
-	 * @param array  $allowed_mimes  Map of extension => MIME type.
+	 * @param array<string, string> $allowed_mimes  Map of extension => MIME type.
 	 * @return string Verified MIME type.
 	 * @throws \RuntimeException If MIME type is not allowed.
 	 */
@@ -556,7 +554,7 @@ class FileHandler
 	 *
 	 * SEC-FILE-01: Uses wp_handle_upload(), NOT move_uploaded_file().
 	 *
-	 * @param array $file $_FILES entry.
+	 * @param array<string, mixed> $file $_FILES entry.
 	 * @return array{file: string, url: string, type: string} Upload result.
 	 * @throws \RuntimeException If upload fails.
 	 */

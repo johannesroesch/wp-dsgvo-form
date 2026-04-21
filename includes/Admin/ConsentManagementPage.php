@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Admin;
 
+use WpDsgvoForm\Models\ConsentTemplateHelper;
 use WpDsgvoForm\Models\ConsentVersion;
 use WpDsgvoForm\Models\Form;
 
@@ -86,13 +87,17 @@ class ConsentManagementPage {
 		// Active locale tab.
 		$active_locale = $this->get_active_locale();
 
-		// Load all versions for this form.
-		$all_versions = ConsentVersion::find_all_by_form( $form_id );
+		// PERF-SOLL-01: Lightweight query for locale tab indicators.
+		$locales_with_versions = ConsentVersion::get_locales_with_versions( $form_id );
 
-		// Group versions by locale.
-		$versions_by_locale = $this->group_by_locale( $all_versions );
+		// PERF-SOLL-01: Only load versions for the active locale (paginated).
+		$per_page      = 20;
+		$current_page  = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$offset        = ( $current_page - 1 ) * $per_page;
+		$locale_versions = ConsentVersion::find_by_form_and_locale_paginated( $form_id, $active_locale, $per_page, $offset );
+		$total_versions  = ConsentVersion::count_by_form_and_locale( $form_id, $active_locale );
 
-		$this->render_page( $form, $active_locale, $versions_by_locale );
+		$this->render_page( $form, $active_locale, $locales_with_versions, $locale_versions, $total_versions, $current_page, $per_page );
 	}
 
 	/**
@@ -177,8 +182,8 @@ class ConsentManagementPage {
 	/**
 	 * Creates and saves an immutable consent version.
 	 *
-	 * @param Form  $form      The form.
-	 * @param array $validated Validated input from validate_consent_input().
+	 * @param Form                 $form      The form.
+	 * @param array<string, mixed> $validated Validated input from validate_consent_input().
 	 * @return void
 	 */
 	private function persist_consent_version( Form $form, array $validated ): void {
@@ -190,7 +195,8 @@ class ConsentManagementPage {
 		$version->privacy_policy_url = $validated['privacy_url'] !== '' ? $validated['privacy_url'] : null;
 
 		try {
-			$version->save();
+			// PERF-SOLL-02: Pass Form object to avoid redundant DB query in validate().
+			$version->save( $form );
 
 			$this->redirect_with_notice(
 				$form->id,
@@ -258,36 +264,66 @@ class ConsentManagementPage {
 	}
 
 	/**
-	 * Groups consent versions by locale.
+	 * Renders pagination links for the version history.
 	 *
-	 * @param ConsentVersion[] $versions All versions for a form.
-	 * @return array<string, ConsentVersion[]> Grouped by locale.
+	 * PERF-SOLL-01: Standard WordPress pagination pattern.
+	 *
+	 * @param int    $form_id      Form ID.
+	 * @param string $locale       Active locale.
+	 * @param int    $current_page Current page number.
+	 * @param int    $total_pages  Total number of pages.
+	 * @return void
 	 */
-	private function group_by_locale( array $versions ): array {
-		$grouped = [];
+	private function render_pagination( int $form_id, string $locale, int $current_page, int $total_pages ): void {
+		$base_url = admin_url(
+			sprintf(
+				'admin.php?page=%s&action=consent&form_id=%d&locale=%s',
+				AdminMenu::MENU_SLUG,
+				$form_id,
+				rawurlencode( $locale )
+			)
+		);
 
-		foreach ( ConsentVersion::SUPPORTED_LOCALES as $locale => $label ) {
-			$grouped[ $locale ] = [];
+		echo '<div class="tablenav"><div class="tablenav-pages">';
+		echo '<span class="displaying-num">';
+		printf(
+			/* translators: %d: total number of pages */
+			esc_html__( 'Seite %1$d von %2$d', 'wp-dsgvo-form' ),
+			$current_page,
+			$total_pages
+		);
+		echo '</span> ';
+
+		if ( $current_page > 1 ) {
+			printf(
+				'<a class="prev-page button" href="%s">&lsaquo;</a> ',
+				esc_url( add_query_arg( 'paged', $current_page - 1, $base_url ) )
+			);
 		}
 
-		foreach ( $versions as $version ) {
-			if ( isset( $grouped[ $version->locale ] ) ) {
-				$grouped[ $version->locale ][] = $version;
-			}
+		if ( $current_page < $total_pages ) {
+			printf(
+				'<a class="next-page button" href="%s">&rsaquo;</a>',
+				esc_url( add_query_arg( 'paged', $current_page + 1, $base_url ) )
+			);
 		}
 
-		return $grouped;
+		echo '</div></div>';
 	}
 
 	/**
 	 * Renders the full consent management page.
 	 *
-	 * @param Form   $form               The form.
-	 * @param string $active_locale       Currently selected locale tab.
-	 * @param array<string, ConsentVersion[]> $versions_by_locale Versions grouped by locale.
+	 * @param Form     $form                   The form.
+	 * @param string   $active_locale          Currently selected locale tab.
+	 * @param string[] $locales_with_versions  Locales that have at least one version.
+	 * @param ConsentVersion[] $locale_versions Paginated versions for active locale.
+	 * @param int      $total_versions         Total version count for active locale.
+	 * @param int      $current_page           Current pagination page.
+	 * @param int      $per_page               Items per page.
 	 * @return void
 	 */
-	private function render_page( Form $form, string $active_locale, array $versions_by_locale ): void {
+	private function render_page( Form $form, string $active_locale, array $locales_with_versions, array $locale_versions, int $total_versions, int $current_page, int $per_page ): void {
 		$back_url = admin_url( 'admin.php?page=' . AdminMenu::MENU_SLUG );
 		?>
 		<div class="wrap">
@@ -309,9 +345,9 @@ class ConsentManagementPage {
 
 			<?php $this->render_notices(); ?>
 
-			<?php $this->render_locale_tabs( $form->id, $active_locale, $versions_by_locale ); ?>
+			<?php $this->render_locale_tabs( $form->id, $active_locale, $locales_with_versions ); ?>
 
-			<?php $this->render_locale_content( $form, $active_locale, $versions_by_locale[ $active_locale ] ?? [] ); ?>
+			<?php $this->render_locale_content( $form, $active_locale, $locale_versions, $total_versions, $current_page, $per_page ); ?>
 		</div>
 		<?php
 	}
@@ -359,12 +395,12 @@ class ConsentManagementPage {
 	/**
 	 * Renders the locale tab navigation.
 	 *
-	 * @param int    $form_id       Form ID.
-	 * @param string $active_locale Currently active locale.
-	 * @param array<string, ConsentVersion[]> $versions_by_locale Versions grouped by locale.
+	 * @param int      $form_id                Form ID.
+	 * @param string   $active_locale          Currently active locale.
+	 * @param string[] $locales_with_versions  Locales that have at least one version.
 	 * @return void
 	 */
-	private function render_locale_tabs( int $form_id, string $active_locale, array $versions_by_locale ): void {
+	private function render_locale_tabs( int $form_id, string $active_locale, array $locales_with_versions ): void {
 		?>
 		<nav class="nav-tab-wrapper" style="margin-bottom:1.5rem;">
 			<?php foreach ( ConsentVersion::SUPPORTED_LOCALES as $locale => $label ) : ?>
@@ -378,7 +414,7 @@ class ConsentManagementPage {
 					)
 				);
 				$is_active = $locale === $active_locale;
-				$has_text  = ! empty( $versions_by_locale[ $locale ] );
+				$has_text  = in_array( $locale, $locales_with_versions, true );
 				$css       = 'nav-tab' . ( $is_active ? ' nav-tab-active' : '' );
 				?>
 				<a href="<?php echo esc_url( $tab_url ); ?>" class="<?php echo esc_attr( $css ); ?>">
@@ -395,12 +431,15 @@ class ConsentManagementPage {
 	/**
 	 * Renders the content for the active locale tab.
 	 *
-	 * @param Form             $form     The form.
-	 * @param string           $locale   Active locale.
-	 * @param ConsentVersion[] $versions Versions for this locale (newest first).
+	 * @param Form             $form           The form.
+	 * @param string           $locale         Active locale.
+	 * @param ConsentVersion[] $versions       Paginated versions for this locale (newest first).
+	 * @param int              $total_versions Total version count for pagination.
+	 * @param int              $current_page   Current pagination page.
+	 * @param int              $per_page       Items per page.
 	 * @return void
 	 */
-	private function render_locale_content( Form $form, string $locale, array $versions ): void {
+	private function render_locale_content( Form $form, string $locale, array $versions, int $total_versions, int $current_page, int $per_page ): void {
 		$current     = ! empty( $versions ) ? $versions[0] : null;
 		$locale_label = ConsentVersion::SUPPORTED_LOCALES[ $locale ] ?? $locale;
 
@@ -447,6 +486,12 @@ class ConsentManagementPage {
 		// Version history.
 		if ( ! empty( $versions ) ) {
 			$this->render_version_history( $versions );
+
+			// PERF-SOLL-01: Pagination links.
+			$total_pages = (int) ceil( $total_versions / $per_page );
+			if ( $total_pages > 1 ) {
+				$this->render_pagination( $form->id, $locale, $current_page, $total_pages );
+			}
 		}
 	}
 
@@ -492,6 +537,37 @@ class ConsentManagementPage {
 							<p class="description">
 								<?php esc_html_e( 'HTML-Formatierung erlaubt (Links, Fettschrift). Jede Aenderung erstellt eine neue, unveraenderliche Version (Art. 7 DSGVO).', 'wp-dsgvo-form' ); ?>
 							</p>
+								<?php
+								// UX-TMPL-01: "Vorlage laden" button — integrates ConsentTemplateHelper.
+								$privacy_url_hint = $current !== null && $current->privacy_policy_url !== null ? $current->privacy_policy_url : '';
+								$template_text    = ConsentTemplateHelper::get_resolved_template( $locale, $form, $privacy_url_hint );
+								if ( $template_text !== '' ) :
+								?>
+									<button type="button"
+										id="dsgvo-load-template"
+										class="button"
+										style="margin-top:0.5rem;">
+										<?php esc_html_e( 'Vorlage laden', 'wp-dsgvo-form' ); ?>
+									</button>
+									<span class="description" style="margin-left:0.5rem;">
+										<?php esc_html_e( 'ENTWURF — muss vom Legal Expert freigegeben werden.', 'wp-dsgvo-form' ); ?>
+									</span>
+									<script>
+									(function() {
+										var template = <?php echo wp_json_encode( $template_text ); ?>;
+										var btn = document.getElementById('dsgvo-load-template');
+										if (!btn) { return; }
+										btn.addEventListener('click', function() {
+											var textarea = document.getElementById('consent_text');
+											if (!textarea) { return; }
+											if (textarea.value.trim() !== '' && !confirm(<?php echo wp_json_encode( __( 'Vorhandenen Text ueberschreiben?', 'wp-dsgvo-form' ) ); ?>)) {
+												return;
+											}
+											textarea.value = template;
+										});
+									})();
+									</script>
+								<?php endif; ?>
 						</td>
 					</tr>
 					<tr>

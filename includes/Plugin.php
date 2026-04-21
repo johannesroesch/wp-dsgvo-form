@@ -51,6 +51,7 @@ final class Plugin {
 	public function init(): void {
 		$this->check_master_key();
 		$this->register_hooks();
+		$this->register_cli_commands();
 
 		// Run schema upgrades on version change (DPO-FINDING-13).
 		add_action( 'admin_init', [ Activator::class, 'maybe_upgrade' ] );
@@ -93,8 +94,11 @@ final class Plugin {
 	 * @return void
 	 */
 	private function register_hooks(): void {
+		// KANN-ARCH-01: Shared service container for lazy-initialized services.
+		$container = new ServiceContainer();
+
 		if ( is_admin() ) {
-			$this->register_admin_hooks();
+			$this->register_admin_hooks( $container );
 		}
 
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
@@ -110,15 +114,12 @@ final class Plugin {
 		$login_redirect = new Auth\LoginRedirect( $access_control );
 		$login_redirect->register_hooks();
 
-		// SOLL-ARCH-03: Single shared AuditLogger instance.
-		$audit_logger = new Audit\AuditLogger();
-
 		// UX-REC-02: First-Login privacy notice (Art. 13 DSGVO).
-		$first_login_notice = new Admin\FirstLoginNotice( $access_control, $audit_logger );
+		$first_login_notice = new Admin\FirstLoginNotice( $access_control, $container->audit_logger() );
 		$first_login_notice->register();
 
 		// Recipient area: /dsgvo-empfaenger/ (Task #33).
-		$recipient_page = new Recipient\RecipientPage( $access_control, $audit_logger );
+		$recipient_page = new Recipient\RecipientPage( $access_control, $container );
 		$recipient_page->register();
 
 		// Admin Bar Notification (outside is_admin() — admin bar also on frontend).
@@ -127,11 +128,9 @@ final class Plugin {
 
 		// LEGAL-F01: WordPress Privacy Data Exporter/Eraser (Art. 15 + 17 DSGVO).
 		// Runs OUTSIDE is_admin() — privacy filters fire during WP-CLI and REST contexts too.
-		$key_manager     = new Encryption\KeyManager();
-		$encryption      = new Encryption\EncryptionService( $key_manager );
-		$file_handler    = new Upload\FileHandler( $encryption );
+		$file_handler    = new Upload\FileHandler( $container->encryption() );
 		$deleter         = new Api\SubmissionDeleter( $file_handler );
-		$privacy_handler = new Privacy\PrivacyHandler( $encryption, $deleter, $audit_logger );
+		$privacy_handler = new Privacy\PrivacyHandler( $container->encryption(), $deleter, $container->audit_logger() );
 		$privacy_handler->register();
 	}
 
@@ -140,8 +139,8 @@ final class Plugin {
 	 *
 	 * @return void
 	 */
-	private function register_admin_hooks(): void {
-		$admin_menu = new Admin\AdminMenu();
+	private function register_admin_hooks( ServiceContainer $container ): void {
+		$admin_menu = new Admin\AdminMenu( $container );
 		$admin_menu->register_hooks();
 
 		$settings_page = new Admin\SettingsPage();
@@ -154,6 +153,17 @@ final class Plugin {
 		// LEGAL-F04: DSFA notice when thresholds exceeded (Art. 35 DSGVO).
 		$dsfa_notice = new Admin\DsfaNotice();
 		$dsfa_notice->register();
+
+		// SEC-KANN-02: Content-Security-Policy headers on plugin admin pages.
+		$csp_headers = new Security\CspHeaders();
+		$csp_headers->register();
+
+		// SEC-KANN-03: Encryption health-check dashboard widget.
+		$health_check = new Admin\HealthCheckWidget();
+		$health_check->register();
+
+		// Batch 7d: Dismissible migration notice for capability system change.
+		add_action( 'wp_ajax_wpdsgvo_dismiss_cap_migration_notice', [ Admin\RecipientListPage::class, 'handle_dismiss_migration_notice' ] );
 	}
 
 	/**
@@ -213,6 +223,19 @@ final class Plugin {
 		$audit_logger = new Audit\AuditLogger();
 		$audit_logger->cleanup_ip_addresses();
 		$audit_logger->cleanup_old_entries();
+	}
+
+	/**
+	 * Register WP-CLI commands (SEC-SOLL-02: KEK rotation).
+	 *
+	 * @return void
+	 */
+	private function register_cli_commands(): void {
+		if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
+			return;
+		}
+
+		\WP_CLI::add_command( 'dsgvo-form rotate-kek', Cli\KekRotateCommand::class );
 	}
 
 }

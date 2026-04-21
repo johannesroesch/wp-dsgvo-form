@@ -13,6 +13,8 @@ declare(strict_types=1);
 namespace WpDsgvoForm\Tests\Unit\Admin;
 
 use WpDsgvoForm\Admin\SubmissionViewPage;
+use WpDsgvoForm\Audit\AuditLogger;
+use WpDsgvoForm\Encryption\EncryptionService;
 use WpDsgvoForm\Tests\TestCase;
 use Brain\Monkey\Functions;
 
@@ -31,6 +33,8 @@ class SubmissionViewPageTest extends TestCase {
 	private array $original_get = array();
 
 	private object $wpdb;
+	private EncryptionService $encryption;
+	private AuditLogger $audit_logger;
 
 	/**
 	 * @inheritDoc
@@ -44,6 +48,10 @@ class SubmissionViewPageTest extends TestCase {
 		$this->wpdb->insert_id  = 0;
 		$this->wpdb->last_error = '';
 		$GLOBALS['wpdb']    = $this->wpdb;
+
+		$this->encryption   = \Mockery::mock( EncryptionService::class );
+		$this->audit_logger = \Mockery::mock( AuditLogger::class );
+		$this->audit_logger->shouldReceive( 'log' )->byDefault()->andReturn( true );
 	}
 
 	/**
@@ -151,6 +159,13 @@ class SubmissionViewPageTest extends TestCase {
 	}
 
 	/**
+	 * Creates a SubmissionViewPage with injected dependencies.
+	 */
+	private function make_page(): SubmissionViewPage {
+		return new SubmissionViewPage( $this->encryption, $this->audit_logger );
+	}
+
+	/**
 	 * Mock wp_die to throw RuntimeException (prevents actual exit).
 	 *
 	 * @param string &$captured_message Reference to capture the wp_die message.
@@ -189,7 +204,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->expectException( \RuntimeException::class );
 		$this->expectExceptionMessage( 'wp_die called' );
 
-		$page = new SubmissionViewPage();
+		$page = $this->make_page();
 		$page->render();
 	}
 
@@ -219,7 +234,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->expectException( \RuntimeException::class );
 		$this->expectExceptionMessage( 'wp_die: not found' );
 
-		$page = new SubmissionViewPage();
+		$page = $this->make_page();
 		$page->render();
 	}
 
@@ -241,7 +256,7 @@ class SubmissionViewPageTest extends TestCase {
 
 		$this->expectException( \RuntimeException::class );
 
-		$page = new SubmissionViewPage();
+		$page = $this->make_page();
 		$page->handle_export();
 	}
 
@@ -268,7 +283,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->expectException( \RuntimeException::class );
 		$this->expectExceptionMessage( 'nonce_failed' );
 
-		$page = new SubmissionViewPage();
+		$page = $this->make_page();
 		$page->handle_export();
 	}
 
@@ -288,7 +303,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->mock_wp_die_throws( $message );
 
 		try {
-			$page = new SubmissionViewPage();
+			$page = $this->make_page();
 			$page->handle_export();
 			$this->fail( 'Expected RuntimeException from wp_die' );
 		} catch ( \RuntimeException $e ) {
@@ -317,7 +332,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->mock_wp_die_throws( $message );
 
 		try {
-			$page = new SubmissionViewPage();
+			$page = $this->make_page();
 			$page->handle_export();
 			$this->fail( 'Expected RuntimeException from wp_die' );
 		} catch ( \RuntimeException $e ) {
@@ -351,7 +366,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->mock_wp_die_throws( $message );
 
 		try {
-			$page = new SubmissionViewPage();
+			$page = $this->make_page();
 			$page->handle_export();
 			$this->fail( 'Expected RuntimeException from wp_die' );
 		} catch ( \RuntimeException $e ) {
@@ -388,7 +403,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->mock_wp_die_throws( $message );
 
 		try {
-			$page = new SubmissionViewPage();
+			$page = $this->make_page();
 			$page->handle_export();
 			$this->fail( 'Expected RuntimeException from wp_die' );
 		} catch ( \RuntimeException $e ) {
@@ -425,7 +440,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->mock_wp_die_throws( $message );
 
 		try {
-			$page = new SubmissionViewPage();
+			$page = $this->make_page();
 			$page->handle_export();
 			$this->fail( 'Expected RuntimeException from wp_die' );
 		} catch ( \RuntimeException $e ) {
@@ -460,7 +475,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->mock_wp_die_throws( $message );
 
 		try {
-			$page = new SubmissionViewPage();
+			$page = $this->make_page();
 			$page->handle_export();
 			$this->fail( 'Expected RuntimeException from wp_die' );
 		} catch ( \RuntimeException $e ) {
@@ -500,7 +515,7 @@ class SubmissionViewPageTest extends TestCase {
 		$this->mock_wp_die_throws( $message );
 
 		try {
-			$page = new SubmissionViewPage();
+			$page = $this->make_page();
 			$this->invoke_handle_actions( $page, 42 );
 			$this->fail( 'Expected RuntimeException from wp_die' );
 		} catch ( \RuntimeException $e ) {
@@ -551,7 +566,7 @@ class SubmissionViewPageTest extends TestCase {
 			}
 		);
 
-		$page = new SubmissionViewPage();
+		$page = $this->make_page();
 		$this->invoke_handle_actions( $page, 42 );
 
 		$this->assertNotNull( $notice_captured, 'Success notice should have been set.' );
@@ -598,7 +613,7 @@ class SubmissionViewPageTest extends TestCase {
 		);
 
 		// No current_user_can mock — restrict does NOT check capability.
-		$page = new SubmissionViewPage();
+		$page = $this->make_page();
 		$this->invoke_handle_actions( $page, 42 );
 
 		$this->assertNotNull( $notice_captured, 'Restrict notice should have been set.' );
@@ -633,7 +648,7 @@ class SubmissionViewPageTest extends TestCase {
 		$submission = $this->hydrate_submission( $sub_row );
 
 		// Invoke render_actions_box via reflection.
-		$page   = new SubmissionViewPage();
+		$page   = $this->make_page();
 		$method = new \ReflectionMethod( SubmissionViewPage::class, 'render_actions_box' );
 		$method->setAccessible( true );
 
@@ -672,7 +687,7 @@ class SubmissionViewPageTest extends TestCase {
 		] );
 		$submission = $this->hydrate_submission( $sub_row );
 
-		$page   = new SubmissionViewPage();
+		$page   = $this->make_page();
 		$method = new \ReflectionMethod( SubmissionViewPage::class, 'render_actions_box' );
 		$method->setAccessible( true );
 
@@ -696,7 +711,7 @@ class SubmissionViewPageTest extends TestCase {
 
 		Functions\when( 'sanitize_text_field' )->returnArg();
 
-		$page = new SubmissionViewPage();
+		$page = $this->make_page();
 		$this->invoke_handle_actions( $page, 42 );
 
 		// No wp_die, no notices — just returns.

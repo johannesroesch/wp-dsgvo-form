@@ -15,10 +15,17 @@ defined('ABSPATH') || exit;
  */
 class Recipient {
 
+	/**
+	 * Allowed access levels for recipients.
+	 */
+	public const ACCESS_LEVEL_READER     = 'reader';
+	public const ACCESS_LEVEL_SUPERVISOR = 'supervisor';
+
 	public int $id                     = 0;
 	public int $form_id                = 0;
 	public int $user_id                = 0;
 	public bool $notify_email          = true;
+	public string $access_level        = self::ACCESS_LEVEL_READER;
 	public string $role_justification  = '';
 	public string $created_at          = '';
 
@@ -132,6 +139,27 @@ class Recipient {
 	}
 
 	/**
+	 * Returns the number of form assignments for a given user.
+	 *
+	 * Used by DPO-MUSS-F16 to determine recipient workload
+	 * and for capability migration validation.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return int Number of form assignments.
+	 */
+	public static function count_by_user_id( int $user_id ): int {
+		global $wpdb;
+		$table = self::get_table_name();
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$table}` WHERE user_id = %d",
+				$user_id
+			)
+		);
+	}
+
+	/**
 	 * Checks whether a user is already assigned as recipient for a form.
 	 */
 	public static function exists( int $form_id, int $user_id ): bool {
@@ -234,10 +262,16 @@ class Recipient {
 		if ( $this->user_id < 1 ) {
 			throw new \RuntimeException( 'Recipient must reference a WordPress user (user_id required).' );
 		}
+
+		if ( ! in_array( $this->access_level, [ self::ACCESS_LEVEL_READER, self::ACCESS_LEVEL_SUPERVISOR ], true ) ) {
+			throw new \RuntimeException( 'Invalid access_level. Must be "reader" or "supervisor".' );
+		}
 	}
 
 	/**
 	 * Creates a Recipient instance from a database row.
+	 *
+	 * @param array<string, mixed> $row Database row.
 	 */
 	private static function from_row( array $row ): self {
 		$recipient                     = new self();
@@ -245,6 +279,7 @@ class Recipient {
 		$recipient->form_id            = (int) ( $row['form_id'] ?? 0 );
 		$recipient->user_id            = (int) ( $row['user_id'] ?? 0 );
 		$recipient->notify_email       = (bool) ( $row['notify_email'] ?? true );
+		$recipient->access_level       = (string) ( $row['access_level'] ?? self::ACCESS_LEVEL_READER );
 		$recipient->role_justification = (string) ( $row['role_justification'] ?? '' );
 		$recipient->created_at         = (string) ( $row['created_at'] ?? '' );
 
@@ -253,12 +288,15 @@ class Recipient {
 
 	/**
 	 * Converts recipient properties to an associative array for DB operations.
+	 *
+	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
 		$data = [
 			'form_id'      => $this->form_id,
 			'user_id'      => $this->user_id,
 			'notify_email' => (int) $this->notify_email,
+			'access_level' => $this->access_level,
 		];
 
 		if ( $this->role_justification !== '' ) {

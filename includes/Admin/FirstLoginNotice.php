@@ -55,6 +55,7 @@ class FirstLoginNotice {
 	 */
 	private const NONCE_ACTION = 'wpdsgvo_acknowledge_notice';
 
+	/** @todo REFACTOR-01: Wird genutzt sobald needs_acknowledgment() auf Instanzmethode umgestellt wird. */
 	private AccessControl $access_control;
 	private AuditLogger $audit_logger;
 
@@ -93,7 +94,7 @@ class FirstLoginNotice {
 	}
 
 	/**
-	 * Redirects plugin role users to the acknowledge page if needed.
+	 * Redirects users with plugin access to the acknowledge page if needed.
 	 *
 	 * Runs at priority 5 on current_screen — BEFORE LoginRedirect's
 	 * block_unauthorized_access (default priority 10).
@@ -257,7 +258,12 @@ class FirstLoginNotice {
 	/**
 	 * Checks whether a user needs to acknowledge the privacy notice.
 	 *
-	 * Only plugin roles (Reader, Supervisor) need acknowledgment.
+	 * Phase 3 dual-check: Captures users with the dsgvo_form_recipient
+	 * capability OR legacy plugin roles. This ensures ALL users with
+	 * submission access are covered — including editors who receive
+	 * plugin capabilities directly.
+	 *
+	 * LEGAL-MUSS: Every user with submission access MUST acknowledge.
 	 * Admins with dsgvo_form_manage capability are exempt.
 	 *
 	 * @param int $user_id The WordPress user ID.
@@ -273,14 +279,18 @@ class FirstLoginNotice {
 			return false;
 		}
 
-		// Only plugin roles need acknowledgment.
+		// Phase 3 dual-check: capability-based (new) OR role-based (legacy).
+		// LEGAL-MUSS: Must capture ALL users with submissions access.
+		$has_capability = user_can( $user_id, AccessControl::RECIPIENT_CAPABILITY )
+			|| user_can( $user_id, 'dsgvo_form_view_submissions' )
+			|| user_can( $user_id, 'dsgvo_form_view_all_submissions' );
+
 		$user = get_userdata( $user_id );
 
-		if ( ! $user ) {
-			return false;
-		}
+		$has_legacy_role = $user
+			&& ! empty( array_intersect( AccessControl::PLUGIN_ROLES, $user->roles ) );
 
-		if ( empty( array_intersect( AccessControl::PLUGIN_ROLES, $user->roles ) ) ) {
+		if ( ! $has_capability && ! $has_legacy_role ) {
 			return false;
 		}
 

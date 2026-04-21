@@ -232,6 +232,8 @@ class AccessControlTest extends TestCase {
 		$user        = new \stdClass();
 		$user->roles = array( 'wp_dsgvo_form_reader' );
 
+		Functions\when( '_deprecated_function' )->justReturn();
+		Functions\when( 'user_can' )->justReturn( false );
 		Functions\when( 'get_userdata' )->justReturn( $user );
 
 		$ac = new AccessControl();
@@ -244,6 +246,8 @@ class AccessControlTest extends TestCase {
 	 * has_plugin_role returns false for non-existent user.
 	 */
 	public function test_has_plugin_role_returns_false_for_unknown_user(): void {
+		Functions\when( '_deprecated_function' )->justReturn();
+		Functions\when( 'user_can' )->justReturn( false );
 		Functions\when( 'get_userdata' )->justReturn( false );
 
 		$ac = new AccessControl();
@@ -259,6 +263,8 @@ class AccessControlTest extends TestCase {
 		$user        = new \stdClass();
 		$user->roles = array( 'subscriber' );
 
+		Functions\when( '_deprecated_function' )->justReturn();
+		Functions\when( 'user_can' )->justReturn( false );
 		Functions\when( 'get_userdata' )->justReturn( $user );
 
 		$ac = new AccessControl();
@@ -286,5 +292,165 @@ class AccessControlTest extends TestCase {
 		$this->assertContains( 'wp_dsgvo_form_reader', AccessControl::PLUGIN_ROLES );
 		$this->assertContains( 'wp_dsgvo_form_supervisor', AccessControl::PLUGIN_ROLES );
 		$this->assertCount( 2, AccessControl::PLUGIN_ROLES );
+	}
+
+	// ------------------------------------------------------------------
+	// RECIPIENT_CAPABILITY constant
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 */
+	public function test_recipient_capability_constant_value(): void {
+		$this->assertSame( 'dsgvo_form_recipient', AccessControl::RECIPIENT_CAPABILITY );
+	}
+
+	// ------------------------------------------------------------------
+	// has_plugin_access() — Dual-check: capability-based OR role-based
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * has_plugin_access returns true when user has dsgvo_form_recipient capability.
+	 */
+	public function test_has_plugin_access_returns_true_for_capability(): void {
+		Functions\when( 'user_can' )->alias(
+			function ( int $user_id, string $cap ): bool {
+				return $cap === 'dsgvo_form_recipient';
+			}
+		);
+
+		$ac = new AccessControl();
+
+		$this->assertTrue( $ac->has_plugin_access( 5 ) );
+	}
+
+	/**
+	 * @test
+	 * has_plugin_access returns true for user with legacy plugin role but no capability.
+	 */
+	public function test_has_plugin_access_returns_true_for_legacy_role(): void {
+		Functions\when( 'user_can' )->justReturn( false );
+
+		$user        = new \stdClass();
+		$user->roles = array( 'wp_dsgvo_form_reader' );
+
+		Functions\when( 'get_userdata' )->justReturn( $user );
+
+		$ac = new AccessControl();
+
+		$this->assertTrue( $ac->has_plugin_access( 5 ) );
+	}
+
+	/**
+	 * @test
+	 * has_plugin_access returns true for supervisor legacy role.
+	 */
+	public function test_has_plugin_access_returns_true_for_supervisor_legacy_role(): void {
+		Functions\when( 'user_can' )->justReturn( false );
+
+		$user        = new \stdClass();
+		$user->roles = array( 'wp_dsgvo_form_supervisor' );
+
+		Functions\when( 'get_userdata' )->justReturn( $user );
+
+		$ac = new AccessControl();
+
+		$this->assertTrue( $ac->has_plugin_access( 5 ) );
+	}
+
+	/**
+	 * @test
+	 * has_plugin_access returns false for regular user without capability or role.
+	 */
+	public function test_has_plugin_access_returns_false_for_regular_user(): void {
+		Functions\when( 'user_can' )->justReturn( false );
+
+		$user        = new \stdClass();
+		$user->roles = array( 'subscriber' );
+
+		Functions\when( 'get_userdata' )->justReturn( $user );
+
+		$ac = new AccessControl();
+
+		$this->assertFalse( $ac->has_plugin_access( 5 ) );
+	}
+
+	/**
+	 * @test
+	 * has_plugin_access returns false when user does not exist.
+	 */
+	public function test_has_plugin_access_returns_false_for_nonexistent_user(): void {
+		Functions\when( 'user_can' )->justReturn( false );
+		Functions\when( 'get_userdata' )->justReturn( false );
+
+		$ac = new AccessControl();
+
+		$this->assertFalse( $ac->has_plugin_access( 999 ) );
+	}
+
+	/**
+	 * @test
+	 * has_plugin_access prefers capability check — does not query userdata if cap is present.
+	 */
+	public function test_has_plugin_access_short_circuits_on_capability(): void {
+		Functions\when( 'user_can' )->alias(
+			function ( int $user_id, string $cap ): bool {
+				return $cap === 'dsgvo_form_recipient';
+			}
+		);
+
+		// get_userdata should NOT be called.
+		Functions\expect( 'get_userdata' )->never();
+
+		$ac = new AccessControl();
+		$ac->has_plugin_access( 5 );
+	}
+
+	// ------------------------------------------------------------------
+	// has_plugin_role() — deprecated wrapper
+	// ------------------------------------------------------------------
+
+	/**
+	 * @test
+	 * has_plugin_role triggers _deprecated_function.
+	 */
+	public function test_has_plugin_role_triggers_deprecation_notice(): void {
+		Functions\expect( '_deprecated_function' )
+			->once()
+			->with(
+				\Mockery::on( function ( string $msg ): bool {
+					return str_contains( $msg, 'has_plugin_role' );
+				} ),
+				'1.2.0',
+				\Mockery::on( function ( string $msg ): bool {
+					return str_contains( $msg, 'has_plugin_access' );
+				} )
+			);
+
+		Functions\when( 'user_can' )->justReturn( false );
+		Functions\when( 'get_userdata' )->justReturn( false );
+
+		$ac = new AccessControl();
+		$ac->has_plugin_role( 1 );
+	}
+
+	/**
+	 * @test
+	 * has_plugin_role delegates to has_plugin_access.
+	 */
+	public function test_has_plugin_role_delegates_to_has_plugin_access(): void {
+		Functions\when( '_deprecated_function' )->justReturn();
+
+		// user_can with RECIPIENT_CAPABILITY returns true → has_plugin_access = true.
+		Functions\when( 'user_can' )->alias(
+			function ( int $user_id, string $cap ): bool {
+				return $cap === 'dsgvo_form_recipient';
+			}
+		);
+
+		$ac = new AccessControl();
+
+		$this->assertTrue( $ac->has_plugin_role( 5 ) );
 	}
 }

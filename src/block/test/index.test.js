@@ -1,7 +1,7 @@
 /**
  * Tests for block registration (index.js).
  *
- * @package wp-dsgvo-form
+ * @package
  */
 
 import { registerBlockType } from '@wordpress/blocks';
@@ -20,7 +20,7 @@ jest.mock( '@wordpress/block-editor', () => ( {
 jest.mock( '@wordpress/components', () => ( {
 	PanelBody: ( { children } ) => children,
 	SelectControl: () => null,
-	Placeholder: ( { children, label, instructions } ) => null,
+	Placeholder: () => null,
 	Spinner: () => null,
 	ExternalLink: ( { children } ) => children,
 } ) );

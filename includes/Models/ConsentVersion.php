@@ -36,6 +36,8 @@ class ConsentVersion {
 		'fr_FR' => 'Français',
 		'es_ES' => 'Español',
 		'it_IT' => 'Italiano',
+		'nl_NL' => 'Nederlands',
+		'pl_PL' => 'Polski',
 		'sv_SE' => 'Svenska',
 	];
 
@@ -180,19 +182,96 @@ class ConsentVersion {
 	}
 
 	/**
+	 * Returns paginated consent versions for a specific form and locale.
+	 *
+	 * PERF-SOLL-01: SQL-level pagination to avoid loading all versions.
+	 *
+	 * @param int    $form_id The form ID.
+	 * @param string $locale  The locale (e.g. de_DE).
+	 * @param int    $limit   Maximum entries to return (default: 20).
+	 * @param int    $offset  Pagination offset (default: 0).
+	 * @return self[]
+	 */
+	public static function find_by_form_and_locale_paginated( int $form_id, string $locale, int $limit = 20, int $offset = 0 ): array {
+		global $wpdb;
+		$table = self::get_table_name();
+
+		$limit  = max( 1, min( $limit, 100 ) );
+		$offset = max( 0, $offset );
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM `{$table}` WHERE form_id = %d AND locale = %s ORDER BY version DESC LIMIT %d OFFSET %d",
+				$form_id,
+				$locale,
+				$limit,
+				$offset
+			),
+			ARRAY_A
+		);
+
+		return array_map( [ self::class, 'from_row' ], $rows ?: [] );
+	}
+
+	/**
+	 * Counts consent versions for a specific form and locale.
+	 *
+	 * PERF-SOLL-01: Used for pagination calculations.
+	 *
+	 * @param int    $form_id The form ID.
+	 * @param string $locale  The locale (e.g. de_DE).
+	 * @return int Total count.
+	 */
+	public static function count_by_form_and_locale( int $form_id, string $locale ): int {
+		global $wpdb;
+		$table = self::get_table_name();
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$table}` WHERE form_id = %d AND locale = %s",
+				$form_id,
+				$locale
+			)
+		);
+	}
+
+	/**
+	 * Returns locales that have at least one consent version for a form.
+	 *
+	 * PERF-SOLL-01: Lightweight query for locale tab indicators.
+	 *
+	 * @param int $form_id The form ID.
+	 * @return string[] Array of locale codes (e.g. ['de_DE', 'en_US']).
+	 */
+	public static function get_locales_with_versions( int $form_id ): array {
+		global $wpdb;
+		$table = self::get_table_name();
+
+		$results = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT locale FROM `{$table}` WHERE form_id = %d",
+				$form_id
+			)
+		);
+
+		return is_array( $results ) ? $results : [];
+	}
+
+	/**
 	 * Saves the consent version (insert only — versions are immutable).
 	 *
 	 * Auto-increments version number based on existing versions for
 	 * the same form and locale. Set $this->version to 0 to auto-increment;
 	 * the default value (1) is used as-is for explicit version assignment.
 	 *
+	 * @param Form|null $form Optional pre-loaded Form object to avoid redundant DB query (PERF-SOLL-02).
 	 * @return int The consent version ID.
 	 * @throws \RuntimeException On validation failure or insert error.
 	 *
 	 * @privacy-relevant LEGAL-I18N-04 — Per-locale consent versioning
 	 */
-	public function save(): int {
-		$this->validate();
+	public function save( ?Form $form = null ): int {
+		$this->validate( $form );
 
 		global $wpdb;
 		$table = self::get_table_name();
@@ -233,15 +312,18 @@ class ConsentVersion {
 	/**
 	 * Validates consent version data before save.
 	 *
+	 * @param Form|null $form Optional pre-loaded Form object (PERF-SOLL-02).
 	 * @throws \RuntimeException On validation failure.
 	 */
-	private function validate(): void {
+	private function validate( ?Form $form = null ): void {
 		if ( $this->form_id < 1 ) {
 			throw new \RuntimeException( 'ConsentVersion must belong to a form (form_id required).' );
 		}
 
-		// ARCH-v104-03: Verify parent form uses legal_basis = 'consent'.
-		$form = Form::find( $this->form_id );
+		// PERF-SOLL-02: Use pre-loaded Form if available, otherwise fetch.
+		if ( $form === null || $form->id !== $this->form_id ) {
+			$form = Form::find( $this->form_id );
+		}
 
 		if ( $form === null ) {
 			throw new \RuntimeException( 'ConsentVersion references a non-existent form.' );
@@ -276,6 +358,8 @@ class ConsentVersion {
 
 	/**
 	 * Creates a ConsentVersion instance from a database row.
+	 *
+	 * @param array<string, mixed> $row Database row.
 	 */
 	private static function from_row( array $row ): self {
 		$cv                     = new self();
@@ -293,6 +377,8 @@ class ConsentVersion {
 
 	/**
 	 * Converts properties to an associative array for DB operations.
+	 *
+	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
 		$data = [

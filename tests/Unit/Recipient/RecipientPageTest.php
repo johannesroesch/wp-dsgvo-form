@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace WpDsgvoForm\Tests\Unit\Recipient;
 
-use WpDsgvoForm\Audit\AuditLogger;
 use WpDsgvoForm\Auth\AccessControl;
 use WpDsgvoForm\Recipient\RecipientPage;
+use WpDsgvoForm\ServiceContainer;
 use WpDsgvoForm\Tests\TestCase;
 use Brain\Monkey\Functions;
 use Brain\Monkey\Actions;
@@ -25,15 +25,15 @@ use Mockery;
 class RecipientPageTest extends TestCase {
 
 	private AccessControl $access_control;
-	private AuditLogger $audit_logger;
+	private ServiceContainer $container;
 	private RecipientPage $page;
 
 	protected function setUp(): void {
 		parent::setUp();
 
 		$this->access_control = Mockery::mock( AccessControl::class );
-		$this->audit_logger   = Mockery::mock( AuditLogger::class );
-		$this->page           = new RecipientPage( $this->access_control, $this->audit_logger );
+		$this->container      = Mockery::mock( ServiceContainer::class );
+		$this->page           = new RecipientPage( $this->access_control, $this->container );
 	}
 
 	// ------------------------------------------------------------------
@@ -133,8 +133,9 @@ class RecipientPageTest extends TestCase {
 	public function test_maybe_hide_admin_bar_hides_for_plugin_role_non_admin(): void {
 		Functions\when( 'is_user_logged_in' )->justReturn( true );
 		Functions\when( 'get_current_user_id' )->justReturn( 42 );
+		Functions\when( 'user_can' )->justReturn( false );
 
-		$this->access_control->shouldReceive( 'has_plugin_role' )
+		$this->access_control->shouldReceive( 'has_plugin_access' )
 			->with( 42 )->andReturn( true );
 		$this->access_control->shouldReceive( 'is_admin' )
 			->with( 42 )->andReturn( false );
@@ -150,7 +151,7 @@ class RecipientPageTest extends TestCase {
 		Functions\when( 'is_user_logged_in' )->justReturn( true );
 		Functions\when( 'get_current_user_id' )->justReturn( 1 );
 
-		$this->access_control->shouldReceive( 'has_plugin_role' )
+		$this->access_control->shouldReceive( 'has_plugin_access' )
 			->with( 1 )->andReturn( true );
 		$this->access_control->shouldReceive( 'is_admin' )
 			->with( 1 )->andReturn( true );
@@ -164,7 +165,7 @@ class RecipientPageTest extends TestCase {
 		Functions\when( 'is_user_logged_in' )->justReturn( true );
 		Functions\when( 'get_current_user_id' )->justReturn( 99 );
 
-		$this->access_control->shouldReceive( 'has_plugin_role' )
+		$this->access_control->shouldReceive( 'has_plugin_access' )
 			->with( 99 )->andReturn( false );
 
 		Functions\expect( 'show_admin_bar' )->never();
@@ -243,7 +244,7 @@ class RecipientPageTest extends TestCase {
 		Functions\when( 'is_user_logged_in' )->justReturn( true );
 		Functions\when( 'get_current_user_id' )->justReturn( 50 );
 
-		$this->access_control->shouldReceive( 'has_plugin_role' )
+		$this->access_control->shouldReceive( 'has_plugin_access' )
 			->with( 50 )->andReturn( false );
 		$this->access_control->shouldReceive( 'is_admin' )
 			->with( 50 )->andReturn( false );

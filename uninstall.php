@@ -54,6 +54,7 @@ $wpdsgvo_capabilities = array(
 	'dsgvo_form_view_all_submissions',
 	'dsgvo_form_delete_submissions',
 	'dsgvo_form_export',
+	'dsgvo_form_recipient',
 );
 
 if ( $wpdsgvo_admin_role ) {
@@ -63,20 +64,46 @@ if ( $wpdsgvo_admin_role ) {
 }
 
 /*
+ * 3b. Remove user-level dsgvo_form_* capabilities from all users.
+ *
+ * Capability migration (KANN-ARCH-01) grants caps directly to users.
+ * These must be cleaned up on uninstall to leave no plugin traces.
+ */
+$wpdsgvo_cap_users = get_users( [
+	'meta_key'     => $wpdb->prefix . 'capabilities',
+	'meta_compare' => 'EXISTS',
+	'fields'       => 'ID',
+	'number'       => -1,
+] );
+
+foreach ( $wpdsgvo_cap_users as $wpdsgvo_uid ) {
+	$wpdsgvo_user = new WP_User( (int) $wpdsgvo_uid );
+
+	foreach ( $wpdsgvo_capabilities as $wpdsgvo_cap ) {
+		if ( $wpdsgvo_user->has_cap( $wpdsgvo_cap ) ) {
+			$wpdsgvo_user->remove_cap( $wpdsgvo_cap );
+		}
+	}
+}
+
+/*
  * 4. Delete all plugin options.
  */
 delete_option( 'wpdsgvo_version' );
 delete_option( 'wpdsgvo_db_version' );
+delete_option( 'wpdsgvo_cap_migration_version' );
 delete_option( 'wpdsgvo_captcha_secret' );
 delete_option( 'wpdsgvo_default_retention_days' );
 delete_option( 'wpdsgvo_controller_name' );
 delete_option( 'wpdsgvo_controller_email' );
+delete_option( 'wpdsgvo_trusted_proxies' );
 
 /*
  * 5. Delete all plugin user meta.
  */
 delete_metadata( 'user', 0, 'wpdsgvo_privacy_notice_ack', '', true );
 delete_metadata( 'user', 0, 'wpdsgvo_dsfa_notice_dismissed', '', true );
+delete_metadata( 'user', 0, 'wpdsgvo_cap_migration_notice_dismissed', '', true );
 
 /*
  * 7. Delete all plugin transients.

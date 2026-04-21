@@ -853,4 +853,177 @@ class FirstLoginNoticeTest extends TestCase {
 	public function test_meta_key_constant_is_wpdsgvo_privacy_notice_ack(): void {
 		$this->assertSame( 'wpdsgvo_privacy_notice_ack', FirstLoginNotice::META_KEY );
 	}
+
+	// ==================================================================
+	// needs_acknowledgment() — Phase 3 dual-check: capability-based path
+	// ==================================================================
+
+	/**
+	 * @test
+	 * Phase 3: User with dsgvo_form_recipient capability (no legacy role)
+	 * must need acknowledgment.
+	 */
+	public function test_needs_acknowledgment_returns_true_for_capability_user_without_role(): void {
+		$user_id = 20;
+
+		Functions\when( 'user_can' )->alias(
+			function ( int $uid, string $cap ) use ( $user_id ): bool {
+				if ( $uid === $user_id && $cap === 'dsgvo_form_manage' ) {
+					return false;
+				}
+				if ( $uid === $user_id && $cap === 'dsgvo_form_recipient' ) {
+					return true;
+				}
+				return false;
+			}
+		);
+
+		// User has NO legacy plugin role — only the capability.
+		$user        = new \WP_User( $user_id );
+		$user->roles = array( 'editor' );
+
+		Functions\when( 'get_userdata' )->alias(
+			function ( int $uid ) use ( $user_id, $user ) {
+				return $uid === $user_id ? $user : false;
+			}
+		);
+
+		Functions\when( 'get_user_meta' )->alias(
+			function ( int $uid, string $key, bool $single ) use ( $user_id ): string {
+				if ( $uid === $user_id && $key === FirstLoginNotice::META_KEY && $single ) {
+					return '';
+				}
+				return '';
+			}
+		);
+
+		$this->assertTrue(
+			FirstLoginNotice::needs_acknowledgment( $user_id ),
+			'User with dsgvo_form_recipient cap but no legacy role must need acknowledgment.'
+		);
+	}
+
+	/**
+	 * @test
+	 * Phase 3: User with dsgvo_form_view_submissions capability triggers acknowledgment.
+	 */
+	public function test_needs_acknowledgment_returns_true_for_view_submissions_capability(): void {
+		$user_id = 21;
+
+		Functions\when( 'user_can' )->alias(
+			function ( int $uid, string $cap ) use ( $user_id ): bool {
+				if ( $uid === $user_id && $cap === 'dsgvo_form_manage' ) {
+					return false;
+				}
+				if ( $uid === $user_id && $cap === 'dsgvo_form_recipient' ) {
+					return false;
+				}
+				if ( $uid === $user_id && $cap === 'dsgvo_form_view_submissions' ) {
+					return true;
+				}
+				return false;
+			}
+		);
+
+		$user        = new \WP_User( $user_id );
+		$user->roles = array( 'editor' );
+
+		Functions\when( 'get_userdata' )->alias(
+			function ( int $uid ) use ( $user_id, $user ) {
+				return $uid === $user_id ? $user : false;
+			}
+		);
+
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		$this->assertTrue(
+			FirstLoginNotice::needs_acknowledgment( $user_id ),
+			'User with dsgvo_form_view_submissions cap must need acknowledgment.'
+		);
+	}
+
+	/**
+	 * @test
+	 * Phase 3: User with dsgvo_form_view_all_submissions capability triggers acknowledgment.
+	 */
+	public function test_needs_acknowledgment_returns_true_for_view_all_submissions_capability(): void {
+		$user_id = 22;
+
+		Functions\when( 'user_can' )->alias(
+			function ( int $uid, string $cap ) use ( $user_id ): bool {
+				if ( $uid === $user_id && $cap === 'dsgvo_form_manage' ) {
+					return false;
+				}
+				if ( $uid === $user_id && $cap === 'dsgvo_form_recipient' ) {
+					return false;
+				}
+				if ( $uid === $user_id && $cap === 'dsgvo_form_view_submissions' ) {
+					return false;
+				}
+				if ( $uid === $user_id && $cap === 'dsgvo_form_view_all_submissions' ) {
+					return true;
+				}
+				return false;
+			}
+		);
+
+		$user        = new \WP_User( $user_id );
+		$user->roles = array( 'editor' );
+
+		Functions\when( 'get_userdata' )->alias(
+			function ( int $uid ) use ( $user_id, $user ) {
+				return $uid === $user_id ? $user : false;
+			}
+		);
+
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		$this->assertTrue(
+			FirstLoginNotice::needs_acknowledgment( $user_id ),
+			'User with dsgvo_form_view_all_submissions cap must need acknowledgment.'
+		);
+	}
+
+	/**
+	 * @test
+	 * Phase 3: Capability user who already acknowledged does not need re-ack.
+	 */
+	public function test_needs_acknowledgment_returns_false_for_capability_user_with_current_ack(): void {
+		$user_id = 23;
+
+		Functions\when( 'user_can' )->alias(
+			function ( int $uid, string $cap ) use ( $user_id ): bool {
+				if ( $uid === $user_id && $cap === 'dsgvo_form_manage' ) {
+					return false;
+				}
+				if ( $uid === $user_id && $cap === 'dsgvo_form_recipient' ) {
+					return true;
+				}
+				return false;
+			}
+		);
+
+		$user        = new \WP_User( $user_id );
+		$user->roles = array( 'editor' );
+
+		Functions\when( 'get_userdata' )->alias(
+			function ( int $uid ) use ( $user_id, $user ) {
+				return $uid === $user_id ? $user : false;
+			}
+		);
+
+		Functions\when( 'get_user_meta' )->alias(
+			function ( int $uid, string $key, bool $single ) use ( $user_id ): string {
+				if ( $uid === $user_id && $key === FirstLoginNotice::META_KEY && $single ) {
+					return '1'; // Current version acknowledged.
+				}
+				return '';
+			}
+		);
+
+		$this->assertFalse(
+			FirstLoginNotice::needs_acknowledgment( $user_id ),
+			'Capability user who acknowledged current version should not need re-ack.'
+		);
+	}
 }

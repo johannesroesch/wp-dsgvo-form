@@ -7,7 +7,7 @@
  * No framework dependencies. Uses fetch API for REST submission.
  * Loaded only on pages containing a DSGVO form block.
  *
- * @package wp-dsgvo-form
+ * @package
  * @since 1.0.0
  */
 ( function () {
@@ -17,7 +17,7 @@
 	 * System field names excluded from the user fields payload.
 	 * These are handled separately in buildPayload().
 	 */
-	var SYSTEM_FIELDS = [
+	const SYSTEM_FIELDS = [
 		'dsgvo_form_id',
 		'_dsgvo_nonce',
 		'dsgvo_consent',
@@ -27,23 +27,36 @@
 	];
 
 	/** Config injected via wp_localize_script(). */
-	var config = window.dsgvoFormHandler || {};
-	var restUrl = config.restUrl || '/wp-json/dsgvo-form/v1/submit';
-	var i18n = config.i18n || {};
+	const config = window.dsgvoFormHandler || {};
+	const restUrl = config.restUrl || '/wp-json/dsgvo-form/v1/submit';
+	const i18n = config.i18n || {};
 
 	/** Validation messages with German defaults. */
-	var msg = {
+	const msg = {
 		required: i18n.required || 'Dieses Feld ist erforderlich.',
-		emailInvalid: i18n.emailInvalid || 'Bitte geben Sie eine gueltige E-Mail-Adresse ein.',
-		telInvalid: i18n.telInvalid || 'Bitte geben Sie eine gueltige Telefonnummer ein.',
-		dateInvalid: i18n.dateInvalid || 'Bitte geben Sie ein gueltiges Datum ein.',
-		consentRequired: i18n.consentRequired || 'Sie muessen der Datenverarbeitung zustimmen.',
-		captchaRequired: i18n.captchaRequired || 'Bitte loesen Sie das CAPTCHA.',
+		emailInvalid:
+			i18n.emailInvalid ||
+			'Bitte geben Sie eine gueltige E-Mail-Adresse ein.',
+		telInvalid:
+			i18n.telInvalid ||
+			'Bitte geben Sie eine gueltige Telefonnummer ein.',
+		dateInvalid:
+			i18n.dateInvalid || 'Bitte geben Sie ein gueltiges Datum ein.',
+		consentRequired:
+			i18n.consentRequired ||
+			'Sie muessen der Datenverarbeitung zustimmen.',
+		captchaRequired:
+			i18n.captchaRequired || 'Bitte loesen Sie das CAPTCHA.',
 		fileTooLarge: i18n.fileTooLarge || 'Die Datei ist zu gross.',
-		fileTypeNotAllowed: i18n.fileTypeNotAllowed || 'Dieser Dateityp ist nicht erlaubt.',
+		fileTypeNotAllowed:
+			i18n.fileTypeNotAllowed || 'Dieser Dateityp ist nicht erlaubt.',
 		submitting: i18n.submitting || 'Wird gesendet...',
-		networkError: i18n.networkError || 'Netzwerkfehler. Bitte pruefen Sie Ihre Verbindung.',
-		genericError: i18n.genericError || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.',
+		networkError:
+			i18n.networkError ||
+			'Netzwerkfehler. Bitte pruefen Sie Ihre Verbindung.',
+		genericError:
+			i18n.genericError ||
+			'Ein Fehler ist aufgetreten. Bitte versuchen Sie es spaeter erneut.',
 	};
 
 	/* -------------------------------------------------------
@@ -51,8 +64,8 @@
 	 * ----------------------------------------------------- */
 
 	document.addEventListener( 'DOMContentLoaded', function () {
-		var forms = document.querySelectorAll( '.dsgvo-form' );
-		for ( var i = 0; i < forms.length; i++ ) {
+		const forms = document.querySelectorAll( '.dsgvo-form' );
+		for ( let i = 0; i < forms.length; i++ ) {
 			setupForm( forms[ i ] );
 		}
 	} );
@@ -77,17 +90,17 @@
 	 * @param {HTMLFormElement} form The form element.
 	 */
 	function setupInlineValidation( form ) {
-		var inputs = form.querySelectorAll(
+		const inputs = form.querySelectorAll(
 			'.dsgvo-form__field input:not([type="hidden"]), ' +
-			'.dsgvo-form__field textarea, ' +
-			'.dsgvo-form__field select'
+				'.dsgvo-form__field textarea, ' +
+				'.dsgvo-form__field select'
 		);
 
-		for ( var i = 0; i < inputs.length; i++ ) {
+		for ( let i = 0; i < inputs.length; i++ ) {
 			attachFieldListeners( inputs[ i ] );
 		}
 
-		var consent = form.querySelector( 'input[name="dsgvo_consent"]' );
+		const consent = form.querySelector( 'input[name="dsgvo_consent"]' );
 		if ( consent ) {
 			consent.addEventListener( 'change', function () {
 				validateConsentField( this );
@@ -123,26 +136,28 @@
 	 * @return {boolean} True if all fields are valid.
 	 */
 	function validateForm( form ) {
-		var isValid = true;
+		let isValid = true;
 
-		var fields = form.querySelectorAll(
+		const fields = form.querySelectorAll(
 			'.dsgvo-form__field input:not([type="hidden"]), ' +
-			'.dsgvo-form__field textarea, ' +
-			'.dsgvo-form__field select'
+				'.dsgvo-form__field textarea, ' +
+				'.dsgvo-form__field select'
 		);
 
-		for ( var i = 0; i < fields.length; i++ ) {
+		for ( let i = 0; i < fields.length; i++ ) {
 			if ( ! validateSingleField( fields[ i ] ) ) {
 				isValid = false;
 			}
 		}
 
-		var consent = form.querySelector( 'input[name="dsgvo_consent"]' );
+		const consent = form.querySelector( 'input[name="dsgvo_consent"]' );
 		if ( consent && ! validateConsentField( consent ) ) {
 			isValid = false;
 		}
 
-		var captchaInput = form.querySelector( 'input[name="captcha_token"]' );
+		const captchaInput = form.querySelector(
+			'input[name="captcha_token"]'
+		);
 		if ( captchaInput && captchaInput.value.trim() === '' ) {
 			showCaptchaError( form );
 			isValid = false;
@@ -162,8 +177,8 @@
 			return true;
 		}
 
-		var value = getFieldValue( input );
-		var isRequired = input.hasAttribute( 'required' );
+		const value = getFieldValue( input );
+		const isRequired = input.hasAttribute( 'required' );
 
 		if ( isRequired && isEmpty( value ) ) {
 			showFieldError( input, msg.required );
@@ -175,8 +190,9 @@
 			return true;
 		}
 
-		var type = input.getAttribute( 'type' ) || input.tagName.toLowerCase();
-		var error = validateByType( type, value, input );
+		const type =
+			input.getAttribute( 'type' ) || input.tagName.toLowerCase();
+		const error = validateByType( type, value, input );
 
 		if ( error ) {
 			showFieldError( input, error );
@@ -237,21 +253,21 @@
 			return null;
 		}
 
-		var file = input.files[ 0 ];
-		var accept = input.getAttribute( 'accept' );
+		const file = input.files[ 0 ];
+		const accept = input.getAttribute( 'accept' );
 
 		if ( accept ) {
-			var allowedExts = accept.split( ',' ).map( function ( ext ) {
+			const allowedExts = accept.split( ',' ).map( function ( ext ) {
 				return ext.trim().toLowerCase();
 			} );
-			var fileExt = '.' + file.name.toLowerCase().split( '.' ).pop();
+			const fileExt = '.' + file.name.toLowerCase().split( '.' ).pop();
 
 			if ( allowedExts.indexOf( fileExt ) === -1 ) {
 				return msg.fileTypeNotAllowed;
 			}
 		}
 
-		var maxSize = parseInt( input.dataset.maxSize || '5242880', 10 );
+		const maxSize = parseInt( input.dataset.maxSize || '5242880', 10 );
 		if ( file.size > maxSize ) {
 			return msg.fileTooLarge;
 		}
@@ -275,11 +291,17 @@
 		if ( ! /^\d{4}-\d{2}-\d{2}$/.test( value ) ) {
 			return false;
 		}
-		var parts = value.split( '-' );
-		var date = new Date( parseInt( parts[0], 10 ), parseInt( parts[1], 10 ) - 1, parseInt( parts[2], 10 ) );
-		return date.getFullYear() === parseInt( parts[0], 10 ) &&
-			date.getMonth() === parseInt( parts[1], 10 ) - 1 &&
-			date.getDate() === parseInt( parts[2], 10 );
+		const parts = value.split( '-' );
+		const date = new Date(
+			parseInt( parts[ 0 ], 10 ),
+			parseInt( parts[ 1 ], 10 ) - 1,
+			parseInt( parts[ 2 ], 10 )
+		);
+		return (
+			date.getFullYear() === parseInt( parts[ 0 ], 10 ) &&
+			date.getMonth() === parseInt( parts[ 1 ], 10 ) - 1 &&
+			date.getDate() === parseInt( parts[ 2 ], 10 )
+		);
 	}
 
 	function isEmpty( value ) {
@@ -301,11 +323,11 @@
 	 */
 	function getFieldValue( input ) {
 		if ( input.type === 'checkbox' ) {
-			var name = input.name;
-			var form = input.closest( 'form' );
+			const name = input.name;
+			const form = input.closest( 'form' );
 
 			if ( name.indexOf( '[]' ) !== -1 ) {
-				var checked = form.querySelectorAll(
+				const checked = form.querySelectorAll(
 					'input[name="' + name + '"]:checked'
 				);
 				return Array.prototype.map.call( checked, function ( cb ) {
@@ -316,8 +338,8 @@
 		}
 
 		if ( input.type === 'radio' ) {
-			var radioForm = input.closest( 'form' );
-			var selected = radioForm.querySelector(
+			const radioForm = input.closest( 'form' );
+			const selected = radioForm.querySelector(
 				'input[name="' + input.name + '"]:checked'
 			);
 			return selected ? selected.value : '';
@@ -338,7 +360,8 @@
 	 * @param {string}      message The error message.
 	 */
 	function showFieldError( input, message ) {
-		var wrapper = input.closest( '.dsgvo-form__field' ) ||
+		const wrapper =
+			input.closest( '.dsgvo-form__field' ) ||
 			input.closest( '.dsgvo-form__field--consent' );
 
 		if ( ! wrapper ) {
@@ -347,7 +370,7 @@
 
 		wrapper.classList.add( 'dsgvo-form__field--error' );
 
-		var errorEl = wrapper.querySelector( '.dsgvo-form__error' );
+		const errorEl = wrapper.querySelector( '.dsgvo-form__error' );
 		if ( errorEl ) {
 			errorEl.textContent = message;
 			if ( ! errorEl.id ) {
@@ -365,7 +388,8 @@
 	 * @param {HTMLElement} input The input element.
 	 */
 	function clearFieldError( input ) {
-		var wrapper = input.closest( '.dsgvo-form__field' ) ||
+		const wrapper =
+			input.closest( '.dsgvo-form__field' ) ||
 			input.closest( '.dsgvo-form__field--consent' );
 
 		if ( ! wrapper ) {
@@ -374,7 +398,7 @@
 
 		wrapper.classList.remove( 'dsgvo-form__field--error' );
 
-		var errorEl = wrapper.querySelector( '.dsgvo-form__error' );
+		const errorEl = wrapper.querySelector( '.dsgvo-form__error' );
 		if ( errorEl ) {
 			errorEl.textContent = '';
 		}
@@ -389,12 +413,12 @@
 	 * @param {HTMLFormElement} form The form element.
 	 */
 	function showCaptchaError( form ) {
-		var captchaWrapper = form.querySelector( '.dsgvo-form__captcha' );
+		const captchaWrapper = form.querySelector( '.dsgvo-form__captcha' );
 		if ( ! captchaWrapper ) {
 			return;
 		}
 
-		var errorEl = captchaWrapper.querySelector( '.dsgvo-form__error' );
+		let errorEl = captchaWrapper.querySelector( '.dsgvo-form__error' );
 		if ( ! errorEl ) {
 			errorEl = document.createElement( 'div' );
 			errorEl.className = 'dsgvo-form__error';
@@ -411,12 +435,12 @@
 	 * @param {HTMLFormElement} form The form element.
 	 */
 	function clearCaptchaError( form ) {
-		var captchaWrapper = form.querySelector( '.dsgvo-form__captcha' );
+		const captchaWrapper = form.querySelector( '.dsgvo-form__captcha' );
 		if ( ! captchaWrapper ) {
 			return;
 		}
 
-		var errorEl = captchaWrapper.querySelector( '.dsgvo-form__error' );
+		const errorEl = captchaWrapper.querySelector( '.dsgvo-form__error' );
 		if ( errorEl ) {
 			errorEl.textContent = '';
 		}
@@ -428,7 +452,7 @@
 	 * @param {HTMLFormElement} form The form element.
 	 */
 	function focusFirstError( form ) {
-		var firstInvalid = form.querySelector( '[aria-invalid="true"]' );
+		const firstInvalid = form.querySelector( '[aria-invalid="true"]' );
 		if ( firstInvalid ) {
 			firstInvalid.focus();
 		}
@@ -446,7 +470,7 @@
 	function handleSubmit( e ) {
 		e.preventDefault();
 
-		var form = e.target;
+		const form = e.target;
 
 		clearStatus( form );
 		clearCaptchaError( form );
@@ -456,16 +480,18 @@
 			return;
 		}
 
-		var payload = buildPayload( form );
+		const payload = buildPayload( form );
 
 		setLoading( form, true );
 
-		submitRequest( form, payload ).then( function ( result ) {
-			showSuccess( form, result );
-		} ).catch( function ( error ) {
-			setLoading( form, false );
-			showSubmissionError( form, error );
-		} );
+		submitRequest( form, payload )
+			.then( function ( result ) {
+				showSuccess( form, result );
+			} )
+			.catch( function ( error ) {
+				setLoading( form, false );
+				showSubmissionError( form, error );
+			} );
 	}
 
 	/**
@@ -481,19 +507,26 @@
 	 * @return {Object} Structured payload for the REST API.
 	 */
 	function buildPayload( form ) {
-		var formIdInput = form.querySelector( 'input[name="dsgvo_form_id"]' );
-		var nonceInput = form.querySelector( 'input[name="_dsgvo_nonce"]' );
-		var consentCb = form.querySelector( 'input[name="dsgvo_consent"]' );
-		var consentVersionInput = form.querySelector( 'input[name="dsgvo_consent_version"]' );
-		var captchaInput = form.querySelector( 'input[name="captcha_token"]' );
-		var honeypotInput = form.querySelector( 'input[name="website_url"]' );
+		const formIdInput = form.querySelector( 'input[name="dsgvo_form_id"]' );
+		const nonceInput = form.querySelector( 'input[name="_dsgvo_nonce"]' );
+		const consentCb = form.querySelector( 'input[name="dsgvo_consent"]' );
+		const consentVersionInput = form.querySelector(
+			'input[name="dsgvo_consent_version"]'
+		);
+		const captchaInput = form.querySelector(
+			'input[name="captcha_token"]'
+		);
+		const honeypotInput = form.querySelector( 'input[name="website_url"]' );
 
 		return {
 			form_id: parseInt( formIdInput ? formIdInput.value : '0', 10 ),
 			_wpnonce: nonceInput ? nonceInput.value : '',
 			consent_given: consentCb ? consentCb.checked : false,
 			consent_locale: form.dataset.locale || 'de_DE',
-			consent_version_id: parseInt( consentVersionInput ? consentVersionInput.value : '0', 10 ),
+			consent_version_id: parseInt(
+				consentVersionInput ? consentVersionInput.value : '0',
+				10
+			),
 			captcha_token: captchaInput ? captchaInput.value : '',
 			website_url: honeypotInput ? honeypotInput.value : '',
 			fields: collectFields( form ),
@@ -507,21 +540,21 @@
 	 * @return {Object} Map of field names to values.
 	 */
 	function collectFields( form ) {
-		var fields = {};
-		var formData = new FormData( form );
+		const fields = {};
+		const formData = new FormData( form );
 
 		formData.forEach( function ( value, name ) {
 			if ( isSystemField( name ) || name === 'captcha_token' ) {
 				return;
 			}
 
-			var input = form.querySelector( '[name="' + name + '"]' );
+			const input = form.querySelector( '[name="' + name + '"]' );
 			if ( input && input.type === 'file' ) {
 				return;
 			}
 
 			if ( name.indexOf( '[]' ) !== -1 ) {
-				var key = name.replace( '[]', '' );
+				const key = name.replace( '[]', '' );
 				if ( ! fields[ key ] ) {
 					fields[ key ] = [];
 				}
@@ -541,14 +574,14 @@
 	 * SubmitEndpoint supports both via get_json_params() with get_body_params() fallback.
 	 *
 	 * @param {HTMLFormElement} form    The form element.
-	 * @param {Object}         payload The structured payload.
+	 * @param {Object}          payload The structured payload.
 	 * @return {Promise<Object>} Resolves with server response data.
 	 */
 	function submitRequest( form, payload ) {
-		var fileInputs = form.querySelectorAll( 'input[type="file"]' );
-		var hasFiles = false;
+		const fileInputs = form.querySelectorAll( 'input[type="file"]' );
+		let hasFiles = false;
 
-		for ( var i = 0; i < fileInputs.length; i++ ) {
+		for ( let i = 0; i < fileInputs.length; i++ ) {
 			if ( fileInputs[ i ].files && fileInputs[ i ].files.length > 0 ) {
 				hasFiles = true;
 				break;
@@ -582,27 +615,30 @@
 	 * Submits form data as multipart/form-data (forms with file uploads).
 	 *
 	 * @param {Object}   payload    The payload object.
-	 * @param {NodeList}  fileInputs File input elements.
+	 * @param {NodeList} fileInputs File input elements.
 	 * @return {Promise<Object>} Server response data.
 	 */
 	function submitWithFiles( payload, fileInputs ) {
-		var formData = new FormData();
+		const formData = new FormData();
 
 		formData.append( 'form_id', String( payload.form_id ) );
 		formData.append( '_wpnonce', payload._wpnonce );
 		formData.append( 'consent_given', payload.consent_given ? '1' : '0' );
 		formData.append( 'consent_locale', payload.consent_locale );
-		formData.append( 'consent_version_id', String( payload.consent_version_id ) );
+		formData.append(
+			'consent_version_id',
+			String( payload.consent_version_id )
+		);
 		formData.append( 'captcha_token', payload.captcha_token );
 		formData.append( 'website_url', payload.website_url );
 
-		var fieldKeys = Object.keys( payload.fields );
-		for ( var i = 0; i < fieldKeys.length; i++ ) {
-			var key = fieldKeys[ i ];
-			var value = payload.fields[ key ];
+		const fieldKeys = Object.keys( payload.fields );
+		for ( let i = 0; i < fieldKeys.length; i++ ) {
+			const key = fieldKeys[ i ];
+			const value = payload.fields[ key ];
 
 			if ( Array.isArray( value ) ) {
-				for ( var j = 0; j < value.length; j++ ) {
+				for ( let j = 0; j < value.length; j++ ) {
 					formData.append( 'fields[' + key + '][]', value[ j ] );
 				}
 			} else {
@@ -610,9 +646,12 @@
 			}
 		}
 
-		for ( var k = 0; k < fileInputs.length; k++ ) {
+		for ( let k = 0; k < fileInputs.length; k++ ) {
 			if ( fileInputs[ k ].files && fileInputs[ k ].files.length > 0 ) {
-				formData.append( fileInputs[ k ].name, fileInputs[ k ].files[ 0 ] );
+				formData.append(
+					fileInputs[ k ].name,
+					fileInputs[ k ].files[ 0 ]
+				);
 			}
 		}
 
@@ -631,25 +670,29 @@
 	 * @throws {Object} Error object with message, status, and optional fieldErrors.
 	 */
 	function parseResponse( response ) {
-		return response.json().then( function ( data ) {
-			if ( ! response.ok ) {
-				var errorMessage = data.message || msg.genericError;
-				var fieldErrors = ( data.data && data.data.errors ) ? data.data.errors : null;
-				var error = new Error( errorMessage );
-				error.status = response.status;
-				error.fieldErrors = fieldErrors;
-				throw error;
-			}
-			return data;
-		} ).catch( function ( error ) {
-			if ( error.status ) {
-				throw error;
-			}
-			var networkErr = new Error( msg.networkError );
-			networkErr.status = 0;
-			networkErr.fieldErrors = null;
-			throw networkErr;
-		} );
+		return response
+			.json()
+			.then( function ( data ) {
+				if ( ! response.ok ) {
+					const errorMessage = data.message || msg.genericError;
+					const fieldErrors =
+						data.data && data.data.errors ? data.data.errors : null;
+					const error = new Error( errorMessage );
+					error.status = response.status;
+					error.fieldErrors = fieldErrors;
+					throw error;
+				}
+				return data;
+			} )
+			.catch( function ( error ) {
+				if ( error.status ) {
+					throw error;
+				}
+				const networkErr = new Error( msg.networkError );
+				networkErr.status = 0;
+				networkErr.fieldErrors = null;
+				throw networkErr;
+			} );
 	}
 
 	/* -------------------------------------------------------
@@ -660,10 +703,10 @@
 	 * Toggles the loading state on the submit button.
 	 *
 	 * @param {HTMLFormElement} form      The form element.
-	 * @param {boolean}        isLoading Whether to show loading state.
+	 * @param {boolean}         isLoading Whether to show loading state.
 	 */
 	function setLoading( form, isLoading ) {
-		var button = form.querySelector( '.dsgvo-form__button' );
+		const button = form.querySelector( '.dsgvo-form__button' );
 		if ( ! button ) {
 			return;
 		}
@@ -689,15 +732,15 @@
 	 * Shows the success message and hides form fields.
 	 *
 	 * @param {HTMLFormElement} form   The form element.
-	 * @param {Object}         result Server response with .message.
+	 * @param {Object}          result Server response with .message.
 	 */
 	function showSuccess( form, result ) {
-		var statusEl = form.querySelector( '.dsgvo-form__status' );
+		const statusEl = form.querySelector( '.dsgvo-form__status' );
 		if ( ! statusEl ) {
 			return;
 		}
 
-		var hideSelectors = [
+		const hideSelectors = [
 			'.dsgvo-form__field',
 			'.dsgvo-form__field--consent',
 			'.dsgvo-form__captcha',
@@ -705,9 +748,9 @@
 			'.dsgvo-form__hp',
 		];
 
-		for ( var i = 0; i < hideSelectors.length; i++ ) {
-			var elements = form.querySelectorAll( hideSelectors[ i ] );
-			for ( var j = 0; j < elements.length; j++ ) {
+		for ( let i = 0; i < hideSelectors.length; i++ ) {
+			const elements = form.querySelectorAll( hideSelectors[ i ] );
+			for ( let j = 0; j < elements.length; j++ ) {
 				elements[ j ].style.display = 'none';
 			}
 		}
@@ -726,17 +769,19 @@
 	 * @param {Error}           error Error with .message, .status, .fieldErrors.
 	 */
 	function showSubmissionError( form, error ) {
-		var statusEl = form.querySelector( '.dsgvo-form__status' );
+		const statusEl = form.querySelector( '.dsgvo-form__status' );
 		if ( statusEl ) {
 			statusEl.setAttribute( 'data-status', 'error' );
 			statusEl.textContent = error.message || msg.genericError;
 		}
 
 		if ( error.fieldErrors ) {
-			var errorKeys = Object.keys( error.fieldErrors );
-			for ( var i = 0; i < errorKeys.length; i++ ) {
-				var fieldName = errorKeys[ i ];
-				var input = form.querySelector( '[name="' + fieldName + '"]' );
+			const errorKeys = Object.keys( error.fieldErrors );
+			for ( let i = 0; i < errorKeys.length; i++ ) {
+				const fieldName = errorKeys[ i ];
+				const input = form.querySelector(
+					'[name="' + fieldName + '"]'
+				);
 				if ( input ) {
 					showFieldError( input, error.fieldErrors[ fieldName ] );
 				}
@@ -757,7 +802,7 @@
 	 * @param {HTMLFormElement} form The form element.
 	 */
 	function clearStatus( form ) {
-		var statusEl = form.querySelector( '.dsgvo-form__status' );
+		const statusEl = form.querySelector( '.dsgvo-form__status' );
 		if ( statusEl ) {
 			statusEl.textContent = '';
 			statusEl.removeAttribute( 'data-status' );

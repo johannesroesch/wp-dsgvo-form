@@ -1,7 +1,7 @@
 /**
  * Tests for Edit component.
  *
- * @package wp-dsgvo-form
+ * @package
  */
 
 import { render, screen, waitFor, act } from '@testing-library/react';
@@ -20,7 +20,7 @@ jest.mock( '@wordpress/block-editor', () => ( {
 } ) );
 
 jest.mock( '@wordpress/components', () => ( {
-	PanelBody: ( { children, title } ) => (
+	PanelBody: ( { children } ) => (
 		<div data-testid="panel-body">{ children }</div>
 	),
 	SelectControl: ( { label, value, options, onChange } ) => (
@@ -37,7 +37,7 @@ jest.mock( '@wordpress/components', () => ( {
 			) ) }
 		</select>
 	),
-	Placeholder: ( { children, label, instructions, icon } ) => (
+	Placeholder: ( { children, label, instructions } ) => (
 		<div data-testid="placeholder">
 			{ label && <span>{ label }</span> }
 			{ instructions && <span>{ instructions }</span> }
@@ -149,7 +149,9 @@ describe( 'Edit component', () => {
 		} );
 
 		it( 'shows edit link with correct URL when form is selected', async () => {
-			window.dsgvoFormAdmin = { adminUrl: 'https://example.com/wp-admin/' };
+			window.dsgvoFormAdmin = {
+				adminUrl: 'https://example.com/wp-admin/',
+			};
 			apiFetch.mockResolvedValue( [ { id: 7, title: 'Kontakt' } ] );
 
 			const props = {
@@ -180,7 +182,9 @@ describe( 'Edit component', () => {
 			} );
 
 			await waitFor( () => {
-				expect( screen.queryByTestId( 'external-link' ) ).not.toBeInTheDocument();
+				expect(
+					screen.queryByTestId( 'external-link' )
+				).not.toBeInTheDocument();
 			} );
 		} );
 
@@ -243,9 +247,15 @@ describe( 'Edit component', () => {
 
 			await waitFor( () => {
 				const link = screen.getByTestId( 'external-link' );
-				expect( link.getAttribute( 'href' ) ).not.toContain( 'dsgvo-form-builder' );
-				expect( link.getAttribute( 'href' ) ).toContain( 'page=dsgvo-form' );
-				expect( link.getAttribute( 'href' ) ).toContain( 'action=edit' );
+				expect( link.getAttribute( 'href' ) ).not.toContain(
+					'dsgvo-form-builder'
+				);
+				expect( link.getAttribute( 'href' ) ).toContain(
+					'page=dsgvo-form'
+				);
+				expect( link.getAttribute( 'href' ) ).toContain(
+					'action=edit'
+				);
 				expect( link.getAttribute( 'href' ) ).toContain( 'form_id=10' );
 			} );
 		} );

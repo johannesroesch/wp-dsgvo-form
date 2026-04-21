@@ -4,7 +4,7 @@
  * Displays form selection, live preview, and inspector controls
  * in the Gutenberg editor.
  *
- * @package wp-dsgvo-form
+ * @package
  */
 
 import { __ } from '@wordpress/i18n';
@@ -47,7 +47,13 @@ export default function Edit( { attributes, setAttributes } ) {
 				setIsLoading( false );
 			} )
 			.catch( ( err ) => {
-				setError( err.message || __( 'Formulare konnten nicht geladen werden.', 'wp-dsgvo-form' ) );
+				setError(
+					err.message ||
+						__(
+							'Formulare konnten nicht geladen werden.',
+							'wp-dsgvo-form'
+						)
+				);
 				setIsLoading( false );
 			} );
 	}, [] );
@@ -67,7 +73,9 @@ export default function Edit( { attributes, setAttributes } ) {
 	// Admin URL for editing the selected form.
 	const editFormUrl =
 		formId > 0
-			? `${ window.dsgvoFormAdmin?.adminUrl || '/wp-admin/' }admin.php?page=dsgvo-form&action=edit&form_id=${ formId }`
+			? `${
+					window.dsgvoFormAdmin?.adminUrl || '/wp-admin/'
+			  }admin.php?page=dsgvo-form&action=edit&form_id=${ formId }`
 			: null;
 
 	return (

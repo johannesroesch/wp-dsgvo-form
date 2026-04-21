@@ -4,7 +4,7 @@
  * Covers: inline validation, payload transformation, CAPTCHA token,
  * error display (WCAG), submission path selection, loading/success states.
  *
- * @package wp-dsgvo-form
+ * @package
  */
 
 // --- Top-level setup: load IIFE once, keep fetch mock in same scope. ---
@@ -25,7 +25,9 @@ describe( 'DSGVO Form Handler', () => {
 	 * @return {string} HTML string.
 	 */
 	function createFormHtml( options = {} ) {
-		const fields = options.fields || `
+		const fields =
+			options.fields ||
+			`
 			<div class="dsgvo-form__field dsgvo-form__field--text">
 				<label for="dsgvo-field-1" class="dsgvo-form__label">Vorname</label>
 				<input type="text" id="dsgvo-field-1" name="vorname"
@@ -85,6 +87,7 @@ describe( 'DSGVO Form Handler', () => {
 	 *
 	 * The IIFE is already loaded (top-level require). Each DOMContentLoaded
 	 * dispatch re-initializes form handlers for the new DOM elements.
+	 * @param {Object} options
 	 */
 	function setupForm( options = {} ) {
 		document.body.innerHTML = createFormHtml( options );
@@ -107,6 +110,7 @@ describe( 'DSGVO Form Handler', () => {
 
 	/**
 	 * Mocks fetch to resolve with a success response.
+	 * @param {string} message
 	 */
 	function mockFetchSuccess( message = 'Danke!' ) {
 		global.fetch.mockResolvedValueOnce( {
@@ -318,9 +322,7 @@ describe( 'DSGVO Form Handler', () => {
 			setupForm(); // captchaToken defaults to empty
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 
 			const captchaError = form.querySelector(
 				'.dsgvo-form__captcha .dsgvo-form__error'
@@ -344,15 +346,11 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
 			expect( global.fetch ).toHaveBeenCalledTimes( 1 );
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
 			expect( body._wpnonce ).toBe( 'nonce123' );
 			expect( body ).not.toHaveProperty( '_dsgvo_nonce' );
 		} );
@@ -361,14 +359,10 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
 			expect( body.consent_given ).toBe( true );
 			expect( body ).not.toHaveProperty( 'dsgvo_consent' );
 		} );
@@ -377,14 +371,10 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
 			expect( body.consent_locale ).toBe( 'de_DE' );
 		} );
 
@@ -392,14 +382,10 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
 			expect( body.fields ).toEqual( {
 				vorname: 'Max',
 				email: 'max@example.com',
@@ -410,14 +396,10 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
 			expect( body.fields ).not.toHaveProperty( 'dsgvo_form_id' );
 			expect( body.fields ).not.toHaveProperty( '_dsgvo_nonce' );
 			expect( body.fields ).not.toHaveProperty( 'dsgvo_consent' );
@@ -429,14 +411,10 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
 			expect( body.website_url ).toBe( '' );
 		} );
 
@@ -444,14 +422,10 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
 			expect( body.captcha_token ).toBe( 'test-captcha-token' );
 		} );
 
@@ -459,14 +433,10 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
 			expect( body.form_id ).toBe( 1 );
 		} );
 	} );
@@ -494,18 +464,11 @@ describe( 'DSGVO Form Handler', () => {
 			setupForm( { fields, noConsent: true, captchaToken: 'valid' } );
 			mockFetchSuccess();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
-			const body = JSON.parse(
-				global.fetch.mock.calls[ 0 ][ 1 ].body
-			);
-			expect( body.fields.interessen ).toEqual( [
-				'Sport',
-				'Musik',
-			] );
+			const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
+			expect( body.fields.interessen ).toEqual( [ 'Sport', 'Musik' ] );
 		} );
 	} );
 
@@ -519,9 +482,7 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
 			const options = global.fetch.mock.calls[ 0 ][ 1 ];
@@ -537,9 +498,7 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 0 ) );
 
 			const url = global.fetch.mock.calls[ 0 ][ 0 ];
@@ -570,18 +529,14 @@ describe( 'DSGVO Form Handler', () => {
 			} );
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 50 ) );
 
 			const statusEl = form.querySelector( '.dsgvo-form__status' );
 			expect( statusEl.textContent ).toBe( 'Validierungsfehler' );
 			expect( statusEl.getAttribute( 'data-status' ) ).toBe( 'error' );
 
-			const vornameInput = form.querySelector(
-				'input[name="vorname"]'
-			);
+			const vornameInput = form.querySelector( 'input[name="vorname"]' );
 			expect( vornameInput.getAttribute( 'aria-invalid' ) ).toBe(
 				'true'
 			);
@@ -604,9 +559,7 @@ describe( 'DSGVO Form Handler', () => {
 			} );
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 50 ) );
 
 			const statusEl = form.querySelector( '.dsgvo-form__status' );
@@ -618,13 +571,9 @@ describe( 'DSGVO Form Handler', () => {
 			setupForm();
 			// Leave all fields empty -> validation fails.
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 
-			const firstInput = form.querySelector(
-				'input[name="vorname"]'
-			);
+			const firstInput = form.querySelector( 'input[name="vorname"]' );
 			expect( document.activeElement ).toBe( firstInput );
 		} );
 
@@ -665,16 +614,12 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess( 'Vielen Dank!' );
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 50 ) );
 
 			const statusEl = form.querySelector( '.dsgvo-form__status' );
 			expect( statusEl.textContent ).toBe( 'Vielen Dank!' );
-			expect( statusEl.getAttribute( 'data-status' ) ).toBe(
-				'success'
-			);
+			expect( statusEl.getAttribute( 'data-status' ) ).toBe( 'success' );
 
 			const fields = form.querySelectorAll( '.dsgvo-form__field' );
 			fields.forEach( ( field ) => {
@@ -687,14 +632,10 @@ describe( 'DSGVO Form Handler', () => {
 			mockFetchSuccess();
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 50 ) );
 
-			const submitWrapper = form.querySelector(
-				'.dsgvo-form__submit'
-			);
+			const submitWrapper = form.querySelector( '.dsgvo-form__submit' );
 			expect( submitWrapper.style.display ).toBe( 'none' );
 		} );
 	} );
@@ -710,18 +651,14 @@ describe( 'DSGVO Form Handler', () => {
 			global.fetch.mockReturnValueOnce( new Promise( () => {} ) );
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 
 			const button = form.querySelector( '.dsgvo-form__button' );
 			expect( button.disabled ).toBe( true );
 			expect( button.textContent ).toBe( 'Wird gesendet...' );
 			expect( button.getAttribute( 'aria-busy' ) ).toBe( 'true' );
 			expect(
-				button.classList.contains(
-					'dsgvo-form__button--loading'
-				)
+				button.classList.contains( 'dsgvo-form__button--loading' )
 			).toBe( true );
 		} );
 
@@ -730,14 +667,11 @@ describe( 'DSGVO Form Handler', () => {
 			global.fetch.mockResolvedValueOnce( {
 				ok: false,
 				status: 500,
-				json: () =>
-					Promise.resolve( { message: 'Server error' } ),
+				json: () => Promise.resolve( { message: 'Server error' } ),
 			} );
 			fillValidForm();
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 			await new Promise( ( r ) => setTimeout( r, 50 ) );
 
 			const button = form.querySelector( '.dsgvo-form__button' );
@@ -766,9 +700,7 @@ describe( 'DSGVO Form Handler', () => {
 		it( 'does not call fetch when validation fails', () => {
 			setupForm(); // No captcha token, required fields empty.
 
-			form.dispatchEvent(
-				new Event( 'submit', { cancelable: true } )
-			);
+			form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
 
 			expect( global.fetch ).not.toHaveBeenCalled();
 		} );

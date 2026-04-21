@@ -12,6 +12,7 @@ namespace WpDsgvoForm\Tests\Unit;
 use WpDsgvoForm\Activator;
 use WpDsgvoForm\Tests\TestCase;
 use Brain\Monkey\Functions;
+use Mockery;
 
 /**
  * Tests for plugin activation logic.
@@ -42,6 +43,8 @@ class ActivatorTest extends TestCase {
 			'update_option'       => true,
 			'delete_option'       => true,
 			'flush_rewrite_rules' => null,
+			'get_users'           => array(),
+			'get_current_user_id' => 1,
 		);
 
 		foreach ( $defaults as $func => $return ) {
@@ -528,5 +531,297 @@ class ActivatorTest extends TestCase {
 
 		$this->assertStringContainsString( 'locale_override', $forms_sql );
 		$this->assertStringContainsString( 'DEFAULT NULL', $forms_sql );
+	}
+
+	// ──────────────────────────────────────────────────
+	// migrate_capabilities() — Version guard (DPO-SOLL-F06)
+	// ──────────────────────────────────────────────────
+
+	/**
+	 * @test
+	 * migrate_capabilities() skips when cap_migration_version >= 1.
+	 */
+	public function test_maybe_upgrade_skips_capability_migration_when_already_done(): void {
+		$this->stub_activation_deps( array( 'dbDelta', 'get_option', 'update_option', 'delete_option' ) );
+
+		$option_calls = array();
+
+		Functions\expect( 'get_option' )
+			->andReturnUsing(
+				function ( string $key, $default = false ) use ( &$option_calls ) {
+					$option_calls[] = $key;
+					if ( $key === 'wpdsgvo_db_version' ) {
+						return '0'; // Trigger upgrade.
+					}
+					if ( $key === 'wpdsgvo_cap_migration_version' ) {
+						return '1'; // Already migrated.
+					}
+					return $default;
+				}
+			);
+
+		Functions\when( 'dbDelta' )->justReturn( array() );
+		Functions\when( 'delete_option' )->justReturn( true );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		// migrate_consent_locale_default needs $wpdb->query.
+		$GLOBALS['wpdb']->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$GLOBALS['wpdb']->shouldReceive( 'query' )->andReturn( 0 );
+
+		// get_users should NOT be called — migration skipped.
+		Functions\expect( 'get_users' )->never();
+
+		Activator::maybe_upgrade();
+	}
+
+	/**
+	 * @test
+	 * migrate_capabilities() runs when cap_migration_version = '0'.
+	 */
+	public function test_maybe_upgrade_runs_capability_migration_when_version_zero(): void {
+		$this->stub_activation_deps( array( 'dbDelta', 'get_option', 'update_option', 'get_role', 'get_users', 'delete_option' ) );
+
+		Functions\expect( 'get_option' )
+			->andReturnUsing(
+				function ( string $key, $default = false ) {
+					if ( $key === 'wpdsgvo_db_version' ) {
+						return '0'; // Trigger upgrade.
+					}
+					if ( $key === 'wpdsgvo_cap_migration_version' ) {
+						return '0'; // Not yet migrated.
+					}
+					return $default;
+				}
+			);
+
+		Functions\when( 'dbDelta' )->justReturn( array() );
+		Functions\when( 'delete_option' )->justReturn( true );
+
+		$updated_options = array();
+		Functions\expect( 'update_option' )
+			->andReturnUsing(
+				function ( string $key, $value ) use ( &$updated_options ): bool {
+					$updated_options[ $key ] = $value;
+					return true;
+				}
+			);
+
+		// Phase 1: admin role gets dsgvo_form_recipient.
+		$admin_role = Mockery::mock( 'WP_Role' );
+		$admin_caps = array();
+		$admin_role->shouldReceive( 'add_cap' )
+			->andReturnUsing(
+				function ( string $cap ) use ( &$admin_caps ): void {
+					$admin_caps[] = $cap;
+				}
+			);
+
+		Functions\expect( 'get_role' )
+			->with( 'administrator' )
+			->andReturn( $admin_role );
+
+		// Phase 2: No users to migrate (empty).
+		Functions\expect( 'get_users' )->andReturn( array() );
+
+		$GLOBALS['wpdb']->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$GLOBALS['wpdb']->shouldReceive( 'query' )->andReturn( 0 );
+
+		Activator::maybe_upgrade();
+
+		// Phase 1: admin role gets dsgvo_form_recipient cap.
+		$this->assertContains( 'dsgvo_form_recipient', $admin_caps );
+
+		// Version stamped.
+		$this->assertSame( '1', $updated_options['wpdsgvo_cap_migration_version'] );
+	}
+
+	/**
+	 * @test
+	 * migrate_capabilities() maps reader role to correct capabilities.
+	 */
+	public function test_maybe_upgrade_migrates_reader_role_capabilities(): void {
+		$this->stub_activation_deps( array( 'dbDelta', 'get_option', 'update_option', 'get_role', 'get_users', 'get_userdata', 'delete_option' ) );
+
+		Functions\expect( 'get_option' )
+			->andReturnUsing(
+				function ( string $key, $default = false ) {
+					if ( $key === 'wpdsgvo_db_version' ) {
+						return '0';
+					}
+					if ( $key === 'wpdsgvo_cap_migration_version' ) {
+						return '0';
+					}
+					return $default;
+				}
+			);
+
+		Functions\when( 'dbDelta' )->justReturn( array() );
+		Functions\when( 'delete_option' )->justReturn( true );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		$admin_role = Mockery::mock( 'WP_Role' );
+		$admin_role->shouldReceive( 'add_cap' );
+
+		Functions\expect( 'get_role' )
+			->with( 'administrator' )
+			->andReturn( $admin_role );
+
+		// Track capability grants.
+		$grants = array();
+
+		$reader_user = Mockery::mock( 'WP_User' );
+		$reader_user->ID         = 10;
+		$reader_user->user_login = 'reader1';
+		$reader_user->shouldReceive( 'add_cap' )
+			->andReturnUsing(
+				function ( string $cap ) use ( &$grants ): void {
+					$grants[] = array( 'user_id' => 10, 'cap' => $cap );
+				}
+			);
+
+		Functions\expect( 'get_users' )
+			->andReturnUsing(
+				function ( array $args ) use ( $reader_user ): array {
+					if ( $args['role'] === 'wp_dsgvo_form_reader' && $args['offset'] === 0 ) {
+						return array( 10 ); // Return user ID.
+					}
+					return array();
+				}
+			);
+
+		Functions\expect( 'get_userdata' )
+			->andReturnUsing(
+				function ( int $uid ) use ( $reader_user ) {
+					return $uid === 10 ? $reader_user : false;
+				}
+			);
+
+		// AuditLogger needs current_time + $wpdb->insert for audit log entries.
+		Functions\when( 'current_time' )->justReturn( '2026-04-21 12:00:00' );
+
+		$GLOBALS['wpdb']->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$GLOBALS['wpdb']->shouldReceive( 'query' )->andReturn( 0 );
+		$GLOBALS['wpdb']->shouldReceive( 'insert' )->andReturn( 1 );
+
+		Activator::maybe_upgrade();
+
+		// Reader should get view_submissions + recipient.
+		$reader_caps = array_column(
+			array_filter( $grants, fn( $g ) => $g['user_id'] === 10 ),
+			'cap'
+		);
+
+		$this->assertContains( 'dsgvo_form_view_submissions', $reader_caps );
+		$this->assertContains( 'dsgvo_form_recipient', $reader_caps );
+		// SEC-ARCH-03: delete_submissions must NOT be migrated.
+		$this->assertNotContains( 'dsgvo_form_delete_submissions', $reader_caps );
+	}
+
+	/**
+	 * @test
+	 * migrate_capabilities() maps supervisor role to correct capabilities.
+	 */
+	public function test_maybe_upgrade_migrates_supervisor_role_capabilities(): void {
+		$this->stub_activation_deps( array( 'dbDelta', 'get_option', 'update_option', 'get_role', 'get_users', 'get_userdata', 'delete_option' ) );
+
+		Functions\expect( 'get_option' )
+			->andReturnUsing(
+				function ( string $key, $default = false ) {
+					if ( $key === 'wpdsgvo_db_version' ) {
+						return '0';
+					}
+					if ( $key === 'wpdsgvo_cap_migration_version' ) {
+						return '0';
+					}
+					return $default;
+				}
+			);
+
+		Functions\when( 'dbDelta' )->justReturn( array() );
+		Functions\when( 'delete_option' )->justReturn( true );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		$admin_role = Mockery::mock( 'WP_Role' );
+		$admin_role->shouldReceive( 'add_cap' );
+
+		Functions\expect( 'get_role' )
+			->with( 'administrator' )
+			->andReturn( $admin_role );
+
+		$grants = array();
+
+		$supervisor_user = Mockery::mock( 'WP_User' );
+		$supervisor_user->ID         = 20;
+		$supervisor_user->user_login = 'supervisor1';
+		$supervisor_user->shouldReceive( 'add_cap' )
+			->andReturnUsing(
+				function ( string $cap ) use ( &$grants ): void {
+					$grants[] = array( 'user_id' => 20, 'cap' => $cap );
+				}
+			);
+
+		Functions\expect( 'get_users' )
+			->andReturnUsing(
+				function ( array $args ) use ( $supervisor_user ): array {
+					if ( $args['role'] === 'wp_dsgvo_form_supervisor' && $args['offset'] === 0 ) {
+						return array( 20 );
+					}
+					return array();
+				}
+			);
+
+		Functions\expect( 'get_userdata' )
+			->andReturnUsing(
+				function ( int $uid ) use ( $supervisor_user ) {
+					return $uid === 20 ? $supervisor_user : false;
+				}
+			);
+
+		// AuditLogger needs current_time + $wpdb->insert for audit log entries.
+		Functions\when( 'current_time' )->justReturn( '2026-04-21 12:00:00' );
+
+		$GLOBALS['wpdb']->shouldReceive( 'prepare' )->andReturn( 'SQL' );
+		$GLOBALS['wpdb']->shouldReceive( 'query' )->andReturn( 0 );
+		$GLOBALS['wpdb']->shouldReceive( 'insert' )->andReturn( 1 );
+
+		Activator::maybe_upgrade();
+
+		$sup_caps = array_column(
+			array_filter( $grants, fn( $g ) => $g['user_id'] === 20 ),
+			'cap'
+		);
+
+		$this->assertContains( 'dsgvo_form_view_submissions', $sup_caps );
+		$this->assertContains( 'dsgvo_form_view_all_submissions', $sup_caps );
+		$this->assertContains( 'dsgvo_form_export', $sup_caps );
+		$this->assertContains( 'dsgvo_form_recipient', $sup_caps );
+		// SEC-ARCH-03: delete_submissions must NOT be migrated.
+		$this->assertNotContains( 'dsgvo_form_delete_submissions', $sup_caps );
+	}
+
+	/**
+	 * @test
+	 * Recipients table has access_level and role_justification columns.
+	 */
+	public function test_recipients_table_has_access_level_and_justification_columns(): void {
+		$this->stub_activation_deps( array( 'dbDelta' ) );
+
+		$recipients_sql = '';
+
+		Functions\expect( 'dbDelta' )
+			->andReturnUsing(
+				function ( string $sql ) use ( &$recipients_sql ): array {
+					if ( str_contains( $sql, 'form_recipients' ) ) {
+						$recipients_sql = $sql;
+					}
+					return array();
+				}
+			);
+
+		Activator::activate();
+
+		$this->assertStringContainsString( 'access_level', $recipients_sql );
+		$this->assertStringContainsString( "'reader'", $recipients_sql );
+		$this->assertStringContainsString( 'role_justification', $recipients_sql );
 	}
 }

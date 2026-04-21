@@ -68,8 +68,8 @@ class PluginTest extends TestCase {
 			)
 		);
 
-		// 4 init hooks: load_textdomain, register_block, RecipientPage rewrite_rules + hide_admin_bar.
-		Actions\expectAdded( 'init' )->times( 4 );
+		// 3 init hooks: register_block, RecipientPage rewrite_rules + hide_admin_bar.
+		Actions\expectAdded( 'init' )->times( 3 );
 		Actions\expectAdded( 'rest_api_init' )->once();
 		Actions\expectAdded( 'dsgvo_form_cleanup' )->once();
 
@@ -147,18 +147,6 @@ class PluginTest extends TestCase {
 	/**
 	 * @test
 	 */
-	public function test_load_textdomain_calls_wp_function(): void {
-		Functions\expect( 'load_plugin_textdomain' )
-			->once()
-			->with( 'wp-dsgvo-form', false, \Mockery::type( 'string' ) )
-			->andReturn( true );
-
-		Plugin::instance()->load_textdomain();
-	}
-
-	/**
-	 * @test
-	 */
 	public function test_init_registers_admin_hooks_when_is_admin(): void {
 		Functions\stubs(
 			array(
@@ -167,8 +155,8 @@ class PluginTest extends TestCase {
 			)
 		);
 
-		// 4 init hooks: load_textdomain, register_block, RecipientPage rewrite_rules + hide_admin_bar.
-		Actions\expectAdded( 'init' )->times( 4 );
+		// 3 init hooks: register_block, RecipientPage rewrite_rules + hide_admin_bar.
+		Actions\expectAdded( 'init' )->times( 3 );
 		Actions\expectAdded( 'rest_api_init' )->once();
 		Actions\expectAdded( 'dsgvo_form_cleanup' )->once();
 

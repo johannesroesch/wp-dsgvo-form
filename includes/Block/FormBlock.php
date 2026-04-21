@@ -50,7 +50,7 @@ class FormBlock {
 	 *
 	 * Usage: [dsgvo_form id="123"]
 	 *
-	 * @param array|string $atts Shortcode attributes.
+	 * @param array<string, mixed>|string $atts Shortcode attributes.
 	 * @return string Rendered form HTML.
 	 */
 	public function shortcode_handler( $atts ): string {
@@ -118,7 +118,7 @@ class FormBlock {
 	 * generates the HTML form markup including CAPTCHA widget
 	 * and consent checkbox.
 	 *
-	 * @param array  $attributes Block attributes (formId).
+	 * @param array<string, mixed> $attributes Block attributes (formId).
 	 * @param string $content    Inner block content (empty for dynamic blocks).
 	 * @return string Rendered HTML or empty string.
 	 */
@@ -495,6 +495,21 @@ class FormBlock {
 				'strategy'  => 'defer',
 			]
 		);
+
+		// SRI integrity attribute (SEC-SOLL-04).
+		if ( defined( 'WPDSGVO_FORM_HANDLER_SRI' ) && WPDSGVO_FORM_HANDLER_SRI !== '' ) {
+			$handler_sri = WPDSGVO_FORM_HANDLER_SRI;
+
+			add_filter( 'script_loader_tag', function ( string $tag, string $handle ) use ( $handler_sri ): string {
+				if ( 'dsgvo-form-handler' !== $handle ) {
+					return $tag;
+				}
+
+				$tag = str_replace( ' src=', ' integrity="' . esc_attr( $handler_sri ) . '" crossorigin="anonymous" src=', $tag );
+
+				return $tag;
+			}, 10, 2 );
+		}
 
 		wp_localize_script(
 			'dsgvo-form-handler',

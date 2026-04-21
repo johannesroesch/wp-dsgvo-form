@@ -25,8 +25,7 @@ defined('ABSPATH') || exit;
  * All formats are cryptographically equivalent (AES-256-GCM); the packing
  * varies to match the number of available DB columns per entity.
  */
-class EncryptionService
-{
+class EncryptionService {
 
 	private const CIPHER_METHOD = 'aes-256-gcm';
 	private const IV_LENGTH     = 12;
@@ -38,8 +37,7 @@ class EncryptionService
 	/**
 	 * @param KeyManager $key_manager Key management service.
 	 */
-	public function __construct(KeyManager $key_manager)
-	{
+	public function __construct(KeyManager $key_manager) {
 		$this->key_manager = $key_manager;
 	}
 
@@ -51,8 +49,7 @@ class EncryptionService
 	 *
 	 * @return bool True if encryption can be performed.
 	 */
-	public function is_available(): bool
-	{
+	public function is_available(): bool {
 		if (!$this->key_manager->is_kek_available()) {
 			return false;
 		}
@@ -75,8 +72,7 @@ class EncryptionService
 	 * @return array{ciphertext: string, iv: string, tag: string} Base64-encoded values.
 	 * @throws \RuntimeException If encryption fails.
 	 */
-	public function encrypt(string $plaintext, string $key): array
-	{
+	public function encrypt(string $plaintext, string $key): array {
 		$this->validate_key($key);
 
 		$iv  = random_bytes(self::IV_LENGTH);
@@ -171,7 +167,7 @@ class EncryptionService
 	 * JSON-encodes the field values and encrypts with the form's DEK (SEC-ENC-10).
 	 * Returns values matching the dsgvo_submissions table columns.
 	 *
-	 * @param array  $data                   Form field values as associative array.
+	 * @param array<string, mixed> $data                   Form field values as associative array.
 	 * @param string $encrypted_dek_base64   Base64-encoded encrypted DEK from dsgvo_forms.
 	 * @param string $dek_iv_base64          Base64-encoded DEK IV from dsgvo_forms.
 	 * @return array{encrypted_data: string, iv: string, auth_tag: string} Base64-encoded values.
@@ -295,8 +291,7 @@ class EncryptionService
 	 * @param string $email The email address to hash.
 	 * @return string Hex-encoded HMAC-SHA256 hash.
 	 */
-	public function calculate_email_lookup_hash(string $email): string
-	{
+	public function calculate_email_lookup_hash(string $email): string {
 		return $this->key_manager->calculate_lookup_hash($email);
 	}
 
@@ -305,8 +300,7 @@ class EncryptionService
 	 *
 	 * @return KeyManager
 	 */
-	public function get_key_manager(): KeyManager
-	{
+	public function get_key_manager(): KeyManager {
 		return $this->key_manager;
 	}
 
@@ -320,8 +314,7 @@ class EncryptionService
 	 * @return string Base64-encoded packed blob (iv + tag + ciphertext).
 	 * @throws \RuntimeException If encryption fails.
 	 */
-	private function encrypt_raw_key(string $key_to_encrypt, string $wrapping_key): string
-	{
+	private function encrypt_raw_key(string $key_to_encrypt, string $wrapping_key): string {
 		$this->validate_key($wrapping_key);
 
 		$iv  = random_bytes(self::IV_LENGTH);
@@ -353,8 +346,7 @@ class EncryptionService
 	 * @return string Raw decrypted key bytes.
 	 * @throws \RuntimeException If decryption fails.
 	 */
-	private function decrypt_raw_key(string $packed_base64, string $wrapping_key): string
-	{
+	private function decrypt_raw_key(string $packed_base64, string $wrapping_key): string {
 		$this->validate_key($wrapping_key);
 
 		$packed = base64_decode($packed_base64, true);
@@ -397,8 +389,7 @@ class EncryptionService
 	 * @param string $key Raw key bytes.
 	 * @throws \RuntimeException If key length is incorrect.
 	 */
-	private function validate_key(string $key): void
-	{
+	private function validate_key(string $key): void {
 		if (strlen($key) !== self::KEY_LENGTH) {
 			throw new \RuntimeException(
 				'Encryption key must be exactly ' . (int) self::KEY_LENGTH . ' bytes (256 bits), '

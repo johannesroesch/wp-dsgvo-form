@@ -14,8 +14,7 @@ defined('ABSPATH') || exit;
  *
  * Security requirements: SEC-ENC-01 through SEC-ENC-15.
  */
-class KeyManager
-{
+class KeyManager {
 
 	/**
 	 * Name of the wp-config.php constant holding the base64-encoded KEK.
@@ -37,8 +36,7 @@ class KeyManager
 	 *
 	 * @return bool True if the KEK constant is defined and non-empty.
 	 */
-	public function is_kek_available(): bool
-	{
+	public function is_kek_available(): bool {
 		if (!defined(self::KEK_CONSTANT)) {
 			return false;
 		}
@@ -57,8 +55,7 @@ class KeyManager
 	 * @return string Raw 32-byte KEK.
 	 * @throws \RuntimeException If KEK is not configured or invalid.
 	 */
-	public function get_kek(): string
-	{
+	public function get_kek(): string {
 		if (!$this->is_kek_available()) {
 			throw new \RuntimeException(
 				esc_html( self::KEK_CONSTANT ) . ' is not defined in wp-config.php. '
@@ -86,8 +83,7 @@ class KeyManager
 	 *
 	 * @return string Raw 32-byte DEK.
 	 */
-	public function generate_dek(): string
-	{
+	public function generate_dek(): string {
 		return random_bytes(self::KEY_LENGTH);
 	}
 
@@ -101,8 +97,7 @@ class KeyManager
 	 * @return array{encrypted_dek: string, dek_iv: string} Base64-encoded values for DB storage.
 	 * @throws \RuntimeException If encryption fails.
 	 */
-	public function encrypt_dek(string $dek): array
-	{
+	public function encrypt_dek(string $dek): array {
 		if (strlen($dek) !== self::KEY_LENGTH) {
 			throw new \RuntimeException('DEK must be exactly 32 bytes.');
 		}
@@ -140,8 +135,7 @@ class KeyManager
 	 * @return string Raw 32-byte DEK.
 	 * @throws \RuntimeException If decryption fails or data is corrupted.
 	 */
-	public function decrypt_dek(string $encrypted_dek_base64, string $dek_iv_base64): string
-	{
+	public function decrypt_dek(string $encrypted_dek_base64, string $dek_iv_base64): string {
 		$kek = $this->get_kek();
 
 		$encrypted_with_tag = base64_decode($encrypted_dek_base64, true);
@@ -194,8 +188,7 @@ class KeyManager
 	 * @return string Raw 32-byte HMAC key.
 	 * @throws \RuntimeException If KEK is not available.
 	 */
-	public function derive_hmac_key(): string
-	{
+	public function derive_hmac_key(): string {
 		$kek = $this->get_kek();
 
 		return hash_hmac('sha256', self::HMAC_CONTEXT, $kek, true);
@@ -210,8 +203,7 @@ class KeyManager
 	 * @param string $email The email address to hash.
 	 * @return string Hex-encoded HMAC-SHA256 hash for DB storage.
 	 */
-	public function calculate_lookup_hash(string $email): string
-	{
+	public function calculate_lookup_hash(string $email): string {
 		$hmac_key         = $this->derive_hmac_key();
 		$email_normalized = strtolower(trim($email));
 
@@ -219,12 +211,153 @@ class KeyManager
 	}
 
 	/**
+	 * Decrypts a DEK using an explicit KEK (for key rotation).
+	 *
+	 * Unlike decrypt_dek(), this accepts the KEK directly instead of
+	 * reading from the DSGVO_FORM_ENCRYPTION_KEY constant.
+	 *
+	 * @param string $kek                  Raw 32-byte KEK.
+	 * @param string $encrypted_dek_base64 Base64-encoded ciphertext+tag from dsgvo_forms.encrypted_dek.
+	 * @param string $dek_iv_base64        Base64-encoded IV from dsgvo_forms.dek_iv.
+	 * @return string Raw 32-byte DEK.
+	 * @throws \RuntimeException If decryption fails or data is corrupted.
+	 *
+	 * @security-critical SEC-SOLL-02 — KEK rotation support
+	 */
+	public function decrypt_dek_with_kek( string $kek, string $encrypted_dek_base64, string $dek_iv_base64 ): string {
+		if ( strlen( $kek ) !== self::KEY_LENGTH ) {
+			throw new \RuntimeException( 'KEK must be exactly 32 bytes.' );
+		}
+
+		$encrypted_with_tag = base64_decode( $encrypted_dek_base64, true );
+		$iv                 = base64_decode( $dek_iv_base64, true );
+
+		if ( $encrypted_with_tag === false || $iv === false ) {
+			throw new \RuntimeException( 'Invalid base64 encoding in DEK data.' );
+		}
+
+		if ( strlen( $iv ) !== self::IV_LENGTH ) {
+			throw new \RuntimeException(
+				'Invalid IV length: expected ' . (int) self::IV_LENGTH . ' bytes, '
+				. 'got ' . strlen( $iv ) . '.'
+			);
+		}
+
+		$min_length = self::KEY_LENGTH + self::TAG_LENGTH;
+		if ( strlen( $encrypted_with_tag ) < $min_length ) {
+			throw new \RuntimeException( 'Encrypted DEK data is too short.' );
+		}
+
+		$tag        = substr( $encrypted_with_tag, -self::TAG_LENGTH );
+		$ciphertext = substr( $encrypted_with_tag, 0, -self::TAG_LENGTH );
+
+		$dek = openssl_decrypt(
+			$ciphertext,
+			self::CIPHER_METHOD,
+			$kek,
+			OPENSSL_RAW_DATA,
+			$iv,
+			$tag
+		);
+
+		if ( $dek === false ) {
+			throw new \RuntimeException(
+				'DEK decryption failed. The provided key may be incorrect '
+				. 'or the data may have been tampered with.'
+			);
+		}
+
+		return $dek;
+	}
+
+	/**
+	 * Encrypts a DEK using an explicit KEK (for key rotation).
+	 *
+	 * Unlike encrypt_dek(), this accepts the KEK directly instead of
+	 * reading from the DSGVO_FORM_ENCRYPTION_KEY constant.
+	 *
+	 * @param string $kek Raw 32-byte KEK.
+	 * @param string $dek Raw 32-byte DEK to encrypt.
+	 * @return array{encrypted_dek: string, dek_iv: string} Base64-encoded values for DB storage.
+	 * @throws \RuntimeException If encryption fails.
+	 *
+	 * @security-critical SEC-SOLL-02 — KEK rotation support
+	 */
+	public function encrypt_dek_with_kek( string $kek, string $dek ): array {
+		if ( strlen( $kek ) !== self::KEY_LENGTH ) {
+			throw new \RuntimeException( 'KEK must be exactly 32 bytes.' );
+		}
+
+		if ( strlen( $dek ) !== self::KEY_LENGTH ) {
+			throw new \RuntimeException( 'DEK must be exactly 32 bytes.' );
+		}
+
+		$iv  = random_bytes( self::IV_LENGTH );
+		$tag = '';
+
+		$ciphertext = openssl_encrypt(
+			$dek,
+			self::CIPHER_METHOD,
+			$kek,
+			OPENSSL_RAW_DATA,
+			$iv,
+			$tag,
+			'',
+			self::TAG_LENGTH
+		);
+
+		if ( $ciphertext === false ) {
+			throw new \RuntimeException( 'DEK encryption failed: ' . esc_html( (string) openssl_error_string() ) );
+		}
+
+		return [
+			'encrypted_dek' => base64_encode( $ciphertext . $tag ),
+			'dek_iv'        => base64_encode( $iv ),
+		];
+	}
+
+	/**
+	 * Derives the HMAC key from an explicit KEK (for key rotation).
+	 *
+	 * Unlike derive_hmac_key(), this accepts the KEK directly.
+	 *
+	 * @param string $kek Raw 32-byte KEK.
+	 * @return string Raw 32-byte HMAC key.
+	 *
+	 * @security-critical SEC-SOLL-02 — KEK rotation support
+	 */
+	public function derive_hmac_key_from_kek( string $kek ): string {
+		if ( strlen( $kek ) !== self::KEY_LENGTH ) {
+			throw new \RuntimeException( 'KEK must be exactly 32 bytes.' );
+		}
+
+		return hash_hmac( 'sha256', self::HMAC_CONTEXT, $kek, true );
+	}
+
+	/**
+	 * Calculates the HMAC-SHA256 lookup hash using an explicit HMAC key.
+	 *
+	 * Unlike calculate_lookup_hash(), this accepts the HMAC key directly
+	 * instead of deriving it from the KEK constant.
+	 *
+	 * @param string $hmac_key Raw 32-byte HMAC key.
+	 * @param string $email    The email address to hash.
+	 * @return string Hex-encoded HMAC-SHA256 hash for DB storage.
+	 *
+	 * @security-critical SEC-SOLL-02 — KEK rotation support
+	 */
+	public function calculate_lookup_hash_with_key( string $hmac_key, string $email ): string {
+		$email_normalized = strtolower( trim( $email ) );
+
+		return hash_hmac( 'sha256', $email_normalized, $hmac_key );
+	}
+
+	/**
 	 * Returns the name of the KEK constant for diagnostic purposes.
 	 *
 	 * @return string The constant name.
 	 */
-	public function get_kek_constant_name(): string
-	{
+	public function get_kek_constant_name(): string {
 		return self::KEK_CONSTANT;
 	}
 }

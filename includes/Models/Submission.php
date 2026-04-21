@@ -566,6 +566,8 @@ class Submission {
 
 	/**
 	 * Creates a Submission instance from a database row.
+	 *
+	 * @param array<string, mixed> $row Database row.
 	 */
 	private static function from_row( array $row ): self {
 		$sub                       = new self();
@@ -589,6 +591,8 @@ class Submission {
 
 	/**
 	 * Converts submission properties to an associative array for DB operations.
+	 *
+	 * @return array<string, mixed>
 	 */
 	private function to_db_array(): array {
 		$data = [

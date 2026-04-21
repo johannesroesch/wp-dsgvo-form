@@ -74,11 +74,11 @@ class AuditLoggerTest extends TestCase {
 
 	/**
 	 * @test
-	 * SEC-AUDIT-01: All four valid action types are accepted.
+	 * SEC-AUDIT-01 / Task #371: All valid action types including kek_rotation actions.
 	 */
 	public function test_log_accepts_all_valid_actions(): void {
 		$this->assertSame(
-			array( 'view', 'export', 'delete', 'restrict', 'privacy_notice_acknowledged' ),
+			array( 'view', 'export', 'delete', 'restrict', 'privacy_notice_acknowledged', 'kek_rotation', 'kek_rotation_rehash', 'capability_granted', 'capability_revoked' ),
 			AuditLogger::ALLOWED_ACTIONS
 		);
 	}
@@ -113,6 +113,102 @@ class AuditLoggerTest extends TestCase {
 		$logger = new AuditLogger();
 
 		$this->assertTrue( $logger->log( 3, 'restrict', 99, 2 ) );
+	}
+
+	/**
+	 * @test
+	 * Task #371: kek_rotation action is accepted and inserts audit entry.
+	 */
+	public function test_log_inserts_kek_rotation_action(): void {
+		$wpdb = $this->mock_wpdb();
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$wpdb->shouldReceive( 'insert' )
+			->once()
+			->with(
+				'wp_dsgvo_audit_log',
+				\Mockery::on(
+					function ( array $data ): bool {
+						return $data['user_id'] === 1
+							&& $data['action'] === 'kek_rotation'
+							&& $data['details'] === 'KEK rotated successfully: 3 forms re-encrypted';
+					}
+				),
+				\Mockery::type( 'array' )
+			)
+			->andReturn( 1 );
+
+		$logger = new AuditLogger();
+
+		$this->assertTrue( $logger->log( 1, 'kek_rotation', null, null, 'KEK rotated successfully: 3 forms re-encrypted' ) );
+	}
+
+	/**
+	 * @test
+	 * Task #371: kek_rotation_rehash action is accepted and inserts audit entry.
+	 */
+	public function test_log_inserts_kek_rotation_rehash_action(): void {
+		$wpdb = $this->mock_wpdb();
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$wpdb->shouldReceive( 'insert' )
+			->once()
+			->with(
+				'wp_dsgvo_audit_log',
+				\Mockery::on(
+					function ( array $data ): bool {
+						return $data['user_id'] === 1
+							&& $data['action'] === 'kek_rotation_rehash'
+							&& $data['details'] === 'Lookup hashes recomputed: 50 rehashed, 2 skipped, 0 errors';
+					}
+				),
+				\Mockery::type( 'array' )
+			)
+			->andReturn( 1 );
+
+		$logger = new AuditLogger();
+
+		$this->assertTrue( $logger->log( 1, 'kek_rotation_rehash', null, null, 'Lookup hashes recomputed: 50 rehashed, 2 skipped, 0 errors' ) );
+	}
+
+	/**
+	 * @test
+	 * SEC-KANN-01: AuditLogger accepts optional IpResolver via constructor.
+	 */
+	public function test_log_uses_injected_ip_resolver(): void {
+		$wpdb = $this->mock_wpdb();
+
+		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
+
+		$ip_resolver = \Mockery::mock( \WpDsgvoForm\Security\IpResolver::class );
+		$ip_resolver->shouldReceive( 'resolve' )->once()->andReturn( '10.20.30.40' );
+
+		$captured_ip = '';
+
+		$wpdb->shouldReceive( 'insert' )
+			->once()
+			->with(
+				'wp_dsgvo_audit_log',
+				\Mockery::on(
+					function ( array $data ) use ( &$captured_ip ): bool {
+						$captured_ip = $data['ip_address'];
+						return true;
+					}
+				),
+				\Mockery::type( 'array' )
+			)
+			->andReturn( 1 );
+
+		$logger = new AuditLogger( $ip_resolver );
+		$logger->log( 1, 'view', 42 );
+
+		$this->assertSame( '10.20.30.40', $captured_ip );
 	}
 
 	/**
@@ -322,6 +418,7 @@ class AuditLoggerTest extends TestCase {
 		Functions\when( 'current_time' )->justReturn( '2026-04-17 10:00:00' );
 		Functions\when( 'sanitize_text_field' )->returnArg();
 		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'get_option' )->justReturn( '' );
 
 		$_SERVER['REMOTE_ADDR'] = '192.168.1.1';
 
