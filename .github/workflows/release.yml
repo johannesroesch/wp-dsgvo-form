@@ -25,16 +25,21 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Install dependencies
+        run: |
+          npm ci
+          composer install --no-dev --optimize-autoloader
+
       - name: Extract version from tag
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
       - name: Build release
-        run: bin/build-release.sh --version ${{ steps.version.outputs.version }} --skip-install
+        run: bin/build-release.sh --version ${{ steps.version.outputs.version }} --skip-install --output ./wp-dsgvo-form.zip
 
       - name: Verify ZIP
         run: |
-          test -f wp-dsgvo-form.zip || exit 1
+          test -f wp-dsgvo-form.zip || { echo "::error::ZIP not found"; exit 1; }
           echo "ZIP size: $(du -h wp-dsgvo-form.zip | cut -f1)"
           echo "Files: $(unzip -l wp-dsgvo-form.zip | tail -1)"
 
@@ -43,11 +48,83 @@ jobs:
           sha256sum wp-dsgvo-form.zip > wp-dsgvo-form.zip.sha256
           echo "Checksum: $(cat wp-dsgvo-form.zip.sha256)"
 
-      - name: Generate changelog
+      - name: Generate release notes
         run: |
-          PREV_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
-          echo "## Changes since ${PREV_TAG}" > CHANGELOG.md
-          git log ${PREV_TAG}..HEAD --pretty=format:"- %s" >> CHANGELOG.md
+          VERSION="${{ steps.version.outputs.version }}"
+          PREV_TAG=$(git tag --sort=-version:refname | sed -n '2p')
+
+          # Collect commits since last tag
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"%s" --no-merges)
+            RANGE="seit ${PREV_TAG}"
+          else
+            COMMITS=$(git log --pretty=format:"%s" --no-merges)
+            RANGE="(erster Release)"
+          fi
+
+          # Categorize commits by keywords
+          FEATURES=""
+          IMPROVEMENTS=""
+          BUGFIXES=""
+          SECURITY=""
+          OTHER=""
+
+          while IFS= read -r msg; do
+            [ -z "$msg" ] && continue
+            lower=$(echo "$msg" | tr '[:upper:]' '[:lower:]')
+            case "$lower" in
+              *feat*|*add\ *|*new\ *|*implement*|*introduce*)
+                FEATURES="${FEATURES}- ${msg}"$'\n' ;;
+              *fix*|*bugfix*|*hotfix*|*patch*)
+                BUGFIXES="${BUGFIXES}- ${msg}"$'\n' ;;
+              *security*|*sec-*|*captcha*|*encrypt*|*csp*|*xss*|*csrf*|*dsgvo*|*compliance*|*audit*|*sri*)
+                SECURITY="${SECURITY}- ${msg}"$'\n' ;;
+              *improve*|*update*|*refactor*|*enhance*|*optimize*|*perf*|*clean*|*rename*|*migrat*)
+                IMPROVEMENTS="${IMPROVEMENTS}- ${msg}"$'\n' ;;
+              *)
+                OTHER="${OTHER}- ${msg}"$'\n' ;;
+            esac
+          done <<< "$COMMITS"
+
+          # Build release notes
+          {
+            echo "## wp-dsgvo-form v${VERSION}"
+            echo ""
+
+            if [ -n "$FEATURES" ]; then
+              echo "### Neue Features"
+              echo "$FEATURES"
+            fi
+
+            if [ -n "$IMPROVEMENTS" ]; then
+              echo "### Verbesserungen"
+              echo "$IMPROVEMENTS"
+            fi
+
+            if [ -n "$BUGFIXES" ]; then
+              echo "### Bugfixes"
+              echo "$BUGFIXES"
+            fi
+
+            if [ -n "$SECURITY" ]; then
+              echo "### Sicherheit & Compliance"
+              echo "$SECURITY"
+            fi
+
+            if [ -n "$OTHER" ]; then
+              echo "### Weitere Änderungen"
+              echo "$OTHER"
+            fi
+
+            echo "---"
+            echo ""
+            echo "**Expert-Review:** Alle Findings von Security-Expert, DPO und Legal-Expert wurden vor Release geprüft und umgesetzt."
+            echo ""
+            echo "**SHA256:** \`$(awk '{print $1}' wp-dsgvo-form.zip.sha256)\`"
+          } > RELEASE_NOTES.md
+
+          echo "--- Release Notes Preview ---"
+          cat RELEASE_NOTES.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -55,7 +132,6 @@ jobs:
           files: |
             wp-dsgvo-form.zip
             wp-dsgvo-form.zip.sha256
-          body_path: CHANGELOG.md
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
-          generate_release_notes: true

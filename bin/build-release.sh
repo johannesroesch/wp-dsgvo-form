@@ -48,6 +48,15 @@ warn()  { echo -e "${YELLOW}[WARN]${RESET}  $*"; }
 error() { echo -e "${RED}[ERROR]${RESET} $*" >&2; }
 step()  { echo -e "\n${BOLD}=== $* ===${RESET}"; }
 
+# Portable in-place sed (macOS requires -i '', Linux requires -i without backup arg).
+sedi() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
 usage() {
     cat <<EOF
 Usage: $(basename "$0") --version <X.Y.Z> [OPTIONS]
@@ -145,7 +154,7 @@ OLD_HEADER_VERSION=$(grep -m1 '^ \* Version:' "$MAIN_FILE" | sed 's/^.*Version:[
 if [[ "$OLD_HEADER_VERSION" == "$VERSION" ]]; then
     info "Header version already $VERSION — no change needed"
 else
-    sed -i '' "s/^ \* Version:.*/ * Version:           $VERSION/" "$MAIN_FILE"
+    sedi "s/^ \* Version:.*/ * Version:           $VERSION/" "$MAIN_FILE"
     ok "Header: $OLD_HEADER_VERSION → $VERSION"
 fi
 
@@ -155,13 +164,13 @@ OLD_CONST_VERSION=$(grep -oP "define\(\s*'WPDSGVO_VERSION',\s*'\K[^']+" "$MAIN_F
 if [[ "$OLD_CONST_VERSION" == "$VERSION" ]]; then
     info "WPDSGVO_VERSION already $VERSION — no change needed"
 else
-    sed -i '' "s/define( 'WPDSGVO_VERSION', '.*' )/define( 'WPDSGVO_VERSION', '$VERSION' )/" "$MAIN_FILE"
+    sedi "s/define( 'WPDSGVO_VERSION', '.*' )/define( 'WPDSGVO_VERSION', '$VERSION' )/" "$MAIN_FILE"
     ok "WPDSGVO_VERSION: $OLD_CONST_VERSION → $VERSION"
 fi
 
 # 2c: readme.txt (if it exists).
 if [[ -f "$PLUGIN_DIR/readme.txt" ]]; then
-    sed -i '' "s/^Stable tag:.*/Stable tag: $VERSION/" "$PLUGIN_DIR/readme.txt"
+    sedi "s/^Stable tag:.*/Stable tag: $VERSION/" "$PLUGIN_DIR/readme.txt"
     ok "readme.txt: Stable tag → $VERSION"
 else
     info "readme.txt not found — skipping (not yet created)"
@@ -223,7 +232,7 @@ step "SRI Hash (CAPTCHA)"
 CAPTCHA_FILE="$PLUGIN_DIR/public/js/captcha.min.js"
 if [[ -f "$CAPTCHA_FILE" ]]; then
     SRI_HASH="sha384-$(openssl dgst -sha384 -binary "$CAPTCHA_FILE" | openssl base64 -A)"
-    sed -i '' "s|define( 'WPDSGVO_CAPTCHA_SRI', '.*' )|define( 'WPDSGVO_CAPTCHA_SRI', '$SRI_HASH' )|" "$MAIN_FILE"
+    sedi "s|define( 'WPDSGVO_CAPTCHA_SRI', '.*' )|define( 'WPDSGVO_CAPTCHA_SRI', '$SRI_HASH' )|" "$MAIN_FILE"
     ok "WPDSGVO_CAPTCHA_SRI: $SRI_HASH"
 else
     warn "public/js/captcha.min.js not found — SRI hash left empty"
@@ -236,6 +245,7 @@ step "ZIP Archive"
 
 # Files/directories to EXCLUDE from the ZIP.
 EXCLUDES=(
+    ".github/*" ".github"
     ".git/*" ".git"
     ".DS_Store" "**/.DS_Store"
     "node_modules/*" "node_modules"
@@ -246,16 +256,21 @@ EXCLUDES=(
     ".claude/*" ".claude"
     ".playwright-mcp/*" ".playwright-mcp"
     ".env" ".env.*"
+    ".browserslistrc"
     ".eslintrc.js"
+    ".eslintignore"
+    ".gitleaks.toml"
     ".gitignore"
     "phpcs.xml" ".phpcs.xml"
     "phpstan.neon"
+    "phpstan-bootstrap.php"
     "jest.config.js"
     "webpack.config.js"
     "composer.json"
     "composer.lock"
     "package.json"
     "package-lock.json"
+    "codecov.yml"
     "CLAUDE.md"
     "README.md"
     "CONTRIBUTING.md"
@@ -266,6 +281,7 @@ EXCLUDES=(
     "UX_CONCEPT.md"
     "LEGAL_REQUIREMENTS.md"
     "DATA_PROTECTION.md"
+    "CICD_PIPELINE.md"
     "TEAM.md"
     "*.zip"
 )
@@ -280,6 +296,7 @@ if $DRY_RUN; then
     echo ""
     cd "$PLUGIN_DIR"
     find . -type f \
+        ! -path './.github/*' \
         ! -path './.git/*' \
         ! -path './node_modules/*' \
         ! -path './src/*' \
@@ -291,20 +308,26 @@ if $DRY_RUN; then
         ! -name '.DS_Store' \
         ! -name '.env' \
         ! -name '.env.*' \
+        ! -name '.browserslistrc' \
         ! -name '.eslintrc.js' \
+        ! -name '.eslintignore' \
+        ! -name '.gitleaks.toml' \
         ! -name '.gitignore' \
         ! -name 'phpcs.xml' \
         ! -name 'phpstan.neon' \
+        ! -name 'phpstan-bootstrap.php' \
         ! -name 'jest.config.js' \
         ! -name 'webpack.config.js' \
         ! -name 'composer.json' \
         ! -name 'composer.lock' \
         ! -name 'package.json' \
         ! -name 'package-lock.json' \
+        ! -name 'codecov.yml' \
         ! -name '*.md' \
         ! -name '*.zip' \
         | sort
     FILE_COUNT=$(find . -type f \
+        ! -path './.github/*' \
         ! -path './.git/*' \
         ! -path './node_modules/*' \
         ! -path './src/*' \
@@ -316,16 +339,21 @@ if $DRY_RUN; then
         ! -name '.DS_Store' \
         ! -name '.env' \
         ! -name '.env.*' \
+        ! -name '.browserslistrc' \
         ! -name '.eslintrc.js' \
+        ! -name '.eslintignore' \
+        ! -name '.gitleaks.toml' \
         ! -name '.gitignore' \
         ! -name 'phpcs.xml' \
         ! -name 'phpstan.neon' \
+        ! -name 'phpstan-bootstrap.php' \
         ! -name 'jest.config.js' \
         ! -name 'webpack.config.js' \
         ! -name 'composer.json' \
         ! -name 'composer.lock' \
         ! -name 'package.json' \
         ! -name 'package-lock.json' \
+        ! -name 'codecov.yml' \
         ! -name '*.md' \
         ! -name '*.zip' \
         | wc -l | tr -d ' ')
