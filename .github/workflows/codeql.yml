@@ -1,0 +1,39 @@
+name: CodeQL Security Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  analyze-js:
+    name: CodeQL (JavaScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
+
+  analyze-php:
+    name: CodeQL (PHP — informativ)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      security-events: write
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: php
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3

@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Build release
+        run: bin/build-release.sh --version ${{ steps.version.outputs.version }} --skip-install
+
+      - name: Verify ZIP
+        run: |
+          test -f wp-dsgvo-form.zip || exit 1
+          echo "ZIP size: $(du -h wp-dsgvo-form.zip | cut -f1)"
+          echo "Files: $(unzip -l wp-dsgvo-form.zip | tail -1)"
+
+      - name: Generate SHA256 checksum
+        run: |
+          sha256sum wp-dsgvo-form.zip > wp-dsgvo-form.zip.sha256
+          echo "Checksum: $(cat wp-dsgvo-form.zip.sha256)"
+
+      - name: Generate changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
+          echo "## Changes since ${PREV_TAG}" > CHANGELOG.md
+          git log ${PREV_TAG}..HEAD --pretty=format:"- %s" >> CHANGELOG.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            wp-dsgvo-form.zip
+            wp-dsgvo-form.zip.sha256
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          generate_release_notes: true

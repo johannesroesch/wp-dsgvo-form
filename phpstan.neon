@@ -1,0 +1,11 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 6
+    paths:
+        - includes/
+    excludePaths:
+        - vendor/
+    checkMissingIterableValueType: false
+    reportUnmatchedIgnoredErrors: false

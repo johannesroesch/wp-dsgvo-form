@@ -1,0 +1,266 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Stage 1: Lint, Static Analysis, Security (parallel) ───
+
+  lint-php:
+    name: PHP Lint (PHPCS + WPCS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: cs2pr
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --prefer-dist --no-progress
+      - run: vendor/bin/phpcs --report=checkstyle | cs2pr
+
+  lint-js:
+    name: JavaScript Lint (ESLint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint:js
+
+  lint-css:
+    name: CSS Lint (Stylelint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint:css
+
+  phpstan:
+    name: PHPStan (Level 6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --prefer-dist --no-progress
+      - run: composer analyze
+
+  secret-detection:
+    name: Secret Detection (gitleaks + No-Key Guard)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # SOLL-CI-03: No-Production-Key Guard als Step integriert
+      - name: Verify no production keys in CI
+        run: |
+          if [ -n "$DSGVO_FORM_ENCRYPTION_KEY" ]; then
+            echo "::error::Production encryption key detected in CI environment!"
+            exit 1
+          fi
+
+  sri-verify:
+    name: SRI Hash Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify SRI hash integrity
+        run: |
+          EXPECTED=$(grep "WPDSGVO_CAPTCHA_SRI" wp-dsgvo-form.php | grep -oP "sha384-[A-Za-z0-9+/=]+")
+          ACTUAL="sha384-$(openssl dgst -sha384 -binary public/js/captcha.min.js | openssl base64 -A)"
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::SRI hash mismatch! Expected: $EXPECTED, Got: $ACTUAL"
+            exit 1
+          fi
+          echo "SRI hash verified: $ACTUAL"
+
+  security-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: composer install --prefer-dist --no-progress
+      - run: composer audit
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+
+  consent-check:
+    name: Consent Text Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --prefer-dist --no-progress
+      - name: Verify consent templates
+        run: |
+          php -r "
+            require_once 'vendor/autoload.php';
+            \$locales = \WpDsgvoForm\Models\ConsentVersion::SUPPORTED_LOCALES;
+            \$templates = \WpDsgvoForm\Models\ConsentTemplateHelper::TEMPLATES;
+            \$errors = [];
+            foreach (array_keys(\$locales) as \$key) {
+              if (!isset(\$templates[\$key])) {
+                \$errors[] = \"Missing template for locale: \$key\";
+                continue;
+              }
+              if (strpos(\$templates[\$key], '{controller_name}') === false) {
+                \$errors[] = \"Missing {controller_name} in \$key template\";
+              }
+              if (strpos(\$templates[\$key], '{controller_email}') === false) {
+                \$errors[] = \"Missing {controller_email} in \$key template\";
+              }
+            }
+            foreach (array_keys(\$templates) as \$key) {
+              if (!isset(\$locales[\$key])) {
+                \$errors[] = \"Template without matching locale: \$key\";
+              }
+            }
+            if (\$errors) {
+              foreach (\$errors as \$e) echo \"::error::\$e\n\";
+              exit(1);
+            }
+            echo 'All consent templates valid (' . count(\$templates) . ' locales)';
+          "
+
+  # ─── Stage 2: Tests (after Stage 1) ───
+
+  tests-php:
+    name: PHP Tests (PHP ${{ matrix.php-version }})
+    needs: [lint-php, phpstan, secret-detection, sri-verify, security-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.1', '8.2', '8.3', '8.4']
+        include:
+          - php-version: '8.5'
+            experimental: true
+    continue-on-error: ${{ matrix.experimental || false }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: xdebug
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --prefer-dist --no-progress
+      - run: composer test -- --coverage-clover=coverage.xml
+      - uses: codecov/codecov-action@v4
+        if: matrix.php-version == '8.2'
+        with:
+          files: coverage.xml
+          flags: php
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  tests-js:
+    name: JavaScript Tests (Jest)
+    needs: [lint-js, lint-css]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:js -- --coverage
+      - uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          flags: javascript
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # ─── Stage 3: Build Verification (after Stage 2) ───
+
+  build:
+    name: Build Verification
+    needs: [tests-php, tests-js]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci && npm run build
+      - run: composer install --no-dev --optimize-autoloader
+      - name: Verify build artifacts
+        run: |
+          test -d build/ || exit 1
+          test -f build/index.js || exit 1
+          echo "Build artifacts verified"
+      # SOLL-CI-02: Size-Budget auf ZIP messen
+      - name: Size budget check
+        run: |
+          zip -r /tmp/wp-dsgvo-form-check.zip build/ -x '*.map' > /dev/null
+          ZIP_SIZE=$(stat -c%s /tmp/wp-dsgvo-form-check.zip 2>/dev/null || stat -f%z /tmp/wp-dsgvo-form-check.zip)
+          echo "Build ZIP size: ${ZIP_SIZE} bytes ($(( ZIP_SIZE / 1024 ))K)"
+          if [ "$ZIP_SIZE" -gt 512000 ]; then
+            echo "::warning::Build ZIP exceeds 500K budget (${ZIP_SIZE} bytes)"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/
+          retention-days: 90

@@ -1,0 +1,18 @@
+name: Semgrep PHP SAST
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  semgrep:
+    name: Semgrep (WordPress + PHP Security)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - run: semgrep scan --config p/wordpress --config p/php-security-audit --error

@@ -1,0 +1,46 @@
+name: Daily Security Audit
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  composer-audit:
+    name: Composer Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - run: composer install --prefer-dist --no-progress
+      - run: composer audit
+
+  npm-audit:
+    name: npm Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+
+  sri-verify:
+    name: Daily SRI Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify SRI hash integrity
+        run: |
+          EXPECTED=$(grep "WPDSGVO_CAPTCHA_SRI" wp-dsgvo-form.php | grep -oP "sha384-[A-Za-z0-9+/=]+")
+          ACTUAL="sha384-$(openssl dgst -sha384 -binary public/js/captcha.min.js | openssl base64 -A)"
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::SRI hash mismatch!"
+            exit 1
+          fi
+          echo "SRI hash verified: $ACTUAL"

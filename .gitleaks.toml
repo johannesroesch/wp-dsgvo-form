@@ -1,0 +1,5 @@
+title = "wp-dsgvo-form gitleaks config"
+
+[allowlist]
+  paths = ["tests/"]
+  description = "Test fixtures with mock encryption keys (DPO-SOLL-F09)"
