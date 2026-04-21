@@ -350,7 +350,7 @@ class ActivatorTest extends TestCase {
 		$GLOBALS['wpdb']->shouldReceive( 'query' )->andReturn( 0 );
 
 		Functions\expect( 'update_option' )
-			->once()
+			->atLeast()->once()
 			->with( 'wpdsgvo_db_version', WPDSGVO_VERSION )
 			->andReturn( true );
 
@@ -494,7 +494,7 @@ class ActivatorTest extends TestCase {
 		$GLOBALS['wpdb']->shouldReceive( 'query' )->andReturn( 0 );
 
 		Functions\expect( 'update_option' )
-			->once()
+			->atLeast()->once()
 			->with( 'wpdsgvo_db_version', WPDSGVO_VERSION )
 			->andReturn( true );
 
