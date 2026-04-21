@@ -26,8 +26,7 @@ Thumbs.db
 # Release archives
 *.zip
 
-# Lock files (keep composer.lock for reproducible builds)
-package-lock.json
+# Lock files (both committed for reproducible CI builds)
 
 # PHPUnit
 .phpunit.result.cache

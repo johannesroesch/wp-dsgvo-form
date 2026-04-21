@@ -15,4 +15,4 @@ jobs:
       image: semgrep/semgrep
     steps:
       - uses: actions/checkout@v4
-      - run: semgrep scan --config p/wordpress --config p/php-security-audit --error
+      - run: semgrep scan --config p/wordpress --config p/php --error
