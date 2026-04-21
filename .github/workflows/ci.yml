@@ -29,7 +29,11 @@ jobs:
           key: composer-${{ hashFiles('composer.json') }}
           restore-keys: composer-
       - run: composer install --prefer-dist --no-progress
-      - run: vendor/bin/phpcs --report=checkstyle --runtime-set ignore_warnings_on_exit 1 | cs2pr
+      - name: Run PHPCS
+        run: |
+          vendor/bin/phpcs --report=checkstyle --runtime-set ignore_warnings_on_exit 1 > phpcs-report.xml; PHPCS_EXIT=$?
+          cs2pr < phpcs-report.xml || true
+          exit $PHPCS_EXIT
 
   lint-js:
     name: JavaScript Lint (ESLint)
