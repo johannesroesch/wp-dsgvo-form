@@ -193,8 +193,10 @@ fi
 
 info "Running npm run build..."
 BUILD_OUTPUT=$(npm run build 2>&1)
-if echo "$BUILD_OUTPUT" | grep -q "compiled successfully"; then
-    COMPILE_TIME=$(echo "$BUILD_OUTPUT" | grep -oE 'compiled successfully in [0-9]+ ms' || echo "compiled successfully")
+# Strip ANSI escape codes for reliable matching (webpack outputs color codes even in non-TTY).
+BUILD_CLEAN=$(echo "$BUILD_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g')
+if echo "$BUILD_CLEAN" | grep -q "compiled successfully"; then
+    COMPILE_TIME=$(echo "$BUILD_CLEAN" | grep -oE 'compiled successfully in [0-9]+ ms' || echo "compiled successfully")
     ok "webpack $COMPILE_TIME"
 else
     error "webpack build failed:"
