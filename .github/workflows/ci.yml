@@ -256,7 +256,7 @@ jobs:
       - name: Verify build artifacts
         run: |
           test -d build/ || exit 1
-          test -f build/index.js || exit 1
+          test -f build/block/index.js || exit 1
           echo "Build artifacts verified"
       # SOLL-CI-02: Size-Budget auf ZIP messen
       - name: Size budget check
