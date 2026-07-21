@@ -33,5 +33,6 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           build-dir: './'
           wp-version: ${{ matrix.wp-version }}
-          exclude-directories: 'node_modules,vendor,tests,build'
+          exclude-directories: 'node_modules,vendor,tests,build,.github,bin'
+          exclude-files: '.env.example,.eslintrc.js,.browserslistrc,.gitleaks.toml,.gitignore,eslint.config.js,phpstan-bootstrap.php,phpstan.neon,composer.json,composer.lock,package.json,package-lock.json'
           ignore-warnings: 'false'

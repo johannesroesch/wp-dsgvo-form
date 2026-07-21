@@ -8,6 +8,8 @@
  * @phpstan-ignore-file
  */
 
+defined( 'ABSPATH' ) || exit;
+
 // Plugin constants defined in wp-dsgvo-form.php.
 define( 'WPDSGVO_VERSION', '1.0.0' );
 define( 'WPDSGVO_PLUGIN_URL', 'https://example.com/wp-content/plugins/wp-dsgvo-form/' );
