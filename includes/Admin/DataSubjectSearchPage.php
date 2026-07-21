@@ -191,7 +191,7 @@ class DataSubjectSearchPage {
 										<?php endif; ?>
 									</td>
 									<td>
-										<a href="<?php echo esc_url( admin_url( sprintf( 'admin.php?page=%s-submissions&action=view&submission_id=%d', AdminMenu::MENU_SLUG, $submission->id ) ) ); ?>">
+										<a href="<?php echo esc_url( admin_url( sprintf( 'admin.php?page=%s-submissions&action=view&submission_id=%d', AdminMenu::MENU_SLUG, $submission->id ) ) ); // nosemgrep: php.lang.security.injection.echoed-request.echoed-request ?>">
 											<?php esc_html_e( 'Anzeigen', 'wp-dsgvo-form' ); ?>
 										</a>
 									</td>

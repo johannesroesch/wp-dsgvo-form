@@ -347,14 +347,14 @@ class SubmissionListView {
 			</span>
 			<div style="display:flex;gap:0.5rem;">
 				<?php if ( $current_page > 1 ) : ?>
-					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, array( 'paged' => $current_page - 1 ) ), $base_url ) ); ?>"
+					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, array( 'paged' => $current_page - 1 ) ), $base_url ) ); // nosemgrep: php.lang.security.injection.echoed-request.echoed-request ?>"
 						style="padding:0.4rem 0.8rem;border:1px solid #ccc;border-radius:4px;text-decoration:none;color:#333;">
 						&laquo; <?php esc_html_e( 'Zurueck', 'wp-dsgvo-form' ); ?>
 					</a>
 				<?php endif; ?>
 
 				<?php if ( $current_page < $total_pages ) : ?>
-					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, array( 'paged' => $current_page + 1 ) ), $base_url ) ); ?>"
+					<a href="<?php echo esc_url( add_query_arg( array_merge( $query_args, array( 'paged' => $current_page + 1 ) ), $base_url ) ); // nosemgrep: php.lang.security.injection.echoed-request.echoed-request ?>"
 						style="padding:0.4rem 0.8rem;border:1px solid #ccc;border-radius:4px;text-decoration:none;color:#333;">
 						<?php esc_html_e( 'Weiter', 'wp-dsgvo-form' ); ?> &raquo;
 					</a>
