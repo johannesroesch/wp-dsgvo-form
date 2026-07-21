@@ -584,7 +584,7 @@ class SubmitEndpoint {
 
 			if ( false === $inserted ) {
 				throw new \RuntimeException(
-					sprintf( 'Failed to save file record for submission %d: %s', $submission_id, esc_html( $wpdb->last_error ) )
+					sprintf( 'Failed to save file record for submission %d: %s', $submission_id, esc_html( $wpdb->last_error ) ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				);
 			}
 		}

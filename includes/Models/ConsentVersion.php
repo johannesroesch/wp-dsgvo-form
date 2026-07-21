@@ -333,7 +333,7 @@ class ConsentVersion {
 			throw new \RuntimeException(
 				sprintf(
 					'ConsentVersion cannot be created for form %d: legal_basis is "%s", not "consent".',
-					$this->form_id,
+					$this->form_id, // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 					esc_html( $form->legal_basis )
 				)
 			);

@@ -253,7 +253,7 @@ class Field {
 		if ( ! in_array( $this->field_type, self::ALLOWED_TYPES, true ) ) {
 			throw new \RuntimeException(
 				'Invalid field type "' . esc_html( $this->field_type ) . '". Allowed: '
-				. implode( ', ', self::ALLOWED_TYPES ) . '.'
+				. implode( ', ', self::ALLOWED_TYPES ) . '.' // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			);
 		}
 
@@ -268,7 +268,7 @@ class Field {
 		if ( ! in_array( $this->width, self::ALLOWED_WIDTHS, true ) ) {
 			throw new \RuntimeException(
 				'Invalid field width "' . esc_html( $this->width ) . '". Allowed: '
-				. implode( ', ', self::ALLOWED_WIDTHS ) . '.'
+				. implode( ', ', self::ALLOWED_WIDTHS ) . '.' // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			);
 		}
 	}

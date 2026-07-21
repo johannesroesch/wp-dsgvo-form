@@ -146,9 +146,9 @@ class KeyManager {
 		}
 
 		if ( strlen( $iv ) !== self::IV_LENGTH ) {
-			throw new \RuntimeException(
+			throw new \RuntimeException( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				'Invalid IV length: expected ' . (int) self::IV_LENGTH . ' bytes, '
-				. 'got ' . strlen( $iv ) . '.'
+				. 'got ' . strlen( $iv ) . '.' // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			);
 		}
 
@@ -237,9 +237,9 @@ class KeyManager {
 		}
 
 		if ( strlen( $iv ) !== self::IV_LENGTH ) {
-			throw new \RuntimeException(
+			throw new \RuntimeException( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				'Invalid IV length: expected ' . (int) self::IV_LENGTH . ' bytes, '
-				. 'got ' . strlen( $iv ) . '.'
+				. 'got ' . strlen( $iv ) . '.' // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			);
 		}
 

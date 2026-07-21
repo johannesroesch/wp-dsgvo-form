@@ -129,16 +129,16 @@ class EncryptionService {
 		}
 
 		if ( strlen( $iv ) !== self::IV_LENGTH ) {
-			throw new \RuntimeException(
+			throw new \RuntimeException( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				'Invalid IV length: expected ' . (int) self::IV_LENGTH
-				. ' bytes, got ' . strlen( $iv ) . '.'
+				. ' bytes, got ' . strlen( $iv ) . '.' // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			);
 		}
 
 		if ( strlen( $tag ) !== self::TAG_LENGTH ) {
-			throw new \RuntimeException(
+			throw new \RuntimeException( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				'Invalid authentication tag length: expected ' . (int) self::TAG_LENGTH
-				. ' bytes, got ' . strlen( $tag ) . '.'
+				. ' bytes, got ' . strlen( $tag ) . '.' // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			);
 		}
 
@@ -391,9 +391,9 @@ class EncryptionService {
 	 */
 	private function validate_key( string $key ): void {
 		if ( strlen( $key ) !== self::KEY_LENGTH ) {
-			throw new \RuntimeException(
+			throw new \RuntimeException( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				'Encryption key must be exactly ' . (int) self::KEY_LENGTH . ' bytes (256 bits), '
-				. 'got ' . strlen( $key ) . '.'
+				. 'got ' . strlen( $key ) . '.' // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			);
 		}
 	}

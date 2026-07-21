@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       WP DSGVO Form
  * Plugin URI:        https://github.com/johannesroesch/wp-dsgvo-form
- * Description:       DSGVO-konformes Formular-Plugin mit AES-256 verschluesselter Speicherung.
- * Version:           1.2.0
+ * Description:       GDPR-compliant contact form plugin with AES-256 encrypted data storage.
+ * Version:           1.3.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Johannes Roesch
@@ -20,7 +20,7 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPDSGVO_VERSION', '1.2.0' );
+define( 'WPDSGVO_VERSION', '1.3.0' );
 define( 'WPDSGVO_CAPTCHA_SRI', 'sha384-vdnF+DWZHDg9l97VaOzx4lwxRcInsl09kH0DrPLCp2HQSrq8wLLjVx4zQ+mjwgZU' );
 define( 'WPDSGVO_FORM_HANDLER_SRI', 'sha384-drWkcndfUjtCDNZCdSRfErBO9Jg2R8opDNlU7S/dD0kl1O0lzJ59bXwUo5xb5CTp' );
 define( 'WPDSGVO_CAPTCHA_URL', 'https://captcha.repaircafe-bruchsal.de' );

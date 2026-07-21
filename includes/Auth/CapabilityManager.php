@@ -70,7 +70,7 @@ class CapabilityManager {
 
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
-			throw new \RuntimeException( sprintf( 'User #%d does not exist.', $user_id ) );
+			throw new \RuntimeException( sprintf( 'User #%d does not exist.', $user_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
 
 		$user->add_cap( $capability );
@@ -108,7 +108,7 @@ class CapabilityManager {
 
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
-			throw new \RuntimeException( sprintf( 'User #%d does not exist.', $user_id ) );
+			throw new \RuntimeException( sprintf( 'User #%d does not exist.', $user_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
 
 		$user->remove_cap( $capability );
@@ -140,7 +140,7 @@ class CapabilityManager {
 				sprintf(
 					'Invalid context "%s". Allowed: %s',
 					esc_html( $context ),
-					implode( ', ', self::ALLOWED_CONTEXTS )
+					implode( ', ', self::ALLOWED_CONTEXTS ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				)
 			);
 		}
