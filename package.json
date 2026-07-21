@@ -23,7 +23,8 @@
         "markdown-it": "^14.2.0",
         "@babel/runtime": "^7.26.10",
         "@opentelemetry/core": "^2.8.0",
-        "webpack-dev-server": "^5.2.6"
+        "webpack-dev-server": "^5.2.6",
+        "eslint": "^10.7.0"
     },
     "devDependencies": {
         "@testing-library/jest-dom": "^6.9.1",
@@ -35,7 +36,6 @@
         "@wordpress/element": "^6.0.0",
         "@wordpress/i18n": "^5.0.0",
         "@wordpress/scripts": "^33.0.0",
-        "@wordpress/server-side-render": "^6.27.0",
-        "eslint": "^10.7.0"
+        "@wordpress/server-side-render": "^6.27.0"
     }
 }
