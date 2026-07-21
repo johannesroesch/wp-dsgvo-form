@@ -240,6 +240,15 @@ else
     warn "public/js/captcha.min.js not found — SRI hash left empty"
 fi
 
+FORM_HANDLER_FILE="$PLUGIN_DIR/build/frontend/form-handler.js"
+if [[ -f "$FORM_HANDLER_FILE" ]]; then
+    FORM_HANDLER_SRI="sha384-$(openssl dgst -sha384 -binary "$FORM_HANDLER_FILE" | openssl base64 -A)"
+    sedi "s|define( 'WPDSGVO_FORM_HANDLER_SRI', '.*' )|define( 'WPDSGVO_FORM_HANDLER_SRI', '$FORM_HANDLER_SRI' )|" "$MAIN_FILE"
+    ok "WPDSGVO_FORM_HANDLER_SRI: $FORM_HANDLER_SRI"
+else
+    warn "build/frontend/form-handler.js not found — form handler SRI hash left empty"
+fi
+
 # ============================================================
 # Step 6: Create ZIP archive
 # ============================================================
@@ -261,6 +270,7 @@ EXCLUDES=(
     ".browserslistrc"
     ".eslintrc.js"
     ".eslintignore"
+    "eslint.config.js"
     ".gitleaks.toml"
     ".gitignore"
     "phpcs.xml" ".phpcs.xml"
@@ -313,6 +323,7 @@ if $DRY_RUN; then
         ! -name '.browserslistrc' \
         ! -name '.eslintrc.js' \
         ! -name '.eslintignore' \
+        ! -name 'eslint.config.js' \
         ! -name '.gitleaks.toml' \
         ! -name '.gitignore' \
         ! -name 'phpcs.xml' \
@@ -344,6 +355,7 @@ if $DRY_RUN; then
         ! -name '.browserslistrc' \
         ! -name '.eslintrc.js' \
         ! -name '.eslintignore' \
+        ! -name 'eslint.config.js' \
         ! -name '.gitleaks.toml' \
         ! -name '.gitignore' \
         ! -name 'phpcs.xml' \
