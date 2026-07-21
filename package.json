@@ -24,7 +24,8 @@
         "@babel/runtime": "^7.26.10",
         "@opentelemetry/core": "^2.8.0",
         "webpack-dev-server": "^5.2.6",
-        "eslint": "^10.7.0"
+        "eslint": "^10.7.0",
+        "test-exclude": "^8.0.0"
     },
     "devDependencies": {
         "@testing-library/jest-dom": "^6.9.1",
