@@ -1,0 +1,37 @@
+name: WordPress Plugin Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  plugin-check:
+    name: Plugin Check (WP ${{ matrix.wp-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        wp-version: ['7.0', '6.9', '6.8', '6.7']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - uses: WordPress/plugin-check-action@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          build-dir: './'
+          wp-version: ${{ matrix.wp-version }}
+          exclude-directories: 'node_modules,vendor,tests,build'
+          ignore-warnings: 'false'
